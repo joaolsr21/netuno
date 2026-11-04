@@ -448,7 +448,7 @@ export default function MobileApkSimulator({
                       onClick={handleRescueOfflineViaBle}
                       className="w-full py-2.5 rounded-xl bg-sky-400 text-slate-950 font-bold text-xs transition"
                     >
-                      Resgatar {offlineQueueCount} Registros via Bluetooth -> 4G
+                      Resgatar {offlineQueueCount} Registros via Bluetooth → 4G
                     </button>
                   )}
 

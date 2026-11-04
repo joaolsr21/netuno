@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.aquarium_status (
   id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   water_level_pct INT NOT NULL DEFAULT 85,
   distance_cm FLOAT NOT NULL DEFAULT 8.1,
+  temperature_c FLOAT NOT NULL DEFAULT 26.0,
   pump_relay_on BOOLEAN NOT NULL DEFAULT true,
   pump_mode TEXT NOT NULL DEFAULT 'auto', -- 'auto' | 'manual'
   pump_cycle_minutes INT NOT NULL DEFAULT 45,
@@ -17,6 +18,9 @@ CREATE TABLE IF NOT EXISTS public.aquarium_status (
   esp_last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Garante a coluna temperature_c caso a tabela já tenha sido criada antes
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS temperature_c FLOAT NOT NULL DEFAULT 26.0;
 
 -- Insere a linha inicial padrão caso não exista
 INSERT INTO public.aquarium_status (id, water_level_pct, distance_cm, pump_relay_on, pump_mode)
@@ -48,11 +52,14 @@ CREATE TABLE IF NOT EXISTS public.telemetry_logs (
   event_type TEXT NOT NULL,     -- 'sensor' | 'pump' | 'feeder' | 'sync'
   water_level_pct INT,
   distance_cm FLOAT,
+  temperature_c FLOAT,
   message TEXT NOT NULL,
   source TEXT NOT NULL DEFAULT 'ESP32 Wi-Fi', -- 'ESP32 Wi-Fi' | 'Fila Offline ESP32' | 'Bluetooth APK' | 'Painel Web'
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Horário real em que ocorreu no aquário
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()   -- Horário em que foi salvo na nuvem
 );
+
+ALTER TABLE public.telemetry_logs ADD COLUMN IF NOT EXISTS temperature_c FLOAT;
 
 CREATE INDEX IF NOT EXISTS idx_telemetry_logs_recorded_at ON public.telemetry_logs (recorded_at DESC);
 

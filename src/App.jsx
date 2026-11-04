@@ -25,7 +25,8 @@ import {
   ShieldCheck,
   Gauge,
   Bluetooth,
-  Smartphone
+  Smartphone,
+  Thermometer
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import MobileApkSimulator from './components/MobileApkSimulator';
@@ -62,9 +63,12 @@ export default function App() {
 
   // Sensor Ultrassônico (HC-SR04)
   // Altura total do aquário: 40cm. Sensor fica no topo: distância menor = mais água.
-  const TANK_HEIGHT_CM = 40;
+  const TANK_LENGTH_CM = 25;
+  const TANK_WIDTH_CM = 13;
+  const TANK_HEIGHT_CM = 18;
   const SENSOR_OFFSET_CM = 2; // margem do sensor até nível 100%
   const [waterLevelPct, setWaterLevelPct] = useState(85);
+  const [temperatureC, setTemperatureC] = useState(26.0);
   const [isSimulatingSensor, setIsSimulatingSensor] = useState(false);
 
   // Bomba de Oxigênio (Módulo Relé)
@@ -88,6 +92,7 @@ export default function App() {
   // Cálculo da distância em cm do sensor ultrassônico a partir da % de água
   const waterColumnCm = ((waterLevelPct / 100) * (TANK_HEIGHT_CM - SENSOR_OFFSET_CM)).toFixed(1);
   const ultrasonicDistanceCm = (TANK_HEIGHT_CM - waterColumnCm).toFixed(1);
+  const waterVolumeLiters = ((TANK_LENGTH_CM * TANK_WIDTH_CM * Number(waterColumnCm)) / 1000).toFixed(2);
 
   // Status de segurança do nível de água
   const getWaterStatus = (pct) => {
@@ -145,6 +150,9 @@ export default function App() {
 
       if (statusData) {
         setWaterLevelPct(statusData.water_level_pct);
+        if (statusData.temperature_c !== undefined && statusData.temperature_c !== null) {
+          setTemperatureC(Number(statusData.temperature_c));
+        }
         setPumpActive(statusData.pump_relay_on);
         setPumpMode(statusData.pump_mode || 'auto');
         if (statusData.pump_cycle_minutes) setPumpCycleMinutes(statusData.pump_cycle_minutes);
@@ -187,6 +195,9 @@ export default function App() {
         const s = payload.new;
         if (!s) return;
         setWaterLevelPct(s.water_level_pct);
+        if (s.temperature_c !== undefined && s.temperature_c !== null) {
+          setTemperatureC(Number(s.temperature_c));
+        }
         setPumpActive(s.pump_relay_on);
         if (s.pump_mode) setPumpMode(s.pump_mode);
         if (s.wifi_rssi) setWifiRssi(s.wifi_rssi);
@@ -229,6 +240,7 @@ export default function App() {
       event_type: type,
       water_level_pct: waterLevelPct,
       distance_cm: Number(ultrasonicDistanceCm),
+      temperature_c: Number(temperatureC),
       message,
       source,
     });
@@ -456,7 +468,7 @@ export default function App() {
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-sky-200/75 block">Nível d'Água</span>
                 <span className="text-2xl sm:text-3xl font-bold text-white mt-0.5 block">{waterLevelPct}%</span>
-                <span className="text-xs text-sky-300 font-mono-code">{ultrasonicDistanceCm} cm do sensor</span>
+                <span className="text-xs text-sky-300 font-mono-code">{ultrasonicDistanceCm} cm • {temperatureC.toFixed(1)} °C</span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-[#1A539B]/60 border border-sky-300/25 flex items-center justify-center text-sky-200">
                 <Waves className="w-5 h-5" />
@@ -521,7 +533,7 @@ export default function App() {
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-white">Nível da Água</h3>
-                        <p className="text-xs text-sky-200/70">Sensor Ultrassônico HC-SR04</p>
+                        <p className="text-xs text-sky-200/70">HC-SR04 (5/18) + DS18B20 (15) + LCD 16x2 (21/22) • Aquário 25×13×18 cm</p>
                       </div>
                     </div>
 
@@ -548,10 +560,10 @@ export default function App() {
 
                     {/* Régua lateral de medição */}
                     <div className="absolute right-3 inset-y-4 z-20 flex flex-col justify-between text-[10px] font-mono-code text-sky-200/60 pointer-events-none">
-                      <span>100% (38cm)</span>
-                      <span>75% (28cm)</span>
-                      <span>50% (19cm)</span>
-                      <span>25% (9cm)</span>
+                      <span>100% (16cm)</span>
+                      <span>75% (12cm)</span>
+                      <span>50% (8cm)</span>
+                      <span>25% (4cm)</span>
                       <span>0% (0cm)</span>
                     </div>
 
@@ -618,7 +630,7 @@ export default function App() {
                         {waterLevelPct}%
                       </span>
                       <span className="text-xs font-medium text-sky-100 bg-[#06101E]/60 px-2.5 py-0.5 rounded-full mt-1 border border-white/15">
-                        Coluna d'água: {waterColumnCm} cm / {TANK_HEIGHT_CM} cm
+                        Coluna d'água: {waterColumnCm} cm / {TANK_HEIGHT_CM} cm ({waterVolumeLiters} L) • {temperatureC.toFixed(1)} °C
                       </span>
                     </div>
                   </div>
@@ -634,8 +646,8 @@ export default function App() {
                       <span className="text-base font-bold text-sky-300 font-mono-code">{waterColumnCm} cm</span>
                     </div>
                     <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
-                      <span className="text-[11px] text-sky-200/70 block">Volume Estimado</span>
-                      <span className="text-base font-bold text-white font-mono-code">{Math.round((waterLevelPct / 100) * 120)} L</span>
+                      <span className="text-[11px] text-sky-200/70 block">Temp. / Volume</span>
+                      <span className="text-base font-bold text-white font-mono-code">{temperatureC.toFixed(1)}°C • {waterVolumeLiters}L</span>
                     </div>
                   </div>
                 </div>
@@ -1179,8 +1191,8 @@ export default function App() {
 
                 <div className="bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-emerald-300">2. Módulo Relé (Bomba de Oxigênio)</span>
-                    <span className="text-xs font-mono-code bg-[#1A539B]/50 px-2.5 py-0.5 rounded text-white">GPIO 26 (IN) • 5V VCC</span>
+                    <span className="text-sm font-bold text-emerald-300">2. Sensor de Temperatura (DS18B20) + Display LCD 16x2 I2C (0x27)</span>
+                    <span className="text-xs font-mono-code bg-[#1A539B]/50 px-2.5 py-0.5 rounded text-white">GPIO 15 (OneWire) • GPIO 21 (SDA) / 22 (SCL)</span>
                   </div>
                   <p className="text-xs text-sky-200/70">
                     Controla a tomada da bomba submersa/compressor de ar. Possui desligamento automático caso o nível da água baixe para nível crítico.
@@ -1189,8 +1201,8 @@ export default function App() {
 
                 <div className="bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-amber-300">3. Alimentador Automático (Servo SG90/MG996R)</span>
-                    <span className="text-xs font-mono-code bg-[#1A539B]/50 px-2.5 py-0.5 rounded text-white">GPIO 14 (PWM)</span>
+                    <span className="text-sm font-bold text-amber-300">3. Relé da Bomba & Motor de Passo do Alimentador</span>
+                    <span className="text-xs font-mono-code bg-[#1A539B]/50 px-2.5 py-0.5 rounded text-white">Expansão Futura</span>
                   </div>
                   <p className="text-xs text-sky-200/70">
                     Gira o compartimento dosador conforme o tempo de abertura (Leve 3g, Padrão 5g ou Generosa 8g).

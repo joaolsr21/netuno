@@ -1,16 +1,18 @@
 /**
  * ============================================================================
- * NETUNO — FIRMWARE BASE DO ESP32 (Wi-Fi + Supabase + Buffer Offline + BLE)
+ * NETUNO — FIRMWARE DO ESP32 (Wi-Fi + Supabase + LCD 16x2 + DS18B20 + BLE)
  * ============================================================================
+ * Dimensionamento do Aquário: 25 cm (C) x 13 cm (L) x 18 cm (A) (~5.85 Litros)
+ *
  * Arquitetura Híbrida Offline-First:
- * 1. Sensor Ultrassônico HC-SR04 -> mede nível da água (cm e %)
- * 2. Módulo Relé -> controla a Bomba de Oxigênio (Manual / Auto + Proteção <30%)
- * 3. Servo Motor -> aciona o Alimentador Automático
- * 4. Wi-Fi Online -> envia status/telemetria e lê comandos em tempo real do Supabase
- * 5. Sem Wi-Fi -> salva eventos na Flash interna (/offline_queue.jsonl via LittleFS)
- *    e reenvia tudo automaticamente ao Supabase assim que o Wi-Fi voltar
- * 6. Bluetooth Low Energy (BLE) -> permite ao .APK Android controlar o aquário
- *    sem Wi-Fi e resgatar a fila offline pelo celular (4G/5G -> Supabase)
+ * 1. Sensor Ultrassônico HC-SR04 (GPIO 5/18) -> mede nível da água (cm, % e Litros)
+ * 2. Sensor de Temperatura DS18B20 (GPIO 15) -> mede temperatura da água (°C)
+ * 3. Display LCD 16x2 I2C (GPIO 21/22, 0x27) -> exibe Nível, Distância, Temp e Wi-Fi
+ * 4. [FUTURO] Módulo Relé -> Bomba de Oxigênio (desativado nos testes atuais)
+ * 5. [FUTURO] Motor de Passo -> Alimentador Automático (substituirá o servo)
+ * 6. Wi-Fi Online -> envia status/telemetria e lê comandos em tempo real do Supabase
+ * 7. Sem Wi-Fi -> salva eventos na Flash interna (/offline_queue.jsonl via LittleFS)
+ * 8. Bluetooth Low Energy (BLE) -> comunicação direta com o .APK Android
  */
 
 #include <WiFi.h>
@@ -21,23 +23,37 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <time.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 // ===================== CONFIGURAÇÕES DE REDE & SUPABASE =====================
-const char* WIFI_SSID     = "SEU_WIFI_AQUI";
-const char* WIFI_PASSWORD = "SUA_SENHA_AQUI";
+const char* WIFI_SSID     = "Iphone de JL";
+const char* WIFI_PASSWORD = "12345678";
 
-const char* SUPABASE_URL  = "https://SEU_PROJETO.supabase.co";
-const char* SUPABASE_KEY  = "SUA_ANON_KEY_DO_SUPABASE";
+const char* SUPABASE_URL  = "https://bcdwgmhhrptygaarocjy.supabase.co";
+const char* SUPABASE_KEY  = "sb_publishable_3C-PPYFJNBrzQ1msagDQAQ_1EQm7GUa";
 
 // ===================== PINAGEM DO HARDWARE (ESP32) ==========================
+#define PIN_LCD_SDA     21   // Display LCD 16x2 I2C (SDA)
+#define PIN_LCD_SCL     22   // Display LCD 16x2 I2C (SCL)
 #define PIN_TRIG        5    // Sensor Ultrassônico HC-SR04 (Trigger)
 #define PIN_ECHO        18   // Sensor Ultrassônico HC-SR04 (Echo)
-#define PIN_RELAY_PUMP  26   // Módulo Relé da Bomba de Oxigênio
-#define PIN_SERVO_FEED  14   // Servo Motor do Alimentador Automático
+#define PIN_ONEWIRE     15   // Sensor de Temperatura DS18B20 (OneWire)
+// #define PIN_RELAY_PUMP  26   // [FUTURO] Módulo Relé da Bomba de Oxigênio
+// [FUTURO] Definir portas do Motor de Passo (Alimentador Automático)
 
-// ===================== MEDIDAS DO AQUÁRIO ===================================
-const float TANK_HEIGHT_CM   = 40.0; // Altura total do aquário em cm
-const float SENSOR_OFFSET_CM = 2.0;  // Margem do sensor até o nível 100%
+// ===================== INSTÂNCIAS DE HARDWARE ===============================
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Endereço I2C 0x27, 16 colunas x 2 linhas
+OneWire oneWire(PIN_ONEWIRE);
+DallasTemperature tempSensor(&oneWire);
+
+// ===================== MEDIDAS DO AQUÁRIO (25 x 13 x 18 cm) =================
+const float TANK_LENGTH_CM   = 25.0; // Comprimento do aquário em cm
+const float TANK_WIDTH_CM    = 13.0; // Largura do aquário em cm
+const float TANK_HEIGHT_CM   = 18.0; // Altura total do aquário em cm
+const float SENSOR_OFFSET_CM = 2.0;  // Margem do sensor no topo até o nível 100% (16 cm de coluna máxima)
 
 // ===================== UUIDs DO BLUETOOTH (BLE) PARA O .APK =================
 #define SERVICE_UUID            "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -47,7 +63,9 @@ const float SENSOR_OFFSET_CM = 2.0;  // Margem do sensor até o nível 100%
 
 // ===================== ESTADO ATUAL DO SISTEMA ==============================
 int    waterLevelPct      = 85;
-float  distanceCm         = 8.1;
+float  distanceCm         = 4.4;  // Distância inicial p/ 85% em aquário de 18cm
+float  waterVolumeL       = 4.42; // Volume estimado em Litros
+float  temperatureC       = 26.0; // Temperatura medida pelo DS18B20 (°C)
 bool   pumpRelayOn        = true;
 String pumpMode           = "auto";
 bool   bleClientConnected = false;
@@ -72,7 +90,7 @@ String getCurrentIsoTimestamp() {
 }
 
 // ============================================================================
-// 1. LEITURA DO SENSOR ULTRASSÔNICO (HC-SR04)
+// 1. LEITURA DOS SENSORES (HC-SR04 + DS18B20) E ATUALIZAÇÃO DO LCD 16x2
 // ============================================================================
 void readWaterLevel() {
   digitalWrite(PIN_TRIG, LOW);
@@ -83,37 +101,68 @@ void readWaterLevel() {
 
   long duration = pulseIn(PIN_ECHO, HIGH, 30000); // Timeout 30ms
   if (duration > 0) {
-    distanceCm = (duration * 0.0343) / 2.0;
-    float waterColumn = TANK_HEIGHT_CM - distanceCm;
-    float maxColumn   = TANK_HEIGHT_CM - SENSOR_OFFSET_CM;
+    float measuredCm = (duration * 0.0343) / 2.0;
+    // Filtra leituras dentro da faixa física do aquário (18 cm)
+    distanceCm = constrain(measuredCm, 0.5, TANK_HEIGHT_CM);
+
+    float maxColumn   = TANK_HEIGHT_CM - SENSOR_OFFSET_CM; // 16.0 cm (100%)
+    float waterColumn = constrain(TANK_HEIGHT_CM - distanceCm, 0.0f, maxColumn);
+
     int pct = round((waterColumn / maxColumn) * 100.0);
     waterLevelPct = constrain(pct, 0, 100);
+    waterVolumeL  = (TANK_LENGTH_CM * TANK_WIDTH_CM * waterColumn) / 1000.0;
   }
 
   // Proteção automática: desliga o relé se a água baixar para nível crítico (<30%)
   if (waterLevelPct < 30 && pumpRelayOn) {
     pumpRelayOn = false;
-    digitalWrite(PIN_RELAY_PUMP, LOW);
+    // digitalWrite(PIN_RELAY_PUMP, LOW); // [FUTURO] Relé desativado
     Serial.println("[ALERTA] Nível crítico (<30%)! Relé da bomba desligado por segurança.");
   }
 }
 
+void readTemperature() {
+  tempSensor.requestTemperatures();
+  float t = tempSensor.getTempCByIndex(0);
+
+  // Verifica se o sensor DS18B20 respondeu corretamente (-127 = desconectado)
+  if (t != DEVICE_DISCONNECTED_C && t > -40.0 && t < 85.0) {
+    temperatureC = t;
+  } else {
+    Serial.println("[AVISO] Sensor DS18B20 na porta 15 não detectado ou leitura inválida.");
+  }
+}
+
+void updateLCD() {
+  char line0[17];
+  char line1[17];
+
+  // Linha 0 (16 col): Ex: "Agua: 85%  4.4cm"
+  snprintf(line0, sizeof(line0), "Agua:%3d%% %4.1fcm", waterLevelPct, distanceCm);
+  // Linha 1 (16 col): Ex: "Temp:26.0C WiFi+"
+  snprintf(
+    line1,
+    sizeof(line1),
+    "Temp:%4.1fC %s",
+    temperatureC,
+    (WiFi.status() == WL_CONNECTED) ? "WiFi+" : "Offln"
+  );
+
+  lcd.setCursor(0, 0);
+  lcd.print(line0);
+  lcd.setCursor(0, 1);
+  lcd.print(line1);
+}
+
 // ============================================================================
-// 2. ACIONAMENTO DO ALIMENTADOR AUTOMÁTICO (SERVO)
+// 2. ACIONAMENTO DO ALIMENTADOR AUTOMÁTICO (MOTOR DE PASSO — FUTURO)
 // ============================================================================
 void saveOrSendLog(String eventType, String message, String source);
 
 void triggerFeeder(String portion, String origin) {
   Serial.println("[NETUNO] Acionando alimentador (" + portion + ") via " + origin);
 
-  int openDurationMs = 800; // Padrão (5g)
-  if (portion.indexOf("3g") >= 0) openDurationMs = 500;
-  else if (portion.indexOf("8g") >= 0) openDurationMs = 1200;
-
-  // Base PWM / Pino digital (substituir por ESP32Servo.write() na calibração mecânica)
-  digitalWrite(PIN_SERVO_FEED, HIGH);
-  delay(openDurationMs);
-  digitalWrite(PIN_SERVO_FEED, LOW);
+  // [FUTURO] Implementar acionamento do Motor de Passo aqui
 
   saveOrSendLog("feeder", "Alimentador acionado (" + portion + ")", origin);
 }
@@ -132,6 +181,7 @@ void saveToOfflineQueue(String eventType, String message) {
   String jsonLine = "{\"event_type\":\"" + eventType + "\","
                     "\"water_level_pct\":" + String(waterLevelPct) + ","
                     "\"distance_cm\":" + String(distanceCm, 1) + ","
+                    "\"temperature_c\":" + String(temperatureC, 1) + ","
                     "\"message\":\"" + message + "\","
                     "\"source\":\"Fila Offline ESP32\"";
   if (isoTime.length() > 0) {
@@ -157,6 +207,7 @@ void saveOrSendLog(String eventType, String message, String source) {
     String payload = "{\"event_type\":\"" + eventType + "\","
                      "\"water_level_pct\":" + String(waterLevelPct) + ","
                      "\"distance_cm\":" + String(distanceCm, 1) + ","
+                     "\"temperature_c\":" + String(temperatureC, 1) + ","
                      "\"message\":\"" + message + "\","
                      "\"source\":\"" + source + "\"}";
 
@@ -248,7 +299,7 @@ void pollCommandsFromSupabase() {
       bool cloudPumpOn = (body.indexOf("\"pump_relay_on\":true") >= 0);
       if (cloudPumpOn != pumpRelayOn) {
         pumpRelayOn = cloudPumpOn;
-        digitalWrite(PIN_RELAY_PUMP, pumpRelayOn ? HIGH : LOW);
+        // digitalWrite(PIN_RELAY_PUMP, pumpRelayOn ? HIGH : LOW); // [FUTURO] Relé desativado
       }
     }
   }
@@ -268,6 +319,7 @@ bool sendStatusToSupabase() {
   String isoNow = getCurrentIsoTimestamp();
   String payload = "{\"water_level_pct\":" + String(waterLevelPct) + ","
                    "\"distance_cm\":" + String(distanceCm, 1) + ","
+                   "\"temperature_c\":" + String(temperatureC, 1) + ","
                    "\"pump_relay_on\":" + String(pumpRelayOn ? "true" : "false") + ","
                    "\"wifi_rssi\":" + String(WiFi.RSSI());
   if (isoNow.length() > 0) {
@@ -325,14 +377,14 @@ class NetunoCommandCallbacks : public BLECharacteristicCallbacks {
 
     if (cmd == "PUMP_TOGGLE") {
       pumpRelayOn = !pumpRelayOn;
-      digitalWrite(PIN_RELAY_PUMP, pumpRelayOn ? HIGH : LOW);
+      // digitalWrite(PIN_RELAY_PUMP, pumpRelayOn ? HIGH : LOW); // [FUTURO] Relé desativado
       saveOrSendLog("pump", String("Relé ") + (pumpRelayOn ? "LIGADO" : "DESLIGADO") + " via Bluetooth", "Bluetooth APK");
     } else if (cmd == "PUMP_ON") {
       pumpRelayOn = true;
-      digitalWrite(PIN_RELAY_PUMP, HIGH);
+      // digitalWrite(PIN_RELAY_PUMP, HIGH); // [FUTURO] Relé desativado
     } else if (cmd == "PUMP_OFF") {
       pumpRelayOn = false;
-      digitalWrite(PIN_RELAY_PUMP, LOW);
+      // digitalWrite(PIN_RELAY_PUMP, LOW); // [FUTURO] Relé desativado
     } else if (cmd == "MODE_AUTO") {
       pumpMode = "auto";
     } else if (cmd == "MODE_MANUAL") {
@@ -390,6 +442,7 @@ void notifyBLEClient() {
 
   String blePayload = "{\"water_level_pct\":" + String(waterLevelPct) + ","
                       "\"distance_cm\":" + String(distanceCm, 1) + ","
+                      "\"temperature_c\":" + String(temperatureC, 1) + ","
                       "\"pump_relay_on\":" + String(pumpRelayOn ? "true" : "false") + ","
                       "\"pump_mode\":\"" + pumpMode + "\","
                       "\"wifi_online\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false") + ","
@@ -410,9 +463,19 @@ void setup() {
 
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
-  pinMode(PIN_RELAY_PUMP, OUTPUT);
-  pinMode(PIN_SERVO_FEED, OUTPUT);
-  digitalWrite(PIN_RELAY_PUMP, pumpRelayOn ? HIGH : LOW);
+  // pinMode(PIN_RELAY_PUMP, OUTPUT); // [FUTURO] Relé desativado
+  // [FUTURO] Configurar pinos do Motor de Passo aqui
+
+  // Inicializa barramento I2C (SDA=21, SCL=22), Display LCD 16x2 (0x27) e Sensor DS18B20 (GPIO 15)
+  Wire.begin(PIN_LCD_SDA, PIN_LCD_SCL);
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("NETUNO AQUARIUM ");
+  lcd.setCursor(0, 1);
+  lcd.print("25x13x18cm Init.");
+
+  tempSensor.begin();
 
   // Inicializa memória Flash interna (LittleFS)
   if (!LittleFS.begin(true)) {
@@ -440,6 +503,11 @@ void setup() {
   } else {
     Serial.println("[WIFI] Sem internet no momento. Operando em Modo Offline + Bluetooth BLE.");
   }
+
+  // Primeira leitura imediata para atualizar o LCD logo ao ligar
+  readWaterLevel();
+  readTemperature();
+  updateLCD();
 }
 
 void loop() {
@@ -449,10 +517,22 @@ void loop() {
   if (now - lastCycleMs >= 4000) {
     lastCycleMs = now;
 
-    // 1. Lê o sensor ultrassônico
+    // 1. Lê o sensor ultrassônico (HC-SR04) e o sensor de temperatura (DS18B20)
     readWaterLevel();
+    readTemperature();
 
-    // 2. Verifica estado do Wi-Fi
+    // 2. Atualiza o Display LCD 16x2
+    updateLCD();
+
+    Serial.printf(
+      "[NETUNO] Agua: %d%% (Dist: %.1f cm | Vol: %.2f L) | Temp: %.1f C\n",
+      waterLevelPct,
+      distanceCm,
+      waterVolumeL,
+      temperatureC
+    );
+
+    // 3. Verifica estado do Wi-Fi
     if (WiFi.status() == WL_CONNECTED) {
       flushOfflineQueueToSupabase();
       pollCommandsFromSupabase();
@@ -466,12 +546,12 @@ void loop() {
         lastOfflineLogMs = now;
         saveToOfflineQueue(
           "sensor",
-          "Leitura salva offline: " + String(waterLevelPct) + "% (" + String(distanceCm, 1) + " cm)"
+          "Leitura offline: " + String(waterLevelPct) + "% (" + String(distanceCm, 1) + " cm) | Temp: " + String(temperatureC, 1) + " C"
         );
       }
     }
 
-    // 3. Atualiza o .APK via Bluetooth caso o celular esteja conectado
+    // 4. Atualiza o .APK via Bluetooth caso o celular esteja conectado
     notifyBLEClient();
   }
 }
