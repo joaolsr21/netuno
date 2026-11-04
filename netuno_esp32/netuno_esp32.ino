@@ -62,10 +62,10 @@ const float SENSOR_OFFSET_CM = 2.0;  // Margem do sensor no topo até o nível 1
 #define CHAR_OFFLINE_SYNC_UUID  "d9b26f31-41f3-41c8-95e4-9e73f9e10421" // Notify (Transfere fila offline p/ .APK)
 
 // ===================== ESTADO ATUAL DO SISTEMA ==============================
-int    waterLevelPct      = 85;
-float  distanceCm         = 4.4;  // Distância inicial p/ 85% em aquário de 18cm
-float  waterVolumeL       = 4.42; // Volume estimado em Litros
-float  temperatureC       = 26.0; // Temperatura medida pelo DS18B20 (°C)
+int    waterLevelPct      = 0;
+float  distanceCm         = 0.0;
+float  waterVolumeL       = 0.0;
+float  temperatureC       = 0.0;
 bool   pumpRelayOn        = true;
 String pumpMode           = "auto";
 bool   bleClientConnected = false;
@@ -537,6 +537,16 @@ void loop() {
       flushOfflineQueueToSupabase();
       pollCommandsFromSupabase();
       sendStatusToSupabase();
+
+      // Salva registro no histórico (telemetry_logs) a cada 60 segundos
+      if (now - lastOfflineLogMs >= 60000 || lastOfflineLogMs == 0) {
+        lastOfflineLogMs = now;
+        saveOrSendLog(
+          "sensor",
+          "Água: " + String(waterLevelPct) + "% (" + String(distanceCm, 1) + " cm) • Temp: " + String(temperatureC, 1) + " °C",
+          "ESP32 Wi-Fi"
+        );
+      }
     } else {
       // Tenta reconectar em background sem travar o aquário
       WiFi.reconnect();

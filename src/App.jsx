@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Waves,
   Thermometer,
@@ -10,73 +10,60 @@ import {
   RefreshCw,
   Database,
   Cpu,
-  Sliders,
   TrendingUp,
   ChevronRight,
   Gauge
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 
-// Histórico inicial (como vem da tabela `telemetry_logs` do Supabase)
-const INITIAL_HISTORY = [
-  { time: '00:00', level: 88, distance: 3.9, temp: 25.4 },
-  { time: '04:00', level: 87, distance: 4.1, temp: 25.1 },
-  { time: '08:00', level: 86, distance: 4.2, temp: 25.6 },
-  { time: '12:00', level: 85, distance: 4.4, temp: 26.2 },
-  { time: '16:00', level: 84, distance: 4.6, temp: 26.4 },
-  { time: '20:00', level: 85, distance: 4.4, temp: 26.0 },
-  { time: 'Agora', level: 85, distance: 4.4, temp: 26.0 },
-];
-
-const INITIAL_LOGS = [
-  {
-    id: 101,
-    time: 'Agora',
-    type: 'sensor',
-    message: 'Leitura estabilizada: Água 85% (4.4 cm) • Temp: 26.0 °C',
-    source: 'ESP32 Wi-Fi',
-  },
-];
-
 export default function App() {
-  //Dimensões reais do aquário: 25cm (C) x 13cm (L) x 18cm (A)
+  // Dimensões reais do aquário: 25cm (C) x 13cm (L) x 18cm (A)
   const TANK_LENGTH_CM = 25;
   const TANK_WIDTH_CM = 13;
   const TANK_HEIGHT_CM = 18;
   const SENSOR_OFFSET_CM = 2; // Margem do sensor até 100% (16 cm de coluna máxima)
   const MAX_COLUMN_CM = TANK_HEIGHT_CM - SENSOR_OFFSET_CM; // 16 cm
 
-  // Estado de conexão do ESP32
-  const [espOnline, setEspOnline] = useState(true);
-  const [wifiRssi, setWifiRssi] = useState(-54);
-  const [lastSyncSeconds, setLastSyncSeconds] = useState(2);
+  // Estados reais vindos exclusivamente do ESP32 / Supabase (sem rascunhos ou valores falsos)
+  const [loading, setLoading] = useState(true);
+  const [espOnline, setEspOnline] = useState(false);
+  const [wifiRssi, setWifiRssi] = useState(null);
+  const [lastSeenIso, setLastSeenIso] = useState(null);
+  const [lastSyncSeconds, setLastSyncSeconds] = useState(null);
 
-  // 1. Sensor Ultrassônico (HC-SR04 - GPIO 5 TRIG / GPIO 18 ECHO)
-  const [waterLevelPct, setWaterLevelPct] = useState(85);
-  const [measuredDistanceCm, setMeasuredDistanceCm] = useState(null);
+  // Leituras reais dos sensores do ESP32
+  const [waterLevelPct, setWaterLevelPct] = useState(null);
+  const [distanceCm, setDistanceCm] = useState(null);
+  const [temperatureC, setTemperatureC] = useState(null);
 
-  // 2. Sensor de Temperatura (DS18B20 - GPIO 15)
-  const [temperatureC, setTemperatureC] = useState(26.0);
-
-  // 3. Histórico & Navegação
-  const [logs, setLogs] = useState(INITIAL_LOGS);
-  const [history, setHistory] = useState(INITIAL_HISTORY);
+  // Histórico e logs reais vindos da tabela `telemetry_logs`
+  const [logs, setLogs] = useState([]);
+  const [history, setHistory] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'history' | 'hardware'
 
-  // Cálculos físicos baseados nas medidas 25x13x18cm
-  const waterColumnCm = ((waterLevelPct / 100) * MAX_COLUMN_CM).toFixed(1);
+  const hasSensorData = waterLevelPct !== null && distanceCm !== null;
+
+  // Cálculos físicos baseados exclusivamente na leitura real do ESP32
+  const waterColumnCm = hasSensorData
+    ? Math.max(0, Math.min(MAX_COLUMN_CM, TANK_HEIGHT_CM - Number(distanceCm))).toFixed(1)
+    : null;
   const ultrasonicDistanceCm =
-    measuredDistanceCm !== null
-      ? Number(measuredDistanceCm).toFixed(1)
-      : (TANK_HEIGHT_CM - Number(waterColumnCm)).toFixed(1);
-  const waterVolumeLiters = (
-    (TANK_LENGTH_CM * TANK_WIDTH_CM * Number(waterColumnCm)) /
-    1000
-  ).toFixed(2);
+    distanceCm !== null ? Number(distanceCm).toFixed(1) : null;
+  const waterVolumeLiters =
+    waterColumnCm !== null
+      ? ((TANK_LENGTH_CM * TANK_WIDTH_CM * Number(waterColumnCm)) / 1000).toFixed(2)
+      : null;
   const maxVolumeLiters = ((TANK_LENGTH_CM * TANK_WIDTH_CM * MAX_COLUMN_CM) / 1000).toFixed(2);
 
   // Status do Nível da Água
   const getWaterStatus = (pct) => {
+    if (pct === null) {
+      return {
+        label: 'Aguardando leitura do ESP32',
+        color: 'text-slate-300',
+        bg: 'bg-slate-500/15 border-slate-400/30',
+      };
+    }
     if (pct < 35)
       return {
         label: 'CRÍTICO — Repor Água',
@@ -104,6 +91,13 @@ export default function App() {
 
   // Status da Temperatura (DS18B20)
   const getTempStatus = (temp) => {
+    if (temp === null) {
+      return {
+        label: 'Aguardando sensor DS18B20',
+        color: 'text-slate-300',
+        bg: 'bg-slate-500/15 border-slate-400/30',
+      };
+    }
     if (temp < 22)
       return {
         label: 'BAIXA — Água Fria',
@@ -127,34 +121,16 @@ export default function App() {
   const tempStatus = getTempStatus(temperatureC);
 
   // Texto exato das 2 linhas de 16 colunas do LCD 16x2 (0x27)
-  const lcdLine0 = `Agua:${String(waterLevelPct).padStart(3, ' ')}% ${String(ultrasonicDistanceCm).padStart(4, ' ')}cm`;
-  const lcdLine1 = `Temp:${temperatureC.toFixed(1).padStart(4, ' ')}C ${espOnline ? 'WiFi+' : 'Offln'}`;
-
-  // Relógio de segundos desde o último sync
-  useEffect(() => {
-    if (!espOnline) return;
-    const interval = setInterval(() => {
-      setLastSyncSeconds((prev) => (prev >= 60 ? 1 : prev + 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [espOnline]);
-
-  // Atualiza último ponto do gráfico quando nível ou temperatura mudam
-  useEffect(() => {
-    setHistory((prev) => {
-      const copy = [...prev];
-      copy[copy.length - 1] = {
-        time: 'Agora',
-        level: waterLevelPct,
-        distance: Number(ultrasonicDistanceCm),
-        temp: Number(temperatureC),
-      };
-      return copy;
-    });
-  }, [waterLevelPct, ultrasonicDistanceCm, temperatureC]);
+  const lcdLine0 = hasSensorData
+    ? `Agua:${String(waterLevelPct).padStart(3, ' ')}% ${String(ultrasonicDistanceCm).padStart(4, ' ')}cm`
+    : 'Aguardando ESP32';
+  const lcdLine1 =
+    temperatureC !== null
+      ? `Temp:${Number(temperatureC).toFixed(1).padStart(4, ' ')}C ${espOnline ? 'WiFi+' : 'Offln'}`
+      : 'Sem dados ainda ';
 
   const formatLogTime = (isoStr) => {
-    if (!isoStr) return 'Agora';
+    if (!isoStr) return '--:--';
     const d = new Date(isoStr);
     return d.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
@@ -163,53 +139,113 @@ export default function App() {
     });
   };
 
-  // Sincronização em Tempo Real com o Supabase
-  useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+  const formatShortTime = (isoStr) => {
+    if (!isoStr) return '--:--';
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
-    const loadInitialData = async () => {
-      const { data: statusData } = await supabase
-        .from('aquarium_status')
-        .select('*')
-        .eq('id', 1)
-        .single();
+  // Busca dados reais do Supabase
+  const fetchSupabaseData = useCallback(async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
 
-      if (statusData) {
-        if (statusData.water_level_pct !== undefined) setWaterLevelPct(statusData.water_level_pct);
-        if (statusData.distance_cm !== undefined) setMeasuredDistanceCm(statusData.distance_cm);
+    setLoading(true);
+
+    const { data: statusData } = await supabase
+      .from('aquarium_status')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (statusData) {
+      const espEverSent =
+        statusData.esp_last_seen &&
+        !String(statusData.esp_last_seen).startsWith('1970') &&
+        (Number(statusData.distance_cm) > 0 || Number(statusData.water_level_pct) > 0);
+
+      if (espEverSent) {
+        if (statusData.water_level_pct !== undefined && statusData.water_level_pct !== null) {
+          setWaterLevelPct(Number(statusData.water_level_pct));
+        }
+        if (statusData.distance_cm !== undefined && statusData.distance_cm !== null) {
+          setDistanceCm(Number(statusData.distance_cm));
+        }
         if (statusData.temperature_c !== undefined && statusData.temperature_c !== null) {
           setTemperatureC(Number(statusData.temperature_c));
         }
-        if (statusData.wifi_rssi) setWifiRssi(statusData.wifi_rssi);
-        if (statusData.esp_last_seen) {
-          const diffSec = Math.floor(
-            (Date.now() - new Date(statusData.esp_last_seen).getTime()) / 1000
-          );
-          setEspOnline(diffSec < 45);
-          setLastSyncSeconds(Math.max(1, Math.min(diffSec, 59)));
+        if (statusData.wifi_rssi !== undefined && statusData.wifi_rssi !== null) {
+          setWifiRssi(Number(statusData.wifi_rssi));
         }
-      }
-
-      const { data: logData } = await supabase
-        .from('telemetry_logs')
-        .select('*')
-        .order('recorded_at', { ascending: false })
-        .limit(15);
-
-      if (logData && logData.length > 0) {
-        setLogs(
-          logData.map((l) => ({
-            id: l.id,
-            time: formatLogTime(l.recorded_at),
-            type: l.event_type,
-            message: l.message,
-            source: l.source,
-          }))
+        setLastSeenIso(statusData.esp_last_seen);
+        const diffSec = Math.max(
+          0,
+          Math.floor((Date.now() - new Date(statusData.esp_last_seen).getTime()) / 1000)
         );
+        setLastSyncSeconds(diffSec);
+        setEspOnline(diffSec < 30);
       }
-    };
+    }
 
-    loadInitialData();
+    const { data: logData } = await supabase
+      .from('telemetry_logs')
+      .select('*')
+      .order('recorded_at', { ascending: false })
+      .limit(20);
+
+    if (logData) {
+      setLogs(
+        logData.map((l) => ({
+          id: l.id,
+          time: formatLogTime(l.recorded_at),
+          type: l.event_type,
+          message: l.message,
+          source: l.source,
+        }))
+      );
+
+      // Constrói o gráfico apenas com leituras reais gravadas no banco
+      const recentPoints = logData
+        .filter((l) => l.water_level_pct !== null && l.water_level_pct !== undefined)
+        .slice(0, 7)
+        .reverse()
+        .map((l) => ({
+          time: formatShortTime(l.recorded_at),
+          level: Number(l.water_level_pct),
+          distance: l.distance_cm !== null ? Number(l.distance_cm) : null,
+          temp: l.temperature_c !== null && l.temperature_c !== undefined ? Number(l.temperature_c) : null,
+        }));
+
+      setHistory(recentPoints);
+    }
+
+    setLoading(false);
+  }, []);
+
+  // Atualiza contador de segundos desde o último envio real do ESP32
+  useEffect(() => {
+    if (!lastSeenIso) return;
+    const interval = setInterval(() => {
+      const diffSec = Math.max(
+        0,
+        Math.floor((Date.now() - new Date(lastSeenIso).getTime()) / 1000)
+      );
+      setLastSyncSeconds(diffSec);
+      setEspOnline(diffSec < 30);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lastSeenIso]);
+
+  // Inscrição Realtime no Supabase
+  useEffect(() => {
+    fetchSupabaseData();
+
+    if (!isSupabaseConfigured || !supabase) return;
 
     const channel = supabase
       .channel('netuno-web-realtime')
@@ -219,12 +255,20 @@ export default function App() {
         (payload) => {
           const s = payload.new;
           if (!s) return;
-          if (s.water_level_pct !== undefined) setWaterLevelPct(s.water_level_pct);
-          if (s.distance_cm !== undefined) setMeasuredDistanceCm(s.distance_cm);
+          if (s.water_level_pct !== undefined && s.water_level_pct !== null) {
+            setWaterLevelPct(Number(s.water_level_pct));
+          }
+          if (s.distance_cm !== undefined && s.distance_cm !== null) {
+            setDistanceCm(Number(s.distance_cm));
+          }
           if (s.temperature_c !== undefined && s.temperature_c !== null) {
             setTemperatureC(Number(s.temperature_c));
           }
-          if (s.wifi_rssi) setWifiRssi(s.wifi_rssi);
+          if (s.wifi_rssi !== undefined && s.wifi_rssi !== null) {
+            setWifiRssi(Number(s.wifi_rssi));
+          }
+          const nowIso = s.esp_last_seen || new Date().toISOString();
+          setLastSeenIso(nowIso);
           setLastSyncSeconds(0);
           setEspOnline(true);
         }
@@ -243,8 +287,23 @@ export default function App() {
               message: l.message,
               source: l.source,
             },
-            ...prev.slice(0, 14),
+            ...prev.slice(0, 19),
           ]);
+
+          if (l.water_level_pct !== null && l.water_level_pct !== undefined) {
+            setHistory((prev) => [
+              ...prev.slice(-6),
+              {
+                time: formatShortTime(l.recorded_at),
+                level: Number(l.water_level_pct),
+                distance: l.distance_cm !== null ? Number(l.distance_cm) : null,
+                temp:
+                  l.temperature_c !== null && l.temperature_c !== undefined
+                    ? Number(l.temperature_c)
+                    : null,
+              },
+            ]);
+          }
         }
       )
       .subscribe();
@@ -252,40 +311,12 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  // Salvar leitura manual no log do Supabase
-  const handleSaveManualSnapshot = async () => {
-    const message = `Leitura registrada: Água ${waterLevelPct}% (${ultrasonicDistanceCm} cm) • Temp: ${temperatureC.toFixed(1)} °C`;
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-
-    if (!isSupabaseConfigured || !supabase) {
-      setLogs((prev) => [
-        { id: Date.now(), time: timeStr, type: 'sensor', message, source: 'Painel Web' },
-        ...prev.slice(0, 14),
-      ]);
-      return;
-    }
-
-    await supabase.from('telemetry_logs').insert({
-      event_type: 'sensor',
-      water_level_pct: waterLevelPct,
-      distance_cm: Number(ultrasonicDistanceCm),
-      temperature_c: Number(temperatureC),
-      message,
-      source: 'Painel Web',
-    });
-  };
+  }, [fetchSupabaseData]);
 
   return (
     <div className="min-h-screen flex flex-col text-slate-100 selection:bg-[#1A539B] selection:text-white">
       {/* ALERTA DE NÍVEL CRÍTICO SE < 35% */}
-      {waterLevelPct < 35 && (
+      {waterLevelPct !== null && waterLevelPct < 35 && (
         <div className="bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-2.5 text-center text-sm font-medium text-white flex items-center justify-center gap-2 animate-pulse">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>
@@ -300,7 +331,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="relative group">
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-60 blur group-hover:opacity-100 transition duration-300"></div>
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-60 blur"></div>
               <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl overflow-hidden border-2 border-white/25 bg-[#1A539B] shadow-lg flex items-center justify-center">
                 <img
                   src="/logo-netuno.jpg"
@@ -314,12 +345,12 @@ export default function App() {
                 NETUNO
               </h1>
               <p className="text-[11px] text-sky-300/80 hidden sm:block">
-                Monitoramento do Aquário • 25 × 13 × 18 cm
+                Monitoramento em Tempo Real • Aquário 25 × 13 × 18 cm
               </p>
             </div>
           </div>
 
-          {/* Navegação Central Enxuta */}
+          {/* Navegação Central */}
           <nav className="hidden md:flex items-center bg-[#0B1D35]/90 p-1 rounded-xl border border-[#1A539B]/40">
             {[
               { id: 'dashboard', label: 'Sensores & LCD', icon: Gauge },
@@ -345,15 +376,13 @@ export default function App() {
             })}
           </nav>
 
-          {/* Status de Conexão ESP32 */}
+          {/* Indicador Real de Conexão do ESP32 (Somente leitura) */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setEspOnline(!espOnline)}
-              title="Status de conexão do ESP32"
-              className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-medium transition-all ${
+            <div
+              className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-medium ${
                 espOnline
-                  ? 'bg-[#0F2747]/90 border-emerald-400/30 text-emerald-200 hover:border-emerald-400/60'
-                  : 'bg-rose-950/60 border-rose-500/40 text-rose-300 hover:bg-rose-900/50'
+                  ? 'bg-[#0F2747]/90 border-emerald-400/30 text-emerald-200'
+                  : 'bg-slate-900/80 border-slate-700 text-slate-300'
               }`}
             >
               <span className="relative flex h-2.5 w-2.5">
@@ -362,26 +391,26 @@ export default function App() {
                 )}
                 <span
                   className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    espOnline ? 'bg-emerald-400' : 'bg-rose-500'
+                    espOnline ? 'bg-emerald-400' : 'bg-slate-500'
                   }`}
                 ></span>
               </span>
               <div className="text-left">
                 <div className="font-semibold flex items-center gap-1.5">
-                  {espOnline ? 'ESP32 Online' : 'ESP32 Offline'}
+                  {espOnline ? 'ESP32 Online' : 'Aguardando ESP32'}
                   {espOnline ? (
                     <Wifi className="w-3.5 h-3.5 text-sky-300" />
                   ) : (
-                    <WifiOff className="w-3.5 h-3.5 text-rose-400" />
+                    <WifiOff className="w-3.5 h-3.5 text-slate-400" />
                   )}
                 </div>
                 <div className="text-[10px] text-sky-200/60 hidden sm:block">
-                  {espOnline
-                    ? `Sync há ${lastSyncSeconds}s • ${wifiRssi} dBm`
-                    : 'Sem resposta recente'}
+                  {espOnline && lastSyncSeconds !== null
+                    ? `Último envio há ${lastSyncSeconds}s${wifiRssi ? ` • ${wifiRssi} dBm` : ''}`
+                    : 'Conecte o ESP32 ao Wi-Fi'}
                 </div>
               </div>
-            </button>
+            </div>
           </div>
         </div>
 
@@ -412,7 +441,7 @@ export default function App() {
 
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        {/* RESUMO RÁPIDO DOS 4 INDICADORES ATUAIS */}
+        {/* RESUMO RÁPIDO DOS INDICADORES REAIS */}
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1A539B] via-[#15427E] to-[#0D284D] border border-sky-300/25 shadow-2xl shadow-[#06101E]/80 p-4 sm:p-5">
           <img
             src="/logo-netuno.jpg"
@@ -429,10 +458,10 @@ export default function App() {
                   Nível d'Água (HC-SR04)
                 </span>
                 <span className="text-2xl sm:text-3xl font-bold text-white mt-0.5 block">
-                  {waterLevelPct}%
+                  {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                 </span>
                 <span className="text-xs text-sky-300 font-mono-code">
-                  Distância: {ultrasonicDistanceCm} cm
+                  {ultrasonicDistanceCm !== null ? `Distância: ${ultrasonicDistanceCm} cm` : 'Sem leitura'}
                 </span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-[#1A539B]/60 border border-sky-300/25 flex items-center justify-center text-sky-200">
@@ -447,7 +476,7 @@ export default function App() {
                   Temperatura (DS18B20)
                 </span>
                 <span className="text-2xl sm:text-3xl font-bold text-emerald-300 mt-0.5 block">
-                  {temperatureC.toFixed(1)} °C
+                  {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
                 </span>
                 <span className="text-xs text-sky-200/80">Porta GPIO 15</span>
               </div>
@@ -482,7 +511,7 @@ export default function App() {
                   Supabase
                 </span>
                 <span className="text-xs text-emerald-300">
-                  {isSupabaseConfigured ? 'Realtime Ativo' : 'Modo Local'}
+                  {loading ? 'Sincronizando...' : 'Conectado'}
                 </span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-[#1A539B]/60 border border-sky-300/25 flex items-center justify-center text-sky-200">
@@ -529,17 +558,12 @@ export default function App() {
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-[#1A539B] border-x border-b border-sky-300/40 px-3 py-1 rounded-b-xl flex items-center gap-2 shadow-md">
                       <span className="w-2 h-2 rounded-full bg-sky-300 animate-ping"></span>
                       <span className="text-[10px] font-mono-code uppercase tracking-wider text-white font-semibold">
-                        HC-SR04 • Distância: {ultrasonicDistanceCm} cm
+                        HC-SR04 • Distância:{' '}
+                        {ultrasonicDistanceCm !== null ? `${ultrasonicDistanceCm} cm` : '--'}
                       </span>
                     </div>
 
-                    {/* Feixe ultrassônico */}
-                    <div
-                      className="absolute top-6 left-1/2 -translate-x-1/2 w-16 border-x border-dashed border-sky-400/30 pointer-events-none transition-all duration-500"
-                      style={{ height: `${Math.max(8, 100 - waterLevelPct)}%` }}
-                    />
-
-                    {/* Régua lateral proporcional aos 16 cm de coluna máxima (18 cm altura total) */}
+                    {/* Régua lateral proporcional aos 16 cm de coluna máxima */}
                     <div className="absolute right-3 inset-y-4 z-20 flex flex-col justify-between text-[10px] font-mono-code text-sky-200/60 pointer-events-none">
                       <span>100% (16cm)</span>
                       <span>75% (12cm)</span>
@@ -551,7 +575,7 @@ export default function App() {
                     {/* Água animada */}
                     <div
                       className="absolute bottom-0 inset-x-0 transition-all duration-700 ease-out"
-                      style={{ height: `${waterLevelPct}%` }}
+                      style={{ height: `${waterLevelPct !== null ? waterLevelPct : 0}%` }}
                     >
                       <div className="absolute -top-3 left-0 w-[200%] h-6 bg-[#1A539B]/80 rounded-[40%] animate-wave-slow"></div>
                       <div className="absolute -top-2 left-0 w-[200%] h-5 bg-sky-400/35 rounded-[45%] animate-wave-fast"></div>
@@ -561,60 +585,37 @@ export default function App() {
                     {/* Indicador Central */}
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none drop-shadow-md">
                       <span className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
-                        {waterLevelPct}%
+                        {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                       <span className="text-xs font-medium text-sky-100 bg-[#06101E]/65 px-3 py-0.5 rounded-full mt-1 border border-white/15">
-                        Coluna d'água: {waterColumnCm} cm / {MAX_COLUMN_CM} cm ({waterVolumeLiters}{' '}
-                        L)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Métricas do Ultrassônico */}
-                  <div className="grid grid-cols-3 gap-2.5 mb-4">
-                    <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
-                      <span className="text-[11px] text-sky-200/70 block">Distância Topo</span>
-                      <span className="text-base font-bold text-white font-mono-code">
-                        {ultrasonicDistanceCm} cm
-                      </span>
-                    </div>
-                    <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
-                      <span className="text-[11px] text-sky-200/70 block">Coluna d'Água</span>
-                      <span className="text-base font-bold text-sky-300 font-mono-code">
-                        {waterColumnCm} cm
-                      </span>
-                    </div>
-                    <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
-                      <span className="text-[11px] text-sky-200/70 block">Volume Atual</span>
-                      <span className="text-base font-bold text-white font-mono-code">
-                        {waterVolumeLiters} / {maxVolumeLiters} L
+                        {hasSensorData
+                          ? `Coluna d'água: ${waterColumnCm} cm / ${MAX_COLUMN_CM} cm (${waterVolumeLiters} L)`
+                          : 'Aguardando primeira leitura do ESP32'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Controle de Teste de Nível */}
-                <div className="bg-[#06101E]/90 border border-[#1A539B]/50 rounded-2xl p-3.5">
-                  <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="font-medium text-sky-200 flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5 text-sky-400" />
-                      Testar leitura do nível na interface:
-                    </span>
-                    <span className="font-mono-code text-sky-300 font-semibold">
-                      {waterLevelPct}%
+                {/* Métricas do Ultrassônico */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
+                    <span className="text-[11px] text-sky-200/70 block">Distância Topo</span>
+                    <span className="text-base font-bold text-white font-mono-code">
+                      {ultrasonicDistanceCm !== null ? `${ultrasonicDistanceCm} cm` : '--'}
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={waterLevelPct}
-                    onChange={(e) => {
-                      setMeasuredDistanceCm(null);
-                      setWaterLevelPct(Number(e.target.value));
-                    }}
-                    className="w-full accent-sky-400 cursor-pointer h-2 bg-[#0F2747] rounded-lg"
-                  />
+                  <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
+                    <span className="text-[11px] text-sky-200/70 block">Coluna d'Água</span>
+                    <span className="text-base font-bold text-sky-300 font-mono-code">
+                      {waterColumnCm !== null ? `${waterColumnCm} cm` : '--'}
+                    </span>
+                  </div>
+                  <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
+                    <span className="text-[11px] text-sky-200/70 block">Volume Atual</span>
+                    <span className="text-base font-bold text-white font-mono-code">
+                      {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : '--'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -635,13 +636,13 @@ export default function App() {
                           </span>
                         </div>
                         <p className="text-xs text-sky-200/70">
-                          Espelho exato das 2 linhas de 16 caracteres exibidas no hardware
+                          Espelho exato das 2 linhas de 16 caracteres exibidas no LCD do ESP32
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Moldura física simulando o módulo LCD 1602 I2C azul/esverdeado */}
+                  {/* Moldura física simulando o módulo LCD 1602 I2C */}
                   <div className="rounded-2xl bg-[#050D1A] border-2 border-[#1A539B]/70 p-4 shadow-inner">
                     <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-5 py-4 shadow-[inset_0_0_24px_rgba(16,185,129,0.25)]">
                       <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.6)] whitespace-pre overflow-x-auto">
@@ -689,13 +690,13 @@ export default function App() {
                     </div>
 
                     {/* Mostrador Principal de Temperatura */}
-                    <div className="bg-[#06101E]/80 border border-[#1A539B]/40 rounded-2xl p-5 mb-4 flex items-center justify-between">
+                    <div className="bg-[#06101E]/80 border border-[#1A539B]/40 rounded-2xl p-5 flex items-center justify-between">
                       <div>
                         <span className="text-xs text-sky-200/70 block">
-                          Temperatura Atual da Água
+                          Temperatura Captada pelo ESP32
                         </span>
                         <span className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mt-1 block font-mono-code">
-                          {temperatureC.toFixed(1)} °C
+                          {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
                         </span>
                       </div>
                       <div className="text-right text-xs text-sky-200/70 space-y-1">
@@ -706,39 +707,19 @@ export default function App() {
                         <div>
                           Fahrenheit:{' '}
                           <strong className="text-white font-mono-code">
-                            {((temperatureC * 9) / 5 + 32).toFixed(1)} °F
+                            {temperatureC !== null
+                              ? `${((Number(temperatureC) * 9) / 5 + 32).toFixed(1)} °F`
+                              : '--'}
                           </strong>
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Controle para testar temperatura na UI */}
-                  <div className="bg-[#06101E]/90 border border-[#1A539B]/50 rounded-2xl p-3.5">
-                    <div className="flex items-center justify-between text-xs mb-2">
-                      <span className="font-medium text-sky-200 flex items-center gap-1.5">
-                        <Sliders className="w-3.5 h-3.5 text-sky-400" />
-                        Testar leitura de temperatura na interface:
-                      </span>
-                      <span className="font-mono-code text-emerald-300 font-semibold">
-                        {temperatureC.toFixed(1)} °C
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="15"
-                      max="35"
-                      step="0.5"
-                      value={temperatureC}
-                      onChange={(e) => setTemperatureC(Number(e.target.value))}
-                      className="w-full accent-emerald-400 cursor-pointer h-2 bg-[#0F2747] rounded-lg"
-                    />
-                  </div>
                 </div>
               </div>
             </div>
 
-            {/* SEÇÃO INFERIOR: GRÁFICO E LOGS */}
+            {/* SEÇÃO INFERIOR: GRÁFICO E LOGS REAIS */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Gráfico de Nível e Temperatura (7 cols) */}
               <div className="lg:col-span-7 bg-[#0B1D35]/90 backdrop-blur-xl rounded-3xl border border-[#1A539B]/50 p-6 shadow-xl">
@@ -746,44 +727,54 @@ export default function App() {
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-sky-400" />
-                      Histórico Recente (Nível & Temperatura)
+                      Histórico Captado pelo ESP32
                     </h3>
                     <p className="text-xs text-sky-200/70">
-                      Leituras enviadas pelo ESP32 ao Supabase
+                      Leituras reais salvas na tabela `telemetry_logs` do Supabase
                     </p>
                   </div>
                 </div>
 
-                <div className="h-48 flex items-end justify-between gap-3 pt-6 px-2 border-b border-[#1A539B]/40">
-                  {history.map((point, idx) => {
-                    const isLast = idx === history.length - 1;
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                        <span className="text-[11px] font-mono-code text-sky-200">
-                          {point.level}%
-                        </span>
-                        <div className="w-full max-w-[44px] h-32 bg-[#06101E] rounded-t-xl p-1 flex items-end border border-[#1A539B]/30">
-                          <div
-                            style={{ height: `${point.level}%` }}
-                            className={`w-full rounded-t-lg transition-all duration-500 ${
-                              isLast
-                                ? 'bg-gradient-to-t from-[#1A539B] to-sky-400 shadow-lg shadow-sky-400/30'
-                                : 'bg-gradient-to-t from-[#12396B] to-[#1A539B]'
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between px-2 pt-2.5 text-[11px] font-mono-code text-sky-200/70">
-                  {history.map((point, idx) => (
-                    <div key={idx} className="flex-1 text-center">
-                      <div>{point.time}</div>
-                      <div className="text-[10px] text-emerald-300/80">{point.temp}°C</div>
+                {history.length === 0 ? (
+                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#06101E]/60 border border-[#1A539B]/30 text-xs text-sky-200/60">
+                    Nenhum registro de histórico enviado pelo ESP32 ainda.
+                  </div>
+                ) : (
+                  <>
+                    <div className="h-48 flex items-end justify-between gap-3 pt-6 px-2 border-b border-[#1A539B]/40">
+                      {history.map((point, idx) => {
+                        const isLast = idx === history.length - 1;
+                        return (
+                          <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                            <span className="text-[11px] font-mono-code text-sky-200">
+                              {point.level}%
+                            </span>
+                            <div className="w-full max-w-[44px] h-32 bg-[#06101E] rounded-t-xl p-1 flex items-end border border-[#1A539B]/30">
+                              <div
+                                style={{ height: `${point.level}%` }}
+                                className={`w-full rounded-t-lg transition-all duration-500 ${
+                                  isLast
+                                    ? 'bg-gradient-to-t from-[#1A539B] to-sky-400 shadow-lg shadow-sky-400/30'
+                                    : 'bg-gradient-to-t from-[#12396B] to-[#1A539B]'
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                    <div className="flex justify-between px-2 pt-2.5 text-[11px] font-mono-code text-sky-200/70">
+                      {history.map((point, idx) => (
+                        <div key={idx} className="flex-1 text-center">
+                          <div>{point.time}</div>
+                          {point.temp !== null && (
+                            <div className="text-[10px] text-emerald-300/80">{point.temp}°C</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Logs Recentes do Supabase (5 cols) */}
@@ -805,27 +796,33 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                    {logs.slice(0, 5).map((log) => (
-                      <div
-                        key={log.id}
-                        className="bg-[#06101E]/80 border border-[#1A539B]/35 rounded-2xl p-3 flex items-start gap-3"
-                      >
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-sky-500/15 text-sky-300 border border-sky-400/30">
-                          <Waves className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-white leading-snug">
-                            {log.message}
-                          </p>
-                          <div className="flex items-center justify-between mt-1 text-[10px] text-sky-200/60">
-                            <span>{log.source}</span>
-                            <span className="font-mono-code">{log.time}</span>
+                  {logs.length === 0 ? (
+                    <div className="h-44 flex items-center justify-center rounded-2xl bg-[#06101E]/60 border border-[#1A539B]/30 text-xs text-sky-200/60 text-center px-4">
+                      Nenhuma leitura registrada no banco ainda. Assim que o ESP32 enviar dados, eles aparecerão aqui.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                      {logs.slice(0, 5).map((log) => (
+                        <div
+                          key={log.id}
+                          className="bg-[#06101E]/80 border border-[#1A539B]/35 rounded-2xl p-3 flex items-start gap-3"
+                        >
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-sky-500/15 text-sky-300 border border-sky-400/30">
+                            <Waves className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-white leading-snug">
+                              {log.message}
+                            </p>
+                            <div className="flex items-center justify-between mt-1 text-[10px] text-sky-200/60">
+                              <span>{log.source}</span>
+                              <span className="font-mono-code">{log.time}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -844,39 +841,45 @@ export default function App() {
                   Registros de Telemetria (Supabase)
                 </h3>
                 <p className="text-xs sm:text-sm text-sky-200/70 mt-1">
-                  Histórico de leituras do sensor ultrassônico (HC-SR04) e temperatura (DS18B20).
+                  Histórico real enviado pelo ESP32 dos sensores HC-SR04 e DS18B20.
                 </p>
               </div>
               <button
-                onClick={handleSaveManualSnapshot}
+                onClick={fetchSupabaseData}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1A539B] hover:bg-[#2364B8] text-xs font-semibold text-white border border-sky-300/30 transition"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                Registrar Leitura Agora
+                Atualizar Agora
               </button>
             </div>
 
-            <div className="space-y-3">
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className="bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 text-sky-300 border border-sky-400/30">
-                      <Waves className="w-5 h-5" />
+            {logs.length === 0 ? (
+              <div className="py-12 text-center text-sm text-sky-200/60 bg-[#06101E]/60 rounded-2xl border border-[#1A539B]/30">
+                Nenhum registro encontrado na tabela `telemetry_logs`.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 text-sky-300 border border-sky-400/30">
+                        <Waves className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{log.message}</p>
+                        <span className="text-xs text-sky-200/70">Origem: {log.source}</span>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">{log.message}</p>
-                      <span className="text-xs text-sky-200/70">Origem: {log.source}</span>
-                    </div>
+                    <span className="text-xs font-mono-code text-sky-300 bg-[#0B1D35] px-3 py-1.5 rounded-lg border border-[#1A539B]/40 self-start sm:self-center">
+                      {log.time}
+                    </span>
                   </div>
-                  <span className="text-xs font-mono-code text-sky-300 bg-[#0B1D35] px-3 py-1.5 rounded-lg border border-[#1A539B]/40 self-start sm:self-center">
-                    {log.time}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

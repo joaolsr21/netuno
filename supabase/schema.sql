@@ -24,7 +24,7 @@ ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS temperature_c FLOAT 
 
 -- Insere a linha inicial padrão caso não exista
 INSERT INTO public.aquarium_status (id, water_level_pct, distance_cm, pump_relay_on, pump_mode)
-VALUES (1, 85, 8.1, true, 'auto')
+VALUES (1, 0, 0, true, 'auto')
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Tabela de Horários Programados do Alimentador Automático
