@@ -28,6 +28,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import MobileApkSimulator from './components/MobileApkSimulator';
 
 // Dados iniciais simulados do histórico (como viriam da tabela `telemetry_logs` do Supabase)
 const INITIAL_WATER_HISTORY = [
@@ -234,28 +235,28 @@ export default function App() {
   };
 
   // Alternar Relé da Bomba de Oxigênio
-  const handleTogglePump = async () => {
-    if (!espOnline) return;
+  const handleTogglePump = async (fromApk = false) => {
+    if (!espOnline && !fromApk) return;
     const nextState = !pumpActive;
     setPumpActive(nextState);
     setLastSyncSeconds(0);
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && espOnline) {
       await supabase.from('aquarium_status').update({ pump_relay_on: nextState }).eq('id', 1);
     }
     addLog(
       'pump',
-      `Relé da Bomba de Oxigênio ${nextState ? 'LIGADO' : 'DESLIGADO'} manualmente pelo painel`,
-      'Controle Remoto Web'
+      `Relé da Bomba de Oxigênio ${nextState ? 'LIGADO' : 'DESLIGADO'} manualmente`,
+      fromApk ? (espOnline ? 'APK Wi-Fi → Supabase' : 'APK Bluetooth → ESP32') : 'Controle Remoto Web'
     );
   };
 
   // Acionar Alimentador Automático Agora
-  const handleFeedNow = async () => {
-    if (isFeeding || !espOnline) return;
+  const handleFeedNow = async (fromApk = false) => {
+    if (isFeeding || (!espOnline && !fromApk)) return;
     setIsFeeding(true);
     setLastSyncSeconds(0);
     setFeedCountToday((c) => c + 1);
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && espOnline) {
       await supabase
         .from('aquarium_status')
         .update({ feed_now_command: true, feed_now_portion: selectedPortion })
@@ -264,7 +265,7 @@ export default function App() {
     addLog(
       'feeder',
       `Alimentação manual disparada (${selectedPortion})`,
-      'Painel Netuno → ESP32'
+      fromApk ? (espOnline ? 'APK Wi-Fi → Supabase' : 'APK Bluetooth → ESP32') : 'Painel Netuno → ESP32'
     );
     setTimeout(() => {
       setIsFeeding(false);
@@ -354,6 +355,7 @@ export default function App() {
           <nav className="hidden md:flex items-center bg-[#0B1D35]/90 p-1 rounded-xl border border-[#1A539B]/40">
             {[
               { id: 'dashboard', label: 'Painel de Controle', icon: Gauge },
+              { id: 'apk-preview', label: 'Simulador do .APK', icon: Smartphone },
               { id: 'history', label: 'Histórico & Logs', icon: TrendingUp },
               { id: 'hardware', label: 'Topologia ESP32', icon: Cpu },
             ].map((tab) => {
@@ -415,8 +417,9 @@ export default function App() {
         <div className="flex md:hidden border-t border-[#1A539B]/30 bg-[#081528] px-2 py-1.5 justify-around">
           {[
             { id: 'dashboard', label: 'Painel', icon: Gauge },
+            { id: 'apk-preview', label: 'App .APK', icon: Smartphone },
             { id: 'history', label: 'Histórico', icon: TrendingUp },
-            { id: 'hardware', label: 'ESP32 / Pinagem', icon: Cpu },
+            { id: 'hardware', label: 'ESP32', icon: Cpu },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -1056,6 +1059,30 @@ export default function App() {
               </div>
             </div>
           </>
+        )}
+
+        {/* ===================================================================
+            ABA: SIMULADOR INTERATIVO DO .APK ANDROID NO NAVEGADOR
+           =================================================================== */}
+        {activeTab === 'apk-preview' && (
+          <MobileApkSimulator
+            waterLevelPct={waterLevelPct}
+            setWaterLevelPct={setWaterLevelPct}
+            ultrasonicDistanceCm={ultrasonicDistanceCm}
+            pumpActive={pumpActive}
+            onTogglePump={() => handleTogglePump(true)}
+            pumpMode={pumpMode}
+            setPumpMode={setPumpMode}
+            isFeeding={isFeeding}
+            onFeedNow={() => handleFeedNow(true)}
+            schedules={schedules}
+            onToggleSchedule={handleToggleSchedule}
+            onDeleteSchedule={handleDeleteSchedule}
+            onAddSchedule={(e) => handleAddSchedule(e)}
+            logs={logs}
+            espOnline={espOnline}
+            setEspOnline={setEspOnline}
+          />
         )}
 
         {/* ===================================================================
