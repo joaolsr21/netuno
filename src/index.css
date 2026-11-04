@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #06101E;
+    background-image: 
+      radial-gradient(at 15% 10%, rgba(26, 83, 155, 0.28) 0px, transparent 50%),
+      radial-gradient(at 85% 20%, rgba(56, 189, 248, 0.12) 0px, transparent 45%),
+      radial-gradient(at 50% 90%, rgba(26, 83, 155, 0.22) 0px, transparent 55%);
+    background-attachment: fixed;
+  }
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Animação de ondas suaves no aquário */
+@keyframes waveMove {
+  0% {
+    transform: translateX(0) translateZ(0) scaleY(1);
+  }
+  50% {
+    transform: translateX(-25%) translateZ(0) scaleY(0.85);
+  }
+  100% {
+    transform: translateX(-50%) translateZ(0) scaleY(1);
+  }
+}
+
+.animate-wave-slow {
+  animation: waveMove 9s cubic-bezier(0.36, 0.45, 0.63, 0.53) infinite;
+}
+
+.animate-wave-fast {
+  animation: waveMove 6s cubic-bezier(0.36, 0.45, 0.63, 0.53) infinite reverse;
+}
+
+/* Bolhas de oxigênio subindo */
+@keyframes bubbleRise {
+  0% {
+    transform: translateY(100%) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.75;
+  }
+  80% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translateY(-260px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+.bubble {
+  animation: bubbleRise var(--duration, 4s) ease-in infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Partículas de ração caindo */
+@keyframes foodFall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(190px) rotate(160deg);
+    opacity: 0;
+  }
+}
+
+.food-pellet {
+  animation: foodFall 2.4s ease-in-out forwards;
+}
+
+/* Scrollbar customizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #06101E;
+}
+::-webkit-scrollbar-thumb {
+  background: #1A539B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #38BDF8;
+}
+
