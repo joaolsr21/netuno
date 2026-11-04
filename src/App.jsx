@@ -165,9 +165,7 @@ export default function App() {
 
     if (statusData) {
       const espEverSent =
-        statusData.esp_last_seen &&
-        !String(statusData.esp_last_seen).startsWith('1970') &&
-        (Number(statusData.distance_cm) > 0 || Number(statusData.water_level_pct) > 0);
+        Number(statusData.distance_cm) > 0 || Number(statusData.water_level_pct) > 0;
 
       if (espEverSent) {
         if (statusData.water_level_pct !== undefined && statusData.water_level_pct !== null) {
@@ -182,13 +180,16 @@ export default function App() {
         if (statusData.wifi_rssi !== undefined && statusData.wifi_rssi !== null) {
           setWifiRssi(Number(statusData.wifi_rssi));
         }
-        setLastSeenIso(statusData.esp_last_seen);
-        const diffSec = Math.max(
-          0,
-          Math.floor((Date.now() - new Date(statusData.esp_last_seen).getTime()) / 1000)
-        );
-        setLastSyncSeconds(diffSec);
-        setEspOnline(diffSec < 30);
+        const seenAt = statusData.updated_at || statusData.esp_last_seen;
+        if (seenAt) {
+          setLastSeenIso(seenAt);
+          const diffSec = Math.max(
+            0,
+            Math.floor((Date.now() - new Date(seenAt).getTime()) / 1000)
+          );
+          setLastSyncSeconds(diffSec);
+          setEspOnline(diffSec < 30);
+        }
       }
     }
 
