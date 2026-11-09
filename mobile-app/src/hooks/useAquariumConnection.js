@@ -9,9 +9,9 @@ const INITIAL_SCHEDULES = [
 ];
 
 const INITIAL_LOGS = [
-  { id: 1, time: '08:00', type: 'feeder', message: 'Alimentador acionado (Padrão 5g)', source: 'ESP32 Wi-Fi' },
-  { id: 2, time: '07:45', type: 'sensor', message: 'Nível estabilizado em 85% (8.1 cm)', source: 'ESP32 Wi-Fi' },
-  { id: 3, time: '06:00', type: 'pump', message: 'Relé da bomba ativado (Ciclo Auto)', source: 'ESP32 Wi-Fi' },
+  { id: 1, time: '08:00', type: 'feeder', message: 'Alimentador acionado (Padrão 5g)', source: 'Sistema' },
+  { id: 2, time: '07:45', type: 'sensor', message: 'Nível estabilizado em 85%', source: 'Sistema' },
+  { id: 3, time: '06:00', type: 'pump', message: 'Bomba de oxigênio aberta (Ciclo Auto)', source: 'Sistema' },
 ];
 
 export function useAquariumConnection() {
@@ -22,13 +22,27 @@ export function useAquariumConnection() {
   const [bleStatusText, setBleStatusText] = useState('Aguardando');
 
   // Telemetria e Atuadores
-  const [waterLevelPct, setWaterLevelPct] = useState(85);
-  const [distanceCm, setDistanceCm] = useState(8.1);
+  const [waterLevelPct, setWaterLevelPct] = useState(null);
+  const [distanceCm, setDistanceCm] = useState(null);
+  const [temperatureC, setTemperatureC] = useState(null);
+  const [rtcTimestamp, setRtcTimestamp] = useState(() => new Date().toISOString());
   const [pumpRelayOn, setPumpRelayOn] = useState(true);
   const [pumpMode, setPumpMode] = useState('auto');
   const [isFeeding, setIsFeeding] = useState(false);
   const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
+  const [logs, setLogs] = useState([]);
+  const [history, setHistory] = useState([]);
+
+  // Avança o relógio do módulo RTC a cada 1 segundo no app mobile
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRtcTimestamp((prev) => {
+        const base = prev ? new Date(prev).getTime() : Date.now();
+        return new Date(base + 1000).toISOString();
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Fila Offline resgatada do ESP32 pelo celular (para repassar ao Supabase via 4G/5G)
   const [pendingPhoneSync, setPendingPhoneSync] = useState([]);
@@ -104,39 +118,81 @@ export function useAquariumConnection() {
   // ==========================================================================
   // 2. MONITORAMENTO WI-FI / SUPABASE + FAILOVER AUTOMÁTICO PARA BLUETOOTH
   // ==========================================================================
-  useEffect(() => {
+  const fetchFromSupabase = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) return;
 
-    let mounted = true;
-
-    const fetchFromSupabase = async () => {
-      const { data, error } = await supabase.from('aquarium_status').select('*').eq('id', 1).single();
-      if (error || !data) {
-        if (mounted) {
-          setWifiAvailable(false);
-          connectBluetooth();
-        }
-        return;
+    const { data, error } = await supabase.from('aquarium_status').select('*').eq('id', 1).maybeSingle();
+    if (!error && data) {
+      if (data.pump_relay_on !== undefined && data.pump_relay_on !== null) {
+        setPumpRelayOn(Boolean(data.pump_relay_on));
       }
-
+      if (data.pump_mode) {
+        setPumpMode(data.pump_mode);
+      }
+      if (data.rtc_datetime) {
+        setRtcTimestamp(data.rtc_datetime);
+      }
+      const espEverSent = Number(data.distance_cm) > 0 || Number(data.water_level_pct) > 0;
+      if (espEverSent) {
+        if (data.water_level_pct !== undefined && data.water_level_pct !== null) {
+          setWaterLevelPct(Number(data.water_level_pct));
+        }
+        if (data.distance_cm !== undefined && data.distance_cm !== null) {
+          setDistanceCm(Number(data.distance_cm));
+        }
+        if (data.temperature_c !== undefined && data.temperature_c !== null) {
+          setTemperatureC(Number(data.temperature_c));
+        }
+      }
       const ageSeconds = (Date.now() - new Date(data.esp_last_seen).getTime()) / 1000;
-      const espIsOnlineOnWifi = ageSeconds < 25;
+      setWifiAvailable(ageSeconds < 25);
+      if (ageSeconds < 25) setTransport('wifi');
+    }
 
-      if (mounted) {
-        setWaterLevelPct(data.water_level_pct);
-        setDistanceCm(data.distance_cm);
-        setPumpRelayOn(data.pump_relay_on);
-        setPumpMode(data.pump_mode || 'auto');
-        setWifiAvailable(espIsOnlineOnWifi);
+    const { data: scheduleData } = await supabase
+      .from('feed_schedules')
+      .select('*')
+      .order('time', { ascending: true });
+    if (scheduleData) {
+      setSchedules(scheduleData);
+    }
 
-        if (espIsOnlineOnWifi) {
-          setTransport('wifi');
-        } else if (!bleConnected) {
-          // Wi-Fi do aquário caiu! Chaveia automaticamente para Bluetooth
-          connectBluetooth();
-        }
-      }
-    };
+    const { data: logData } = await supabase
+      .from('telemetry_logs')
+      .select('*')
+      .order('recorded_at', { ascending: false })
+      .limit(20);
+
+    if (logData) {
+      const formatTime = (iso) => {
+        if (!iso) return '--:--';
+        const d = new Date(iso);
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      };
+      setLogs(
+        logData.map((l) => ({
+          id: l.id,
+          time: formatTime(l.recorded_at),
+          type: l.event_type,
+          message: l.message,
+          source: l.source,
+        }))
+      );
+      const recentPoints = logData
+        .filter((l) => l.water_level_pct !== null && l.water_level_pct !== undefined)
+        .slice(0, 7)
+        .reverse()
+        .map((l) => ({
+          time: formatTime(l.recorded_at),
+          level: Number(l.water_level_pct),
+          temp: l.temperature_c !== null && l.temperature_c !== undefined ? Number(l.temperature_c) : null,
+        }));
+      setHistory(recentPoints);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
 
     fetchFromSupabase();
 
@@ -145,20 +201,24 @@ export function useAquariumConnection() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'aquarium_status' }, (payload) => {
         const s = payload.new;
         if (!s) return;
-        setWaterLevelPct(s.water_level_pct);
-        setDistanceCm(s.distance_cm);
-        setPumpRelayOn(s.pump_relay_on);
+        if (s.water_level_pct !== undefined && s.water_level_pct !== null) setWaterLevelPct(Number(s.water_level_pct));
+        if (s.distance_cm !== undefined && s.distance_cm !== null) setDistanceCm(Number(s.distance_cm));
+        if (s.temperature_c !== undefined && s.temperature_c !== null) setTemperatureC(Number(s.temperature_c));
+        if (s.rtc_datetime) setRtcTimestamp(s.rtc_datetime);
+        if (s.pump_relay_on !== undefined && s.pump_relay_on !== null) setPumpRelayOn(Boolean(s.pump_relay_on));
         if (s.pump_mode) setPumpMode(s.pump_mode);
         setWifiAvailable(true);
         setTransport('wifi');
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetry_logs' }, () => {
+        fetchFromSupabase();
+      })
       .subscribe();
 
     return () => {
-      mounted = false;
       supabase.removeChannel(channel);
     };
-  }, [bleConnected, connectBluetooth]);
+  }, [fetchFromSupabase]);
 
   // ==========================================================================
   // 3. AÇÕES HÍBRIDAS (USAM WI-FI QUANDO NORMAL OU BLUETOOTH QUANDO CAI)
@@ -233,8 +293,33 @@ export function useAquariumConnection() {
     setSchedules((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
   };
 
-  const deleteSchedule = (id) => {
+  const deleteSchedule = async (id) => {
     setSchedules((prev) => prev.filter((s) => s.id !== id));
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('feed_schedules').delete().eq('id', id).catch(() => {});
+    }
+  };
+
+  const applyRtcDateTime = async (isoString) => {
+    const targetIso = isoString || new Date().toISOString();
+    setRtcTimestamp(targetIso);
+    if (isSupabaseConfigured && supabase) {
+      await supabase
+        .from('aquarium_status')
+        .update({ rtc_datetime: targetIso, rtc_set_command: true })
+        .eq('id', 1)
+        .catch(() => {});
+    }
+  };
+
+  const triggerWifiSetupCommand = async () => {
+    if (isSupabaseConfigured && supabase) {
+      await supabase
+        .from('aquarium_status')
+        .update({ wifi_setup_command: true })
+        .eq('id', 1)
+        .catch(() => {});
+    }
   };
 
   const updateSimulatedWaterLevel = (pct) => {
@@ -251,13 +336,18 @@ export function useAquariumConnection() {
     bleStatusText,
     waterLevelPct,
     distanceCm,
+    temperatureC,
+    rtcTimestamp,
+    setRtcTimestamp,
     pumpRelayOn,
     pumpMode,
     isFeeding,
     schedules,
     logs,
+    history,
     pendingPhoneSync,
     isSupabaseConfigured,
+    fetchFromSupabase,
     togglePump,
     changePumpMode,
     feedNow,
@@ -266,6 +356,8 @@ export function useAquariumConnection() {
     addSchedule,
     toggleSchedule,
     deleteSchedule,
+    applyRtcDateTime,
+    triggerWifiSetupCommand,
     updateSimulatedWaterLevel,
   };
 }

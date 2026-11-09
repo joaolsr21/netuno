@@ -86,7 +86,7 @@ export default function MobileApkSimulator({
           {isCritical && (
             <div className="bg-rose-600 px-3 py-1.5 text-center text-[11px] font-bold text-white flex items-center justify-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              <span>NÍVEL CRÍTICO ({waterLevelPct}% / {ultrasonicDistanceCm} cm)</span>
+              <span>NÍVEL CRÍTICO ({waterLevelPct}%)</span>
             </div>
           )}
 
@@ -102,63 +102,12 @@ export default function MobileApkSimulator({
                 NETUNO
               </span>
             </div>
-
-            {/* Badge de Transporte Híbrido (Toque p/ alternar Wi-Fi <-> Bluetooth) */}
-            <button
-              onClick={handleSimulateWifiDrop}
-              title="Toque para simular queda do Wi-Fi e chaveamento para Bluetooth"
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left transition-all ${
-                transport === 'wifi'
-                  ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200'
-                  : 'bg-sky-500/20 border-sky-400/60 text-sky-200'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  transport === 'wifi' ? 'bg-emerald-400 animate-ping' : 'bg-sky-400 animate-ping'
-                }`}
-              />
-              <div>
-                <div className="text-[10px] font-bold leading-tight flex items-center gap-1">
-                  {transport === 'wifi' ? (
-                    <>
-                      <Wifi className="w-3 h-3 text-emerald-400" /> Wi-Fi • Nuvem
-                    </>
-                  ) : (
-                    <>
-                      <Bluetooth className="w-3 h-3 text-sky-400" /> Bluetooth • BLE
-                    </>
-                  )}
-                </div>
-                <div className="text-[9px] opacity-80">
-                  {transport === 'wifi' ? 'Supabase Ativo' : 'Direto no ESP32'}
-                </div>
-              </div>
-            </button>
           </div>
 
           {/* Conteúdo Rolável do App Android */}
           <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
             {mobileTab === 'painel' && (
               <>
-                {/* Banner aviso se estiver no Bluetooth */}
-                {transport === 'bluetooth' && (
-                  <div className="bg-sky-500/15 border border-sky-400/40 rounded-2xl p-3 flex items-center justify-between gap-2">
-                    <div className="text-[11px] text-sky-100 leading-snug">
-                      <strong className="text-sky-300 block">Modo Bluetooth Direto Ativo</strong>
-                      Wi-Fi do aquário caiu. Controlando ESP32 via BLE!
-                    </div>
-                    {offlineQueueCount > 0 && (
-                      <button
-                        onClick={handleRescueOfflineViaBle}
-                        className="bg-sky-400 text-slate-950 text-[10px] font-bold px-2.5 py-1.5 rounded-xl shrink-0 hover:bg-sky-300 transition"
-                      >
-                        Sincronizar ({offlineQueueCount})
-                      </button>
-                    )}
-                  </div>
-                )}
-
                 {/* 2 Mini KPIs */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="bg-[#12386B] border border-sky-300/25 rounded-2xl p-3">
@@ -168,21 +117,21 @@ export default function MobileApkSimulator({
                     <span className="text-2xl font-extrabold text-white mt-0.5 block">
                       {waterLevelPct}%
                     </span>
-                    <span className="text-[10px] text-sky-300 font-mono-code">
-                      {ultrasonicDistanceCm} cm do sensor
+                    <span className="text-[10px] text-sky-300">
+                      {isCritical ? 'Crítico' : isLow ? 'Atenção' : 'Estável'}
                     </span>
                   </div>
 
                   <div className="bg-[#12386B] border border-sky-300/25 rounded-2xl p-3">
                     <span className="text-[9px] font-bold uppercase tracking-wider text-sky-200 block">
-                      OXIGENAÇÃO
+                      BOMBA DE OXIGÊNIO
                     </span>
                     <span
                       className={`text-2xl font-extrabold mt-0.5 block ${
                         pumpActive ? 'text-emerald-300' : 'text-amber-300'
                       }`}
                     >
-                      {pumpActive ? 'Ativa' : 'Pausada'}
+                      {pumpActive ? 'Aberta' : 'Fechada'}
                     </span>
                     <span className="text-[10px] text-sky-200">
                       Modo: {pumpMode === 'auto' ? 'Automático' : 'Manual'}
@@ -195,7 +144,7 @@ export default function MobileApkSimulator({
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-bold text-white">Nível da Água</h4>
-                      <p className="text-[11px] text-sky-300/80">Sensor Ultrassônico HC-SR04</p>
+                      <p className="text-[11px] text-sky-300/80">Monitoramento do aquário</p>
                     </div>
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
@@ -212,9 +161,6 @@ export default function MobileApkSimulator({
 
                   {/* Tanque Mobile */}
                   <div className="relative h-36 rounded-xl bg-[#06101E] border border-[#1A539B] overflow-hidden flex items-end">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 bg-[#1A539B] px-2.5 py-0.5 rounded-b-lg text-[9px] font-mono-code font-bold text-white">
-                      HC-SR04 • {ultrasonicDistanceCm} cm
-                    </div>
                     <div
                       className="w-full bg-gradient-to-t from-[#12386B] to-[#1A539B] border-t-2 border-sky-400 transition-all duration-500"
                       style={{ height: `${waterLevelPct}%` }}
@@ -228,39 +174,14 @@ export default function MobileApkSimulator({
                       </span>
                     </div>
                   </div>
-
-                  {/* Botões rápidos de teste */}
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-sky-200/80 font-medium">Simular sensor:</span>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setWaterLevelPct(Math.max(15, waterLevelPct - 10))}
-                        className="px-2.5 py-1 rounded-lg bg-[#06101E] border border-[#1A539B] text-sky-300 text-xs font-bold hover:bg-[#1A539B]/30"
-                      >
-                        -10%
-                      </button>
-                      <button
-                        onClick={() => setWaterLevelPct(85)}
-                        className="px-2.5 py-1 rounded-lg bg-[#06101E] border border-[#1A539B] text-sky-300 text-xs font-bold hover:bg-[#1A539B]/30"
-                      >
-                        85%
-                      </button>
-                      <button
-                        onClick={() => setWaterLevelPct(Math.min(98, waterLevelPct + 10))}
-                        className="px-2.5 py-1 rounded-lg bg-[#06101E] border border-[#1A539B] text-sky-300 text-xs font-bold hover:bg-[#1A539B]/30"
-                      >
-                        +10%
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Card 2: Bomba de Oxigênio (Relé) */}
+                {/* Card 2: Bomba de Oxigênio */}
                 <div className="bg-[#0B1D35] border border-[#1A539B]/60 rounded-2xl p-3.5 space-y-2.5">
                   <div>
                     <h4 className="text-sm font-bold text-white">Bomba de Oxigênio</h4>
                     <p className="text-[11px] text-sky-300/80">
-                      Módulo Relé GPIO 26 • Via {transport === 'wifi' ? 'Wi-Fi' : 'Bluetooth BLE'}
+                      Status: {pumpActive ? 'Aberta' : 'Fechada'}
                     </p>
                   </div>
 
@@ -273,7 +194,7 @@ export default function MobileApkSimulator({
                     }`}
                   >
                     <Power className="w-4 h-4" />
-                    <span>{pumpActive ? 'Relé Ligado (Toque p/ Desligar)' : 'Ligar Bomba de Oxigênio'}</span>
+                    <span>{pumpActive ? 'Bomba Aberta (Toque p/ Fechar)' : 'Abrir Bomba de Oxigênio'}</span>
                   </button>
 
                   <div className="grid grid-cols-2 gap-1.5 bg-[#06101E] p-1 rounded-xl border border-[#1A539B]/40">
@@ -300,7 +221,7 @@ export default function MobileApkSimulator({
                 <div className="bg-[#0B1D35] border border-[#1A539B]/60 rounded-2xl p-3.5 space-y-2.5">
                   <div>
                     <h4 className="text-sm font-bold text-white">Alimentador Automático</h4>
-                    <p className="text-[11px] text-sky-300/80">Servo GPIO 14 • Escolha a porção</p>
+                    <p className="text-[11px] text-sky-300/80">Escolha a porção desejada</p>
                   </div>
 
                   <div className="grid grid-cols-3 gap-1.5">

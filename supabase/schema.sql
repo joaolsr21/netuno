@@ -19,8 +19,11 @@ CREATE TABLE IF NOT EXISTS public.aquarium_status (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Garante a coluna temperature_c caso a tabela já tenha sido criada antes
+-- Garante a coluna temperature_c, rtc_datetime, rtc_set_command e wifi_setup_command caso a tabela já tenha sido criada antes
 ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS temperature_c FLOAT NOT NULL DEFAULT 26.0;
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS rtc_datetime TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS rtc_set_command BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS wifi_setup_command BOOLEAN NOT NULL DEFAULT false;
 
 -- Insere a linha inicial padrão caso não exista
 INSERT INTO public.aquarium_status (id, water_level_pct, distance_cm, pump_relay_on, pump_mode)
