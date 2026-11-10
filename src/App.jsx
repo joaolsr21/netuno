@@ -42,7 +42,7 @@ const DEFAULT_CONFIG = {
   wifiPassword: '',
   wifiSecurity: 'WPA2-PSK',
   wifiApName: 'NETUNO-SETUP',
-  wifiPortalIp: '192.168.4.1',
+  wifiPortalIp: '10.0.0.1',
   autoPortalOnFirstBoot: true,
   savedWifiNetworks: [
     { id: 1, ssid: 'Iphone de JL', password: '', priority: 'Principal (1ª opção)' },
@@ -1001,7 +1001,7 @@ export default function App() {
                 <p className="leading-relaxed text-[11px] text-sky-200/75">
                   Ao ligar o ESP32 pela primeira vez, conecte-se na rede Wi-Fi{' '}
                   <strong className="text-white font-mono-code">NETUNO-SETUP</strong> e acesse{' '}
-                  <strong className="text-emerald-300 font-mono-code">192.168.4.1</strong> para
+                  <strong className="text-emerald-300 font-mono-code">10.0.0.1</strong> para
                   cadastrar seu <strong>Usuário</strong> e <strong>Senha</strong>. Digite os mesmos
                   dados abaixo para acessar seu aquário.
                 </p>
@@ -1819,7 +1819,7 @@ export default function App() {
                           Usuário e Senha de Acesso deste ESP32
                         </h4>
                         <p className="text-[11px] text-sky-200/70">
-                          Credenciais cadastradas na rede inicial do ESP32 (192.168.4.1) usadas para acessar exclusivamente este aquário no site.
+                          Credenciais cadastradas na rede inicial do ESP32 (10.0.0.1) usadas para acessar exclusivamente este aquário no site.
                         </p>
                       </div>
 

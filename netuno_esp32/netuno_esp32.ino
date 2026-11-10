@@ -14,6 +14,7 @@
 #include <WiFi.h>
 #include <WiFiMulti.h>
 #include <WebServer.h>
+#include <DNSServer.h>
 #include <Preferences.h>
 #include <HTTPClient.h>
 #include <Wire.h>
@@ -104,6 +105,10 @@ OneWire oneWire(PIN_ONEWIRE);
 DallasTemperature tempSensor(&oneWire);
 Preferences prefs;
 WebServer portalServer(80);
+DNSServer dnsServer;
+const IPAddress AP_LOCAL_IP(10, 0, 0, 1);
+const IPAddress AP_GATEWAY(10, 0, 0, 1);
+const IPAddress AP_SUBNET(255, 255, 255, 0);
 
 // ===================== MEDIDAS DO AQUÁRIO (25 x 13 x 18 cm) =================
 float tankLengthCm   = 25.0; // Comprimento (cm)
@@ -271,7 +276,7 @@ void onWiFiEvent(WiFiEvent_t event) {
 }
 
 // ============================================================================
-// 3. PORTAL DE CONFIGURAÇÃO LOCAL (AP "NETUNO-SETUP" -> 192.168.4.1)
+// 3. PORTAL DE CONFIGURAÇÃO LOCAL (AP "NETUNO-SETUP" -> 10.0.0.1)
 //    Permite cadastrar múltiplas redes Wi-Fi direto pelo celular/PC
 // ============================================================================
 void handlePortalRoot() {
@@ -343,6 +348,7 @@ void handlePortalSave() {
 
   delay(1000);
   apPortalActive = false;
+  dnsServer.stop();
   portalServer.stop();
   WiFi.softAPdisconnect(true);
   wifiState = WIFI_STATE_DISCONNECTED;
@@ -352,13 +358,18 @@ void handlePortalSave() {
 void startConfigPortalAP() {
   if (apPortalActive) return;
 
-  Serial.println("\n[PORTAL AP] Iniciando Ponto de Acesso \"NETUNO-SETUP\" (IP: 192.168.4.1)...");
+  Serial.println("\n[PORTAL AP] Iniciando Ponto de Acesso \"NETUNO-SETUP\" (IP facil: 10.0.0.1)...");
   WiFi.disconnect(true);
   WiFi.mode(WIFI_AP_STA);
+  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
   WiFi.softAP("NETUNO-SETUP");
+
+  // DNS Captive Portal: abre a tela de setup automaticamente no celular ou por qualquer endereco
+  dnsServer.start(53, "*", AP_LOCAL_IP);
 
   portalServer.on("/", HTTP_GET, handlePortalRoot);
   portalServer.on("/save", HTTP_POST, handlePortalSave);
+  portalServer.onNotFound(handlePortalRoot);
   portalServer.begin();
 
   apPortalActive  = true;
@@ -367,9 +378,9 @@ void startConfigPortalAP() {
 
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("Configurar WiFi:");
-  lcd.setCursor(0, 1);
   lcd.print("AP: NETUNO-SETUP");
+  lcd.setCursor(0, 1);
+  lcd.print("IP: 10.0.0.1    ");
 }
 
 // ============================================================================
@@ -379,7 +390,7 @@ void startBestWifiConnection() {
   if (apPortalActive) return;
 
   // Se o ESP32 ainda não possui Usuário e Senha cadastrados na memória,
-  // abre automaticamente a rede NETUNO-SETUP (192.168.4.1) para o cadastro inicial!
+  // abre automaticamente a rede NETUNO-SETUP (10.0.0.1) para o cadastro inicial!
   if (deviceUsername.length() == 0) {
     Serial.println("[SETUP INICIAL] Nenhum usuario/senha cadastrado neste ESP32. Abrindo Portal AP...");
     startConfigPortalAP();
@@ -464,12 +475,14 @@ void startBestWifiConnection() {
 void maintainWiFiConnection() {
   unsigned long now = millis();
 
-  // Se o Portal AP estiver aberto, processa clientes HTTP e tenta reconectar às redes salvas a cada 3 min
+  // Se o Portal AP estiver aberto, processa clientes HTTP/DNS e tenta reconectar às redes salvas a cada 3 min
   if (apPortalActive) {
+    dnsServer.processNextRequest();
     portalServer.handleClient();
     if (now - apPortalStartMs >= 180000) {
       Serial.println("[PORTAL AP] Tempo de portal concluído. Retomando busca por redes salvas...");
       apPortalActive = false;
+      dnsServer.stop();
       portalServer.stop();
       WiFi.softAPdisconnect(true);
       wifiState = WIFI_STATE_DISCONNECTED;
