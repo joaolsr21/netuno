@@ -682,19 +682,38 @@ int bcdToDec(uint8_t val) {
 
 // Lê data e hora diretamente dos registradores do módulo RTC via I2C (ou avança fallback se desconectado)
 void readRtcModule() {
+  bool validRtc = false;
   Wire.beginTransmission(RTC_I2C_ADDR);
   Wire.write(0x00);
   if (Wire.endTransmission() == 0 && Wire.requestFrom(RTC_I2C_ADDR, 7) == 7) {
-    rtcSecond = bcdToDec(Wire.read() & 0x7F);
-    rtcMinute = bcdToDec(Wire.read() & 0x7F);
-    rtcHour   = bcdToDec(Wire.read() & 0x3F);
+    int sec  = bcdToDec(Wire.read() & 0x7F);
+    int min  = bcdToDec(Wire.read() & 0x7F);
+    int hr   = bcdToDec(Wire.read() & 0x3F);
     Wire.read(); // Dia da semana
-    rtcDay    = bcdToDec(Wire.read() & 0x3F);
-    rtcMonth  = bcdToDec(Wire.read() & 0x1F);
-    rtcYear   = 2000 + bcdToDec(Wire.read());
-    lastRtcTickMs = millis();
-  } else {
-    // Fallback suave de 1 segundo caso o módulo RTC esteja sem bateria/desconectado no momento
+    int day  = bcdToDec(Wire.read() & 0x3F);
+    int mon  = bcdToDec(Wire.read() & 0x1F);
+    int yr   = 2000 + bcdToDec(Wire.read());
+
+    // Valida se a data/hora do RTC é uma data real para nunca quebrar o formato ISO no Supabase
+    if (yr >= 2024 && yr <= 2099 &&
+        mon >= 1 && mon <= 12 &&
+        day >= 1 && day <= 31 &&
+        hr >= 0 && hr <= 23 &&
+        min >= 0 && min <= 59 &&
+        sec >= 0 && sec <= 59) {
+      rtcSecond = sec;
+      rtcMinute = min;
+      rtcHour   = hr;
+      rtcDay    = day;
+      rtcMonth  = mon;
+      rtcYear   = yr;
+      lastRtcTickMs = millis();
+      validRtc = true;
+    }
+  }
+
+  if (!validRtc) {
+    // Fallback suave de 1 segundo caso o módulo RTC esteja sem bateria/desconectado ou desconfigurado
     unsigned long now = millis();
     while (now - lastRtcTickMs >= 1000) {
       lastRtcTickMs += 1000;
@@ -731,9 +750,16 @@ void writeRtcModule(int year, int month, int day, int hour, int minute, int seco
 }
 
 String getRtcIsoString() {
+  int safeY  = constrain(rtcYear, 2024, 2099);
+  int safeMo = constrain(rtcMonth, 1, 12);
+  int safeD  = constrain(rtcDay, 1, 28);
+  int safeH  = constrain(rtcHour, 0, 23);
+  int safeMi = constrain(rtcMinute, 0, 59);
+  int safeS  = constrain(rtcSecond, 0, 59);
+
   char buf[26];
   snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
-           rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
+           safeY, safeMo, safeD, safeH, safeMi, safeS);
   return String(buf);
 }
 
@@ -772,11 +798,29 @@ void checkFeederByRtcTime() {
 // ============================================================================
 // 9. SINCRONIZAÇÃO COM SUPABASE (RECEBE AJUSTE DO RTC, HORÁRIOS E WI-FI SETUP)
 // ============================================================================
+String urlEncodeValue(const String& str) {
+  String encoded = "";
+  for (size_t i = 0; i < str.length(); i++) {
+    char c = str.charAt(i);
+    if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.') {
+      encoded += c;
+    } else if (c == ' ') {
+      encoded += "%20";
+    } else {
+      char hex[4];
+      snprintf(hex, sizeof(hex), "%%%02X", (unsigned char)c);
+      encoded += hex;
+    }
+  }
+  return encoded;
+}
+
 void syncStatusWithSupabase() {
   if (WiFi.status() != WL_CONNECTED) return;
 
   String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
-  String filterQuery = "device_username=eq." + activeUser;
+  activeUser.trim();
+  String filterQuery = "device_username=eq." + urlEncodeValue(activeUser);
 
   HTTPClient http;
   http.setTimeout(4500); // Timeout curto para jamais congelar o loop
@@ -799,6 +843,21 @@ void syncStatusWithSupabase() {
                    "\"wifi_rssi\":" + String(WiFi.RSSI()) + "}";
 
   int httpCode = http.POST(payload);
+
+  // Fallback automático: caso o índice UNIQUE ainda não tenha sido criado no banco,
+  // faz PATCH direto na linha do usuário (ou id=1) para nunca dar erro 400
+  if (httpCode == 400) {
+    String errBody = http.getString();
+    Serial.printf("[SUPABASE] Aviso HTTP 400 no POST: %s -> Usando PATCH direto...\n", errBody.c_str());
+    http.end();
+
+    http.begin(filterEndpoint);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("apikey", SUPABASE_KEY);
+    http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+    http.addHeader("Prefer", "return=representation");
+    httpCode = http.PATCH(payload);
+  }
 
   if (httpCode >= 200 && httpCode < 300) {
     httpFailCount = 0;
@@ -856,7 +915,8 @@ void syncStatusWithSupabase() {
     }
   } else {
     httpFailCount++;
-    Serial.printf("[SUPABASE] Falha HTTP %d (Tentativa %d/5)\n", httpCode, httpFailCount);
+    String errBody = http.getString();
+    Serial.printf("[SUPABASE] Falha HTTP %d (Tentativa %d/5): %s\n", httpCode, httpFailCount, errBody.c_str());
   }
   http.end();
 }
