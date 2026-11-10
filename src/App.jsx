@@ -1185,10 +1185,10 @@ export default function App() {
             <button
               onClick={handleDeviceLogout}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0B1D35] hover:bg-rose-500/20 border border-[#1A539B]/60 hover:border-rose-400/50 text-[11px] font-semibold text-sky-200 hover:text-rose-200 transition"
-              title="Sair ou trocar de ESP32"
+              title="Logout"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Trocar ESP32</span>
+              <span className="hidden lg:inline">Logout</span>
             </button>
           </div>
         </div>
