@@ -124,6 +124,7 @@ export default function App() {
     new Date().toTimeString().slice(0, 8)
   );
   const [rtcSaveNotice, setRtcSaveNotice] = useState(false);
+  const [wifiPortalCommandSent, setWifiPortalCommandSent] = useState(false);
   const [lastAutoFedMinuteKey, setLastAutoFedMinuteKey] = useState('');
 
   const [logs, setLogs] = useState([]);
@@ -878,15 +879,9 @@ export default function App() {
     }, 1200);
   };
 
-  const handleOpenExclusiveSetupCommand = async (startStep = 1) => {
-    setDraftConfig({
-      ...config,
-      deviceUsername: activeDeviceUsername || config.deviceUsername || '',
-      devicePassword: authDevice?.password || config.devicePassword || '',
-    });
-    setWizardStep(startStep);
-    setExclusiveSetupMode(true);
-    setActiveTab('setup');
+  // Envia apenas o comando para o ESP32 abrir o Ponto de Acesso de configuração inicial (sem abrir nenhuma tela no site)
+  const handleSendEspPortalCommand = async () => {
+    setWifiPortalCommandSent(true);
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
@@ -894,6 +889,7 @@ export default function App() {
         .eq('device_username', activeDeviceUsername)
         .catch(() => {});
     }
+    setTimeout(() => setWifiPortalCommandSent(false), 3500);
   };
 
   const handleScanWifiNetworks = () => {
@@ -1121,8 +1117,8 @@ export default function App() {
             <nav className="hidden md:flex items-center bg-[#0B1D35]/90 p-1 rounded-xl border border-[#1A539B]/40">
               {[
                 { id: 'dashboard', label: 'Painel Principal', icon: Gauge },
-                { id: 'setup', label: 'Configuração do Sistema', icon: Settings },
                 { id: 'history', label: 'Histórico', icon: TrendingUp },
+                { id: 'setup', label: 'Configurações', icon: Settings },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const active = activeTab === tab.id;
@@ -1152,8 +1148,8 @@ export default function App() {
             </div>
           )}
 
-          {/* Relógio em Tempo Real (RTC) fora de card + Botão de Comando para Abrir Tela Exclusiva de Configuração */}
-          <div className="flex items-center gap-3 sm:gap-4">
+          {/* Relógio em Tempo Real (RTC) + Botão discreto no canto para enviar comando ao ESP32 */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B1D35] border border-sky-400/30 text-xs">
               <User className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
               <span className="font-mono-code font-bold text-white">{activeDeviceUsername}</span>
@@ -1171,34 +1167,24 @@ export default function App() {
               </div>
             </div>
 
-            {!exclusiveSetupMode ? (
-              <button
-                onClick={() => handleOpenExclusiveSetupCommand(1)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2161B2] hover:to-sky-400 border border-sky-300/40 text-xs font-bold text-white shadow-md shadow-[#1A539B]/40 transition"
-                title="Envia comando para abrir apenas a tela de configuração inicial e Wi-Fi"
-              >
-                <Wifi className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Configurar Wi-Fi & Sistema</span>
-                <span className="sm:hidden">Setup</span>
-              </button>
-            ) : (
-              config.setupCompleted && (
-                <button
-                  onClick={() => {
-                    setExclusiveSetupMode(false);
-                    setActiveTab('dashboard');
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F2747] hover:bg-[#1A539B] border border-sky-300/30 text-xs font-semibold text-sky-200 hover:text-white transition"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Voltar ao Painel</span>
-                </button>
-              )
-            )}
+            <button
+              onClick={handleSendEspPortalCommand}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition ${
+                wifiPortalCommandSent
+                  ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                  : 'bg-[#0B1D35] hover:bg-[#1A539B]/70 border-[#1A539B]/60 text-sky-200 hover:text-white'
+              }`}
+              title="Envia comando para o ESP32 abrir a rede NETUNO-SETUP (10.0.0.1)"
+            >
+              <Wifi className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden xl:inline">
+                {wifiPortalCommandSent ? 'Comando Enviado ao ESP32!' : 'Portal ESP32'}
+              </span>
+            </button>
 
             <button
               onClick={handleDeviceLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0B1D35] hover:bg-rose-500/20 border border-[#1A539B]/60 hover:border-rose-400/50 text-xs font-semibold text-sky-200 hover:text-rose-200 transition"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0B1D35] hover:bg-rose-500/20 border border-[#1A539B]/60 hover:border-rose-400/50 text-[11px] font-semibold text-sky-200 hover:text-rose-200 transition"
               title="Sair ou trocar de ESP32"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -1212,8 +1198,8 @@ export default function App() {
           <div className="flex md:hidden border-t border-[#1A539B]/30 bg-[#081528] px-2 py-1.5 justify-around">
             {[
               { id: 'dashboard', label: 'Painel', icon: Gauge },
-              { id: 'setup', label: 'Configuração', icon: Settings },
               { id: 'history', label: 'Histórico', icon: TrendingUp },
+              { id: 'setup', label: 'Configurações', icon: Settings },
             ].map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
