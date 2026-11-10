@@ -930,38 +930,22 @@ export default function App() {
   const wizardSteps = [
     {
       step: 1,
-      title: 'Rede Wi-Fi',
-      subtitle: 'Conexão sem fio e portal inicial',
-      icon: Wifi,
-    },
-    {
-      step: 2,
-      title: 'Dimensões & Litragem',
-      subtitle: 'Tamanho do aquário e cálculo de volume',
+      title: 'Acesso & Aquário',
       icon: Droplets,
     },
     {
-      step: 3,
-      title: 'Níveis de Água',
-      subtitle: 'Limites de alerta crítico, baixo e cheio',
+      step: 2,
+      title: 'Nível & Temperatura',
       icon: Waves,
     },
     {
-      step: 4,
-      title: 'Temperatura Ideal',
-      subtitle: 'Faixa térmica ideal para os peixes',
-      icon: Thermometer,
-    },
-    {
-      step: 5,
+      step: 3,
       title: 'Display LCD',
-      subtitle: 'Personalização do que aparece no visor',
       icon: Monitor,
     },
     {
-      step: 6,
-      title: 'Relógio RTC, Bomba & Comida',
-      subtitle: 'Horário do RTC, oxigenação e alimentador',
+      step: 4,
+      title: 'RTC, Bomba & Ração',
       icon: Clock,
     },
   ];
@@ -1418,7 +1402,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         setDraftConfig(config);
-                        setWizardStep(5);
+                        setWizardStep(3);
                         setActiveTab('setup');
                       }}
                       className="text-xs text-sky-300 hover:text-white flex items-center gap-1"
@@ -1607,225 +1591,105 @@ export default function App() {
         )}
 
         {/* ===================================================================
-            ABA 2: ASSISTENTE DE CONFIGURAÇÃO INICIAL (ESTILO ROTEADOR)
+            ABA DE CONFIGURAÇÕES (LIMPA E ORGANIZADA)
            =================================================================== */}
         {activeTab === 'setup' && (
           <div className="bg-[#0B1D35]/95 backdrop-blur-xl rounded-3xl border border-[#1A539B]/60 shadow-2xl overflow-hidden">
-            {/* Barra de Topo Estilo Painel Admin de Roteador */}
-            <div className="bg-gradient-to-r from-[#081528] via-[#0F2747] to-[#081528] border-b border-[#1A539B]/50 px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#1A539B] border border-sky-300/40 flex items-center justify-center text-white shadow-lg">
-                  <Settings className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono-code uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                      Setup Wizard • Netuno OS
-                    </span>
+            {/* Cabeçalho Limpo + Abas Horizontais */}
+            <div className="bg-[#081528] border-b border-[#1A539B]/50 px-6 py-4 flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#1A539B] border border-sky-300/40 flex items-center justify-center text-white">
+                    <Settings className="w-5 h-5" />
                   </div>
-                  <h2 className="text-lg sm:text-xl font-bold text-white mt-1">
-                    Assistente de Configuração Inicial do Aquário
-                  </h2>
-                  <p className="text-xs text-sky-200/70">
-                    Defina os parâmetros físicos, limites de alerta, visor LCD, oxigenação e alimentação.
-                  </p>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-white">
+                      Configurações do Aquário
+                    </h2>
+                    <p className="text-xs text-sky-200/70">
+                      Capacidade útil calculada: <strong className="text-emerald-300 font-mono-code">{maxVolumeLiters} L</strong> ({TANK_LENGTH_CM}×{TANK_WIDTH_CM}×{TANK_HEIGHT_CM} cm)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <button
+                    onClick={handleResetFactoryDefaults}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#06101E] hover:bg-rose-500/20 text-xs font-medium text-sky-200/80 hover:text-rose-200 border border-[#1A539B]/50 hover:border-rose-400/40 transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Restaurar Padrão
+                  </button>
+                  <button
+                    onClick={handleSaveWizardConfig}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition"
+                  >
+                    <Save className="w-4 h-4" />
+                    Salvar Configurações
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 self-start sm:self-center">
-                <button
-                  onClick={handleResetFactoryDefaults}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#06101E] hover:bg-rose-500/20 text-xs font-medium text-sky-200/80 hover:text-rose-200 border border-[#1A539B]/50 hover:border-rose-400/40 transition"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Padrão de Fábrica
-                </button>
-                <button
-                  onClick={handleSaveWizardConfig}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition"
-                >
-                  <Save className="w-4 h-4" />
-                  Salvar e Aplicar
-                </button>
+              {/* Sub-abas limpas de Configuração */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {wizardSteps.map((item) => {
+                  const Icon = item.icon;
+                  const active = wizardStep === item.step;
+                  return (
+                    <button
+                      key={item.step}
+                      type="button"
+                      onClick={() => setWizardStep(item.step)}
+                      className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
+                        active
+                          ? 'bg-[#1A539B] border-sky-300/50 text-white shadow-md'
+                          : 'bg-[#06101E]/70 border-[#1A539B]/35 text-sky-200/75 hover:bg-[#0F2747]/70 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{item.title}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {saveSuccess && (
-              <div className="bg-emerald-500/20 border-b border-emerald-400/40 px-6 py-3 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-200">
+              <div className="bg-emerald-500/20 border-b border-emerald-400/40 px-6 py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-200">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Configurações salvas e aplicadas com sucesso ao sistema Netuno!</span>
+                <span>Configurações salvas com sucesso!</span>
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-12">
-              {/* Menu Lateral de Etapas (Stepper de Roteador) */}
-              <div className="lg:col-span-4 bg-[#081528]/90 border-b lg:border-b-0 lg:border-r border-[#1A539B]/40 p-5 space-y-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-sky-300/70 px-2 mb-3">
-                  Etapas de Configuração
-                </div>
-                {wizardSteps.map((item) => {
-                  const Icon = item.icon;
-                  const active = wizardStep === item.step;
-                  const completed = wizardStep > item.step;
-                  return (
-                    <button
-                      key={item.step}
-                      onClick={() => setWizardStep(item.step)}
-                      className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-start gap-3.5 ${
-                        active
-                          ? 'bg-[#1A539B] border-sky-300/40 text-white shadow-lg shadow-[#1A539B]/30'
-                          : 'bg-[#06101E]/60 border-[#1A539B]/30 text-sky-100/80 hover:bg-[#0F2747]/60'
-                      }`}
-                    >
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs ${
-                          active
-                            ? 'bg-white text-[#1A539B]'
-                            : completed
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                            : 'bg-[#0B1D35] text-sky-300 border border-[#1A539B]/50'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase tracking-wider opacity-75">
-                            Passo {item.step} de 6
-                          </span>
-                          {completed && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />}
-                        </div>
-                        <div className="text-sm font-bold truncate mt-0.5">{item.title}</div>
-                        <div className="text-[11px] opacity-75 truncate">{item.subtitle}</div>
-                      </div>
-                    </button>
-                  );
-                })}
+            <div className="p-6 sm:p-8 space-y-6">
+              {/* ABA 1: ACESSO & DIMENSÕES DO AQUÁRIO */}
+              {wizardStep === 1 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Acesso do ESP32 */}
+                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      Credenciais de Acesso do ESP32
+                    </h3>
 
-                {/* Resumo Instantâneo do Cálculo no Menu Lateral */}
-                <div className="mt-6 pt-4 border-t border-[#1A539B]/30 px-2 space-y-2 text-xs">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-sky-300/80">
-                    Resumo da Configuração
-                  </div>
-                  <div className="bg-[#06101E] border border-[#1A539B]/40 rounded-2xl p-3.5 space-y-1.5">
-                    <div className="flex justify-between">
-                      <span className="text-sky-200/70">Rede Wi-Fi:</span>
-                      <span className="font-mono-code text-sky-300 font-semibold truncate max-w-[130px]">
-                        {draftConfig.wifiSsid || 'Não definida'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sky-200/70">Medidas:</span>
-                      <span className="font-mono-code text-white font-semibold">
-                        {TANK_LENGTH_CM}×{TANK_WIDTH_CM}×{TANK_HEIGHT_CM} cm
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sky-200/70">Litragem Útil:</span>
-                      <span className="font-mono-code text-emerald-300 font-bold">
-                        {maxVolumeLiters} Litros
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sky-200/70">Temp. Ideal:</span>
-                      <span className="font-mono-code text-sky-300">
-                        {draftConfig.tempMinC}°C a {draftConfig.tempMaxC}°C
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sky-200/70">Alerta Crítico:</span>
-                      <span className="font-mono-code text-rose-300">
-                        &lt; {draftConfig.criticalLevelPct}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Conteúdo da Etapa Selecionada */}
-              <div className="lg:col-span-8 p-6 sm:p-8 flex flex-col justify-between space-y-6">
-                {/* PASSO 1: PAINEL DE CONFIGURAÇÃO WI-FI E PORTAL INICIAL */}
-                {wizardStep === 1 && (
-                  <div className="space-y-6">
-                    <div>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
-                        Passo 1 de 6 • Conectividade Sem Fio
-                      </span>
-                      <h3 className="text-xl font-bold text-white mt-1">
-                        Painel de Configuração Wi-Fi e Primeiro Uso
-                      </h3>
-                      <p className="text-xs sm:text-sm text-sky-200/75 mt-1">
-                        Selecione a rede Wi-Fi 2.4GHz na qual o aquário irá se conectar ou configure o ponto de acesso temporário quando o sistema ligar pela primeira vez.
-                      </p>
-                    </div>
-
-                    {/* Card do Modo Primeiro Uso / Portal de Configuração */}
-                    <div className="bg-gradient-to-r from-[#06101E] to-[#0F2747]/80 border border-sky-400/35 rounded-2xl p-4 sm:p-5 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center shrink-0 mt-0.5">
-                            <Radio className="w-5 h-5 text-sky-300" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-white">
-                              Abertura Automática no Primeiro Uso ou via Comando
-                            </h4>
-                            <p className="text-xs text-sky-200/75 mt-0.5">
-                              Quando ligado pela primeira vez sem Wi-Fi ou sem usuário cadastrado, o ESP32 cria a rede <span className="font-mono-code text-sky-300">{draftConfig.wifiApName}</span> no endereço <span className="font-mono-code text-emerald-300">{draftConfig.wifiPortalIp}</span> para cadastrar a rede Wi-Fi e o <strong>Usuário e Senha</strong> deste ESP32.
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDraftConfig({
-                              ...draftConfig,
-                              autoPortalOnFirstBoot: !draftConfig.autoPortalOnFirstBoot,
-                            })
-                          }
-                          className={`px-3.5 py-2 rounded-xl text-xs font-bold border shrink-0 transition ${
-                            draftConfig.autoPortalOnFirstBoot
-                              ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                              : 'bg-slate-800 border-slate-700 text-slate-400'
-                          }`}
-                        >
-                          {draftConfig.autoPortalOnFirstBoot
-                            ? 'Portal Automático: Ativo'
-                            : 'Portal Automático: Inativo'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Credenciais de Acesso Exclusivo deste ESP32 */}
-                    <div className="bg-[#06101E]/85 border border-emerald-400/40 rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div className="space-y-3">
                       <div>
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                          Usuário e Senha de Acesso deste ESP32
-                        </h4>
-                        <p className="text-[11px] text-sky-200/70">
-                          Credenciais cadastradas na rede inicial do ESP32 (10.0.0.1) usadas para acessar exclusivamente este aquário no site.
-                        </p>
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                          Usuário do ESP32
+                        </label>
+                        <input
+                          type="text"
+                          readOnly
+                          value={activeDeviceUsername}
+                          className="w-full bg-[#0B1D35]/70 border border-[#1A539B]/50 rounded-xl px-3.5 py-2 text-sm font-mono-code text-emerald-300 cursor-not-allowed"
+                        />
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                            Usuário Vinculado ao ESP32
-                          </label>
-                          <input
-                            type="text"
-                            readOnly
-                            value={activeDeviceUsername}
-                            className="w-full bg-[#0B1D35]/70 border border-[#1A539B]/50 rounded-xl px-4 py-2.5 text-sm font-mono-code text-emerald-300 cursor-not-allowed"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                            Senha de Acesso ao ESP32 no Site
-                          </label>
+                      <div>
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                          Senha de Acesso no Site
+                        </label>
+                        <div className="relative">
                           <input
                             type={showWifiPassword ? 'text' : 'password'}
                             maxLength={32}
@@ -1834,280 +1698,44 @@ export default function App() {
                               setDraftConfig({ ...draftConfig, devicePassword: e.target.value })
                             }
                             placeholder="Senha deste ESP32"
-                            className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                            className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl pl-3.5 pr-10 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
                           />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Lista de Redes Wi-Fi Encontradas */}
-                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-4 sm:p-5 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                            <Wifi className="w-4 h-4 text-sky-400" />
-                            Redes Wi-Fi 2.4GHz Disponíveis
-                          </h4>
-                          <p className="text-[11px] text-sky-200/70">
-                            Clique em uma rede da lista para preencher automaticamente ou digite o nome abaixo
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleScanWifiNetworks}
-                          disabled={scanningWifi}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B1D35] hover:bg-[#1A539B] text-sky-200 hover:text-white border border-[#1A539B]/70 text-xs font-semibold transition"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${scanningWifi ? 'animate-spin' : ''}`} />
-                          {scanningWifi ? 'Buscando...' : 'Buscar Redes'}
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {availableNetworks.map((net) => {
-                          const isSelected = draftConfig.wifiSsid === net.ssid;
-                          const signalStrength =
-                            net.rssi > -50 ? 'Forte' : net.rssi > -68 ? 'Bom' : 'Médio';
-                          return (
-                            <button
-                              key={net.ssid}
-                              type="button"
-                              onClick={() =>
-                                setDraftConfig({ ...draftConfig, wifiSsid: net.ssid })
-                              }
-                              className={`p-3 rounded-xl border text-left flex items-center justify-between transition ${
-                                isSelected
-                                  ? 'bg-[#1A539B]/70 border-sky-300 text-white shadow-md'
-                                  : 'bg-[#0B1D35]/70 border-[#1A539B]/40 text-sky-100 hover:bg-[#0F2747]'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <Wifi className="w-4 h-4 text-sky-300 shrink-0" />
-                                <div className="truncate">
-                                  <div className="text-xs font-bold truncate">{net.ssid}</div>
-                                  <div className="text-[10px] text-sky-200/70">{net.security}</div>
-                                </div>
-                              </div>
-                              <span className="text-[11px] font-mono-code px-2 py-0.5 rounded-md bg-[#06101E]/70 text-emerald-300 border border-emerald-400/20">
-                                {signalStrength}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Credenciais da Rede Wi-Fi e Adição na Lista Multi-WiFi */}
-                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-4 sm:p-5 space-y-4">
-                      <div>
-                        <h4 className="text-sm font-bold text-white">
-                          Adicionar ou Atualizar Rede Wi-Fi
-                        </h4>
-                        <p className="text-[11px] text-sky-200/70">
-                          Você pode salvar até 5 redes Wi-Fi diferentes. Se uma cair, o sistema conecta automaticamente na próxima rede disponível com melhor sinal.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                            Nome da Rede Wi-Fi (SSID)
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={32}
-                            value={draftConfig.wifiSsid}
-                            onChange={(e) =>
-                              setDraftConfig({ ...draftConfig, wifiSsid: e.target.value })
-                            }
-                            className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
-                            placeholder="Digite o nome do Wi-Fi"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                            Senha do Wi-Fi
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showWifiPassword ? 'text' : 'password'}
-                              maxLength={64}
-                              value={draftConfig.wifiPassword}
-                              onChange={(e) =>
-                                setDraftConfig({ ...draftConfig, wifiPassword: e.target.value })
-                              }
-                              className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl pl-4 pr-10 py-2.5 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
-                              placeholder="Digite a senha da rede"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowWifiPassword((prev) => !prev)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-sky-300/70 hover:text-white"
-                            >
-                              {showWifiPassword ? (
-                                <EyeOff className="w-4 h-4" />
-                              ) : (
-                                <Eye className="w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="sm:col-span-2 flex flex-wrap items-center gap-2.5">
                           <button
                             type="button"
-                            onClick={() => {
-                              const clean = (draftConfig.wifiSsid || '').trim();
-                              if (!clean) return;
-                              const currentList = Array.isArray(draftConfig.savedWifiNetworks)
-                                ? draftConfig.savedWifiNetworks
-                                : [];
-                              const existingIdx = currentList.findIndex(
-                                (item) => item.ssid.toLowerCase() === clean.toLowerCase()
-                              );
-                              let nextList;
-                              if (existingIdx >= 0) {
-                                nextList = currentList.map((item, idx) =>
-                                  idx === existingIdx
-                                    ? { ...item, ssid: clean, password: draftConfig.wifiPassword }
-                                    : item
-                                );
-                              } else {
-                                if (currentList.length >= 5) return;
-                                nextList = [
-                                  ...currentList,
-                                  {
-                                    id: Date.now(),
-                                    ssid: clean,
-                                    password: draftConfig.wifiPassword,
-                                    priority:
-                                      currentList.length === 0
-                                        ? 'Principal (1ª opção)'
-                                        : `Reserva Automática (${currentList.length + 1}ª opção)`,
-                                  },
-                                ];
-                              }
-                              setDraftConfig({
-                                ...draftConfig,
-                                savedWifiNetworks: nextList,
-                              });
-                            }}
-                            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition"
+                            onClick={() => setShowWifiPassword((prev) => !prev)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-sky-300/70 hover:text-white"
                           >
-                            <Plus className="w-4 h-4" />
-                            Salvar na Lista de Redes ({(draftConfig.savedWifiNetworks || []).length}/5)
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={handleTestWifiConnection}
-                            className={`py-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 border transition ${
-                              wifiTestStatus === 'connecting'
-                                ? 'bg-amber-400 text-slate-950 border-amber-300 animate-pulse'
-                                : 'bg-[#1A539B] hover:bg-[#2364B8] text-white border-sky-300/40 shadow-md'
-                            }`}
-                          >
-                            <Wifi className="w-4 h-4" />
-                            {wifiTestStatus === 'connecting'
-                              ? 'Testando Conexão...'
-                              : `Testar "${draftConfig.wifiSsid || 'Wi-Fi'}"`}
+                            {showWifiPassword ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </div>
 
-                      {/* Lista de Redes Salvas na Memória (Multi-WiFi Failover) */}
-                      <div className="pt-3 border-t border-[#1A539B]/40 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-sky-200">
-                            Redes Wi-Fi Salvas para Troca Automática ({(draftConfig.savedWifiNetworks || []).length}/5)
-                          </span>
-                          <span className="text-[11px] text-emerald-300">
-                            Troca automática caso uma rede caia
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {(draftConfig.savedWifiNetworks || []).map((savedNet, index) => (
-                            <div
-                              key={savedNet.id || savedNet.ssid}
-                              className="bg-[#0B1D35] border border-[#1A539B]/50 rounded-xl p-3 flex items-center justify-between gap-2"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                                    #{index + 1}
-                                  </span>
-                                  <span className="text-xs font-bold text-white truncate">
-                                    {savedNet.ssid}
-                                  </span>
-                                </div>
-                                <span className="text-[10px] text-sky-200/70 block mt-1">
-                                  {index === 0 ? 'Rede Principal Preferencial' : 'Rede Reserva (Failover)'}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDraftConfig({
-                                      ...draftConfig,
-                                      wifiSsid: savedNet.ssid,
-                                      wifiPassword: savedNet.password || '',
-                                    })
-                                  }
-                                  className="px-2.5 py-1 rounded-lg bg-[#06101E] hover:bg-[#1A539B] text-[11px] text-sky-300 hover:text-white border border-[#1A539B]/60 transition"
-                                >
-                                  Usar
-                                </button>
-                                {(draftConfig.savedWifiNetworks || []).length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const nextList = (draftConfig.savedWifiNetworks || []).filter(
-                                        (item) => item.ssid !== savedNet.ssid
-                                      );
-                                      setDraftConfig({
-                                        ...draftConfig,
-                                        savedWifiNetworks: nextList,
-                                        wifiSsid: nextList[0]?.ssid || draftConfig.wifiSsid,
-                                      });
-                                    }}
-                                    className="p-1.5 text-rose-400 hover:text-rose-300"
-                                    title="Remover rede salva"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                      <div className="pt-2 text-[11px] text-sky-200/70">
+                        Para trocar o Wi-Fi do ESP32, use o botão <strong>Portal ESP32</strong> no topo da página e conecte-se na rede <span className="font-mono-code text-sky-300">NETUNO-SETUP</span> (<span className="font-mono-code text-emerald-300">10.0.0.1</span>).
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* PASSO 2: DIMENSÕES DO AQUÁRIO E LITRAGEM */}
-                {wizardStep === 2 && (
-                  <div className="space-y-6">
-                    <div>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
-                        Passo 2 de 6 • Geometria e Capacidade
-                      </span>
-                      <h3 className="text-xl font-bold text-white mt-1">
-                        Dimensões do Aquário e Cálculo de Litragem
+                  {/* Dimensões e Litragem */}
+                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Droplets className="w-4 h-4 text-sky-400" />
+                        Medidas do Aquário
                       </h3>
-                      <p className="text-xs sm:text-sm text-sky-200/75 mt-1">
-                        Informe as medidas reais do seu aquário em centímetros. O sistema calcula automaticamente o volume máximo e os litros atuais.
-                      </p>
+                      <span className="text-xs font-mono-code font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 px-2.5 py-1 rounded-lg">
+                        Volume Útil: {maxVolumeLiters} L
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                          Nome de Identificação do Aquário
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                          Nome do Aquário
                         </label>
                         <input
                           type="text"
@@ -2116,13 +1744,12 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, aquariumName: e.target.value })
                           }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
-                          placeholder="Ex: Aquário Principal da Sala"
+                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm text-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
                           Comprimento (cm)
                         </label>
                         <input
@@ -2133,12 +1760,12 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, lengthCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
                           Largura (cm)
                         </label>
                         <input
@@ -2149,13 +1776,13 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, widthCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                          Altura Total do Vidro (cm) — Limite: 150 cm
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                          Altura Total (cm)
                         </label>
                         <input
                           type="number"
@@ -2165,13 +1792,13 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, heightCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                          Margem de Segurança no Topo (cm) — Mínimo: 2 cm
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                          Margem Sensor (cm)
                         </label>
                         <input
                           type="number"
@@ -2184,67 +1811,30 @@ export default function App() {
                               sensorOffsetCm: Math.max(2, Number(e.target.value)),
                             })
                           }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
                         />
-                        <span className="text-[11px] text-sky-300/70 mt-1 block">
-                          Distância mínima entre a borda superior/sensor e o nível de 100% da água.
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Card de Resultado Automático da Litragem */}
-                    <div className="bg-gradient-to-r from-[#06101E] to-[#0F2747]/80 border border-sky-400/30 rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <span className="text-[11px] text-sky-200/70 block">Volume Total Bruto</span>
-                        <span className="text-xl font-bold text-white font-mono-code">
-                          {((TANK_LENGTH_CM * TANK_WIDTH_CM * TANK_HEIGHT_CM) / 1000).toFixed(2)} L
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[11px] text-sky-200/70 block">Coluna d'Água Útil (100%)</span>
-                        <span className="text-xl font-bold text-sky-300 font-mono-code">
-                          {MAX_COLUMN_CM} cm
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[11px] text-sky-200/70 block">Capacidade Útil (Litragem)</span>
-                        <span className="text-2xl font-extrabold text-emerald-300 font-mono-code">
-                          {maxVolumeLiters} Litros
-                        </span>
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* PASSO 3: NÍVEIS DE ÁGUA E ALERTAS */}
-                {wizardStep === 3 && (
-                  <div className="space-y-6">
-                    <div>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
-                        Passo 3 de 6 • Monitoramento de Volume
-                      </span>
-                      <h3 className="text-xl font-bold text-white mt-1">
-                        Determinar Níveis de Água e Alertas
-                      </h3>
-                      <p className="text-xs sm:text-sm text-sky-200/75 mt-1">
-                        Escolha em quais porcentagens o sistema deve avisar que o nível está baixo, crítico ou muito cheio.
-                      </p>
-                    </div>
+              {/* ABA 2: NÍVEIS DE ÁGUA & TEMPERATURA IDEAL */}
+              {wizardStep === 2 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Limites de Nível */}
+                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Waves className="w-4 h-4 text-sky-400" />
+                      Alertas de Nível da Água
+                    </h3>
 
-                    <div className="space-y-5">
-                      <div className="bg-[#06101E]/85 border border-rose-500/30 rounded-2xl p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <div>
-                            <span className="text-sm font-bold text-rose-300 block">
-                              Nível Crítico (Repor Água Imediatamente)
-                            </span>
-                            <span className="text-xs text-sky-200/70">
-                              Abaixo deste valor um banner vermelho piscante é exibido no topo.
-                            </span>
-                          </div>
-                          <span className="text-lg font-extrabold font-mono-code text-rose-400">
-                            {draftConfig.criticalLevelPct}% (
-                            {((Number(draftConfig.criticalLevelPct) / 100) * Number(maxVolumeLiters)).toFixed(2)} L)
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-semibold text-rose-300">Nível Crítico (Repor Água)</span>
+                          <span className="font-mono-code font-bold text-rose-400">
+                            {draftConfig.criticalLevelPct}%
                           </span>
                         </div>
                         <input
@@ -2262,19 +1852,11 @@ export default function App() {
                         />
                       </div>
 
-                      <div className="bg-[#06101E]/85 border border-amber-500/30 rounded-2xl p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <div>
-                            <span className="text-sm font-bold text-amber-300 block">
-                              Nível de Atenção (Evaporação / Nível Baixo)
-                            </span>
-                            <span className="text-xs text-sky-200/70">
-                              Indica que a água começou a baixar do nível ideal.
-                            </span>
-                          </div>
-                          <span className="text-lg font-extrabold font-mono-code text-amber-300">
-                            {draftConfig.warningLevelPct}% (
-                            {((Number(draftConfig.warningLevelPct) / 100) * Number(maxVolumeLiters)).toFixed(2)} L)
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-semibold text-amber-300">Nível de Atenção (Baixo)</span>
+                          <span className="font-mono-code font-bold text-amber-300">
+                            {draftConfig.warningLevelPct}%
                           </span>
                         </div>
                         <input
@@ -2292,19 +1874,11 @@ export default function App() {
                         />
                       </div>
 
-                      <div className="bg-[#06101E]/85 border border-sky-400/30 rounded-2xl p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <div>
-                            <span className="text-sm font-bold text-sky-300 block">
-                              Alerta de Nível Muito Cheio (Risco de Transbordo)
-                            </span>
-                            <span className="text-xs text-sky-200/70">
-                              Acima deste percentual o painel avisa que o aquário está cheio demais.
-                            </span>
-                          </div>
-                          <span className="text-lg font-extrabold font-mono-code text-sky-300">
-                            {draftConfig.maxAlertLevelPct}% (
-                            {((Number(draftConfig.maxAlertLevelPct) / 100) * Number(maxVolumeLiters)).toFixed(2)} L)
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-semibold text-sky-300">Alerta Muito Cheio</span>
+                          <span className="font-mono-code font-bold text-sky-300">
+                            {draftConfig.maxAlertLevelPct}%
                           </span>
                         </div>
                         <input
@@ -2323,29 +1897,19 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* PASSO 4: TEMPERATURA IDEAL */}
-                {wizardStep === 4 && (
-                  <div className="space-y-6">
-                    <div>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
-                        Passo 4 de 6 • Clima da Água
-                      </span>
-                      <h3 className="text-xl font-bold text-white mt-1">
-                        Configuração da Temperatura Ideal
-                      </h3>
-                      <p className="text-xs sm:text-sm text-sky-200/75 mt-1">
-                        Escolha um perfil rápido conforme os seus peixes ou personalize a temperatura mínima e máxima.
-                      </p>
-                    </div>
+                  {/* Temperatura Ideal */}
+                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Thermometer className="w-4 h-4 text-emerald-400" />
+                      Faixa de Temperatura Ideal
+                    </h3>
 
-                    {/* Perfis rápidos de espécies */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-2">
                       {[
-                        { label: 'Peixes Tropicais', sub: '24°C a 28°C', min: 24, max: 28 },
-                        { label: 'Comunitário Padrão', sub: '22°C a 29°C', min: 22, max: 29 },
-                        { label: 'Água Fria / Carpas', sub: '18°C a 23°C', min: 18, max: 23 },
+                        { label: 'Tropical', sub: '24–28°C', min: 24, max: 28 },
+                        { label: 'Comunitário', sub: '22–29°C', min: 22, max: 29 },
+                        { label: 'Água Fria', sub: '18–23°C', min: 18, max: 23 },
                       ].map((preset) => {
                         const selected =
                           Number(draftConfig.tempMinC) === preset.min &&
@@ -2361,14 +1925,14 @@ export default function App() {
                                 tempMaxC: preset.max,
                               })
                             }
-                            className={`p-4 rounded-2xl border text-left transition ${
+                            className={`p-2.5 rounded-xl border text-center transition ${
                               selected
-                                ? 'bg-[#1A539B] border-sky-300 text-white shadow-md'
-                                : 'bg-[#06101E]/80 border-[#1A539B]/40 text-sky-200 hover:bg-[#0F2747]'
+                                ? 'bg-[#1A539B] border-sky-300 text-white'
+                                : 'bg-[#0B1D35] border-[#1A539B]/40 text-sky-200 hover:bg-[#0F2747]'
                             }`}
                           >
-                            <div className="text-sm font-bold">{preset.label}</div>
-                            <div className="text-xs text-emerald-300 font-mono-code mt-0.5">
+                            <div className="text-xs font-bold">{preset.label}</div>
+                            <div className="text-[11px] text-emerald-300 font-mono-code">
                               {preset.sub}
                             </div>
                           </button>
@@ -2376,10 +1940,10 @@ export default function App() {
                       })}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-[#06101E] border border-[#1A539B]/50 rounded-2xl p-4">
-                        <label className="block text-xs font-semibold text-sky-300 mb-2">
-                          Temperatura Mínima Ideal (°C)
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-xs font-semibold text-sky-300 mb-1">
+                          Mínima (°C)
                         </label>
                         <input
                           type="number"
@@ -2390,16 +1954,13 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, tempMinC: Number(e.target.value) })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-4 py-2.5 text-lg font-bold font-mono-code text-white"
+                          className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white"
                         />
-                        <span className="text-[11px] text-sky-200/60 mt-1.5 block">
-                          Abaixo de {draftConfig.tempMinC}°C exibe alerta de "Água Fria".
-                        </span>
                       </div>
 
-                      <div className="bg-[#06101E] border border-[#1A539B]/50 rounded-2xl p-4">
-                        <label className="block text-xs font-semibold text-rose-300 mb-2">
-                          Temperatura Máxima Ideal (°C)
+                      <div>
+                        <label className="block text-xs font-semibold text-rose-300 mb-1">
+                          Máxima (°C)
                         </label>
                         <input
                           type="number"
@@ -2410,276 +1971,217 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, tempMaxC: Number(e.target.value) })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-4 py-2.5 text-lg font-bold font-mono-code text-white"
+                          className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white"
                         />
-                        <span className="text-[11px] text-sky-200/60 mt-1.5 block">
-                          Acima de {draftConfig.tempMaxC}°C exibe alerta de "Água Quente".
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ABA 3: DISPLAY LCD */}
+              {wizardStep === 3 && (
+                <div className="space-y-5">
+                  <div className="rounded-2xl bg-[#050D1A] border-2 border-[#1A539B]/70 p-4 shadow-inner">
+                    <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between">
+                      <span>Prévia do Display LCD (16x2)</span>
+                      {draftConfig.lcdCarousel && (
+                        <span className="text-emerald-300 font-semibold">Carrossel Ativo (4s)</span>
+                      )}
+                    </div>
+                    <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-5 py-3.5">
+                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 whitespace-pre">
+                        {lcdLine0}
+                      </div>
+                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 whitespace-pre mt-1">
+                        {lcdLine1}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        Linha 1 (Superior)
+                      </label>
+                      <select
+                        value={draftConfig.lcdLine1Mode}
+                        onChange={(e) =>
+                          setDraftConfig({ ...draftConfig, lcdLine1Mode: e.target.value })
+                        }
+                        className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                      >
+                        <option value="water_pct">Nível da Água (%)</option>
+                        <option value="volume_liters">Volume Atual (Litros)</option>
+                        <option value="rtc_time">Horário do RTC</option>
+                        <option value="custom_title">Texto Personalizado</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        Linha 2 (Inferior)
+                      </label>
+                      <select
+                        value={draftConfig.lcdLine2Mode}
+                        onChange={(e) =>
+                          setDraftConfig({ ...draftConfig, lcdLine2Mode: e.target.value })
+                        }
+                        className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                      >
+                        <option value="temp_c">Temperatura (°C)</option>
+                        <option value="rtc_time">Horário do RTC</option>
+                        <option value="pump_status">Status da Bomba (Ligada / Desligada)</option>
+                        <option value="next_feed">Próximo Horário de Comida</option>
+                      </select>
+                    </div>
+
+                    {draftConfig.lcdLine1Mode === 'custom_title' && (
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                          Texto Personalizado (Máx. 16 caracteres)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={16}
+                          value={draftConfig.lcdCustomText}
+                          onChange={(e) =>
+                            setDraftConfig({ ...draftConfig, lcdCustomText: e.target.value })
+                          }
+                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code uppercase text-white"
+                          placeholder="NETUNO AQUARIO"
+                        />
+                      </div>
+                    )}
+
+                    <div className="sm:col-span-2 bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4 flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-white block">
+                          Alternar Telas Automaticamente (Carrossel)
+                        </span>
+                        <span className="text-xs text-sky-200/70">
+                          Alterna a cada 4 segundos entre Nível/Temperatura e Volume/Hora.
                         </span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDraftConfig({
+                            ...draftConfig,
+                            lcdCarousel: !draftConfig.lcdCarousel,
+                          })
+                        }
+                        className={`w-12 h-6 rounded-full p-1 transition ${
+                          draftConfig.lcdCarousel ? 'bg-emerald-500' : 'bg-slate-700'
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                            draftConfig.lcdCarousel ? 'translate-x-6' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* PASSO 5: DISPLAY LCD */}
-                {wizardStep === 5 && (
+              {/* ABA 4: RTC, BOMBA & ALIMENTADOR */}
+              {wizardStep === 4 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-6">
-                    <div>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
-                        Passo 5 de 6 • Visor do Aquário
-                      </span>
-                      <h3 className="text-xl font-bold text-white mt-1">
-                        O que será mostrado no Display LCD
-                      </h3>
-                      <p className="text-xs sm:text-sm text-sky-200/75 mt-1">
-                        Personalize as duas linhas do visor (limite de 16 caracteres por linha) ou ative a alternância automática.
-                      </p>
-                    </div>
-
-                    {/* Prévia ao vivo do Display LCD */}
-                    <div className="rounded-2xl bg-[#050D1A] border-2 border-[#1A539B]/70 p-4 shadow-inner">
-                      <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between">
-                        <span>Prévia em Tempo Real do Display LCD</span>
-                        {draftConfig.lcdCarousel && (
-                          <span className="text-emerald-300 font-semibold">
-                            Alternando telas a cada 4s
-                          </span>
-                        )}
-                      </div>
-                      <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-5 py-4 shadow-[inset_0_0_24px_rgba(16,185,129,0.25)]">
-                        <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 whitespace-pre">
-                          {lcdLine0}
-                        </div>
-                        <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 whitespace-pre mt-1.5">
-                          {lcdLine1}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                          Informação da Linha 1 (Superior)
-                        </label>
-                        <select
-                          value={draftConfig.lcdLine1Mode}
-                          onChange={(e) =>
-                            setDraftConfig({ ...draftConfig, lcdLine1Mode: e.target.value })
-                          }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm text-white"
-                        >
-                          <option value="water_pct">Nível da Água em % (Ex: Nivel Agua: 85%)</option>
-                          <option value="volume_liters">Volume Atual em Litros (Ex: Volume: 4.4 L)</option>
-                          <option value="rtc_time">Horário do Relógio RTC (Ex: Hora: 08:35:00)</option>
-                          <option value="custom_title">Texto Personalizado (Até 16 letras)</option>
-                        </select>
+                    {/* Relógio RTC */}
+                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-sky-400" />
+                          Relógio do Módulo RTC
+                        </h4>
+                        <span className="font-mono-code text-xs font-bold text-emerald-300">
+                          {rtcTimeFormatted}
+                        </span>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                          Informação da Linha 2 (Inferior)
-                        </label>
-                        <select
-                          value={draftConfig.lcdLine2Mode}
-                          onChange={(e) =>
-                            setDraftConfig({ ...draftConfig, lcdLine2Mode: e.target.value })
-                          }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm text-white"
-                        >
-                          <option value="temp_c">Temperatura em °C (Ex: Temp: 26.0 C)</option>
-                          <option value="rtc_time">Horário do Relógio RTC (Ex: Hora: 08:35:00)</option>
-                          <option value="pump_status">Status da Bomba (Ligada / Desligada)</option>
-                          <option value="next_feed">Próximo Horário de Comida</option>
-                        </select>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <input
+                          type="date"
+                          value={rtcEditDate}
+                          onChange={(e) => setRtcEditDate(e.target.value)}
+                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
+                        />
+                        <input
+                          type="time"
+                          step="1"
+                          value={rtcEditTime}
+                          onChange={(e) => setRtcEditTime(e.target.value)}
+                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
+                        />
                       </div>
 
-                      {draftConfig.lcdLine1Mode === 'custom_title' && (
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-semibold text-sky-200 mb-1.5">
-                            Texto Personalizado da Linha 1 (Máximo 16 caracteres, sem acento)
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={16}
-                            value={draftConfig.lcdCustomText}
-                            onChange={(e) =>
-                              setDraftConfig({ ...draftConfig, lcdCustomText: e.target.value })
-                            }
-                            className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm font-mono-code uppercase text-white"
-                            placeholder="NETUNO AQUARIO"
-                          />
-                        </div>
-                      )}
-
-                      <div className="sm:col-span-2 bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4 flex items-center justify-between">
-                        <div>
-                          <span className="text-sm font-bold text-white block">
-                            Modo Carrossel (Alternar Informações Automaticamente)
-                          </span>
-                          <span className="text-xs text-sky-200/70">
-                            Alterna a cada 4 segundos entre Nível/Temperatura e Litragem/Bomba de Oxigênio.
-                          </span>
-                        </div>
+                      <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            setDraftConfig({
-                              ...draftConfig,
-                              lcdCarousel: !draftConfig.lcdCarousel,
-                            })
-                          }
-                          className={`w-12 h-6 rounded-full p-1 transition ${
-                            draftConfig.lcdCarousel ? 'bg-emerald-500' : 'bg-slate-700'
-                          }`}
+                          onClick={() => handleApplyRtcDateTime(null)}
+                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition"
                         >
-                          <div
-                            className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                              draftConfig.lcdCarousel ? 'translate-x-6' : 'translate-x-0'
-                            }`}
-                          />
+                          Gravar no RTC
                         </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* PASSO 6: BOMBA DE OXIGÊNIO E CONFIGURAÇÃO DA COMIDA */}
-                {wizardStep === 6 && (
-                  <div className="space-y-6">
-                    <div>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
-                        Passo 6 de 6 • Relógio RTC, Oxigenação e Alimentação
-                      </span>
-                      <h3 className="text-xl font-bold text-white mt-1">
-                        Configuração do Módulo RTC, Bomba de Oxigênio e Alimentador
-                      </h3>
-                      <p className="text-xs sm:text-sm text-sky-200/75 mt-1">
-                        Ajuste o horário gravado no módulo RTC e programe o alimentador (que dispara com base no horário do RTC).
-                      </p>
-                    </div>
-
-                    {/* Bloco 0: Configuração de Data e Horário do Módulo RTC */}
-                    <div className="bg-[#06101E]/85 border border-sky-400/40 rounded-2xl p-5 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <h4 className="text-base font-bold text-white flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-sky-400" />
-                            Configuração de Horário do Módulo RTC
-                          </h4>
-                          <p className="text-xs text-sky-200/70">
-                            Defina a data e a hora exatas que ficarão salvas no módulo RTC do ESP32 ou sincronize com o relógio atual.
-                          </p>
-                        </div>
-
-                        <div className="px-3.5 py-2 rounded-xl bg-[#0B1D35] border border-sky-400/30 text-right">
-                          <span className="text-[10px] uppercase tracking-wider text-sky-300/80 block">
-                            Horário Atual no RTC
-                          </span>
-                          <span className="font-mono-code text-base font-extrabold text-emerald-300">
-                            {rtcTimeFormatted} • {rtcDateFormatted}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                        <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1">
-                            Data do Módulo RTC
-                          </label>
-                          <input
-                            type="date"
-                            value={rtcEditDate}
-                            onChange={(e) => setRtcEditDate(e.target.value)}
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1">
-                            Horário do Módulo RTC (HH:MM:SS)
-                          </label>
-                          <input
-                            type="time"
-                            step="1"
-                            value={rtcEditTime}
-                            onChange={(e) => setRtcEditTime(e.target.value)}
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
-                          />
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleApplyRtcDateTime(null)}
-                            className="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition"
-                          >
-                            Gravar Horário no RTC
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleApplyRtcDateTime(new Date().toISOString())}
-                            className="py-2 px-3 rounded-xl bg-[#1A539B] hover:bg-[#2364B8] text-white text-xs font-bold border border-sky-300/30 transition"
-                            title="Puxa a data e hora atuais do navegador/celular e grava no RTC"
-                          >
-                            Usar Hora Atual
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyRtcDateTime(new Date().toISOString())}
+                          className="py-2 px-3 rounded-xl bg-[#1A539B] hover:bg-[#2364B8] text-white text-xs font-bold border border-sky-300/30 transition"
+                        >
+                          Sincronizar Hora Atual
+                        </button>
                       </div>
 
                       {rtcSaveNotice && (
                         <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold">
-                          <CheckCircle2 className="w-4 h-4" />
-                          Horário enviado e atualizado no módulo RTC com sucesso!
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Horário atualizado no RTC!
                         </div>
                       )}
                     </div>
 
-                    {/* Bloco 1: Bomba de Oxigênio */}
-                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <h4 className="text-base font-bold text-white flex items-center gap-2">
-                            <Wind className="w-4 h-4 text-sky-400" />
-                            Bomba de Oxigênio ({pumpRelayOn ? 'Ligada' : 'Desligada'})
-                          </h4>
-                          <p className="text-xs text-sky-200/70">
-                            Defina o modo de operação e a proteção contra funcionamento a seco
-                          </p>
-                        </div>
-
+                    {/* Bomba de Oxigênio */}
+                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <Wind className="w-4 h-4 text-sky-400" />
+                          Bomba ({pumpRelayOn ? 'Ligada' : 'Desligada'})
+                        </h4>
                         <button
                           type="button"
                           onClick={handleTogglePump}
-                          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
                             pumpRelayOn
-                              ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                              ? 'bg-emerald-500 text-slate-950'
                               : 'bg-[#1A539B] text-white border border-sky-300/30'
                           }`}
                         >
-                          <Power className="w-4 h-4" />
-                          {pumpRelayOn ? 'Bomba Ligada (Desligar)' : 'Bomba Desligada (Ligar)'}
+                          <Power className="w-3.5 h-3.5" />
+                          {pumpRelayOn ? 'Desligar Bomba' : 'Ligar Bomba'}
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      <div className="grid grid-cols-3 gap-2.5 pt-1">
                         <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1">
-                            Modo de Operação
-                          </label>
+                          <label className="block text-[11px] text-sky-200/80 mb-1">Modo</label>
                           <select
                             value={draftConfig.pumpMode}
                             onChange={(e) =>
                               setDraftConfig({ ...draftConfig, pumpMode: e.target.value })
                             }
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs text-white"
+                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs text-white"
                           >
-                            <option value="auto">Ciclo Automático</option>
-                            <option value="manual">Manual Fixo</option>
+                            <option value="auto">Automático</option>
+                            <option value="manual">Manual</option>
                           </select>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1">
-                            Tempo Ligada no Ciclo (min)
+                          <label className="block text-[11px] text-sky-200/80 mb-1">
+                            Ciclo Ligada (min)
                           </label>
                           <input
                             type="number"
@@ -2692,13 +2194,13 @@ export default function App() {
                                 pumpCycleOnMin: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
+                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-sky-200 mb-1">
-                            Desligamento Segurança (&lt; %)
+                          <label className="block text-[11px] text-sky-200/80 mb-1">
+                            Corte Seg. (&lt; %)
                           </label>
                           <input
                             type="number"
@@ -2711,185 +2213,120 @@ export default function App() {
                                 pumpSafetyCutoffPct: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
+                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white"
                           />
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Bloco 2: Alimentador e Horários */}
-                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <h4 className="text-base font-bold text-white flex items-center gap-2">
-                            <Utensils className="w-4 h-4 text-sky-400" />
-                            Configuração da Comida (Alimentador)
-                          </h4>
-                          <p className="text-xs text-sky-200/70">
-                            Porção padrão, teste imediato e horários programados (máx. 8 por dia)
-                          </p>
-                        </div>
+                  {/* Alimentador Automático */}
+                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Utensils className="w-4 h-4 text-sky-400" />
+                        Alimentador ({schedules.length}/8 horários)
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerFeedNow(draftConfig.defaultPortion)}
+                        disabled={feedNowCommand}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                          feedNowCommand
+                            ? 'bg-amber-400 text-slate-950 animate-pulse'
+                            : 'bg-gradient-to-r from-[#1A539B] to-sky-500 text-white'
+                        }`}
+                      >
+                        <Utensils className="w-3.5 h-3.5" />
+                        {feedNowCommand ? 'Alimentando...' : 'Alimentar Agora'}
+                      </button>
+                    </div>
 
+                    <div className="grid grid-cols-3 gap-2">
+                      {['Leve (3g)', 'Padrão (5g)', 'Generosa (8g)'].map((portion) => (
                         <button
+                          key={portion}
                           type="button"
-                          onClick={() => handleTriggerFeedNow(draftConfig.defaultPortion)}
-                          disabled={feedNowCommand}
-                          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
-                            feedNowCommand
-                              ? 'bg-amber-400 text-slate-950 animate-pulse'
-                              : 'bg-gradient-to-r from-[#1A539B] to-sky-500 text-white'
+                          onClick={() =>
+                            setDraftConfig({ ...draftConfig, defaultPortion: portion })
+                          }
+                          className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition ${
+                            draftConfig.defaultPortion === portion
+                              ? 'bg-[#1A539B] border-sky-400 text-white'
+                              : 'bg-[#0B1D35] border-[#1A539B]/40 text-sky-200/70'
                           }`}
                         >
-                          <Utensils className="w-4 h-4" />
-                          {feedNowCommand
-                            ? 'Dispensando Ração...'
-                            : `Alimentar Agora (${draftConfig.defaultPortion})`}
+                          {portion}
                         </button>
-                      </div>
-
-                      {/* Seleção de porção padrão */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {['Leve (3g)', 'Padrão (5g)', 'Generosa (8g)'].map((portion) => (
-                          <button
-                            key={portion}
-                            type="button"
-                            onClick={() =>
-                              setDraftConfig({ ...draftConfig, defaultPortion: portion })
-                            }
-                            className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition ${
-                              draftConfig.defaultPortion === portion
-                                ? 'bg-[#1A539B] border-sky-400 text-white'
-                                : 'bg-[#0B1D35] border-[#1A539B]/40 text-sky-200/70'
-                            }`}
-                          >
-                            {portion}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Lista de horários programados */}
-                      <div className="space-y-2 pt-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="text-xs font-semibold text-sky-200 flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-sky-400" />
-                            Horários Programados (Acionados pelo Relógio do Módulo RTC) ({schedules.length}/8)
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-sky-200/75">
-                              Hora base do RTC: <strong className="font-mono-code text-emerald-300">{rtcTimeFormatted}</strong>
-                            </span>
-                            {nextSchedule && (
-                              <span className="px-2 py-0.5 rounded-md bg-sky-500/20 border border-sky-400/30 text-sky-200 text-[11px] font-mono-code">
-                                Próx. refeição pelo RTC: {nextSchedule.time}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {schedules.map((item) => (
-                            <div
-                              key={item.id}
-                              className="bg-[#0B1D35] border border-[#1A539B]/50 rounded-xl p-3 flex items-center justify-between"
-                            >
-                              <div>
-                                <span className="text-base font-extrabold font-mono-code text-white">
-                                  {item.time}
-                                </span>
-                                <span className="text-xs text-sky-300 block">{item.portion}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleSchedule(item.id)}
-                                  className={`w-9 h-5 rounded-full p-0.5 transition ${
-                                    item.enabled ? 'bg-emerald-500' : 'bg-slate-700'
-                                  }`}
-                                >
-                                  <div
-                                    className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                                      item.enabled ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteSchedule(item.id)}
-                                  className="p-1 text-rose-400 hover:text-rose-300"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {schedules.length < 8 && (
-                          <form onSubmit={handleAddSchedule} className="flex flex-wrap gap-2 pt-2">
-                            <input
-                              type="time"
-                              value={newScheduleTime}
-                              onChange={(e) => setNewScheduleTime(e.target.value)}
-                              className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
-                            />
-                            <select
-                              value={newSchedulePortion}
-                              onChange={(e) => setNewSchedulePortion(e.target.value)}
-                              className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs text-white flex-1"
-                            >
-                              <option value="Leve (3g)">Leve (3g)</option>
-                              <option value="Padrão (5g)">Padrão (5g)</option>
-                              <option value="Generosa (8g)">Generosa (8g)</option>
-                            </select>
-                            <button
-                              type="submit"
-                              className="bg-[#1A539B] hover:bg-[#2364B8] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Adicionar Horário
-                            </button>
-                          </form>
-                        )}
-                      </div>
+                      ))}
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {schedules.map((item) => (
+                        <div
+                          key={item.id}
+                          className="bg-[#0B1D35] border border-[#1A539B]/50 rounded-xl p-2.5 flex items-center justify-between"
+                        >
+                          <div>
+                            <span className="text-sm font-extrabold font-mono-code text-white">
+                              {item.time}
+                            </span>
+                            <span className="text-[11px] text-sky-300 block">{item.portion}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSchedule(item.id)}
+                              className={`w-8 h-4 rounded-full p-0.5 transition ${
+                                item.enabled ? 'bg-emerald-500' : 'bg-slate-700'
+                              }`}
+                            >
+                              <div
+                                className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                                  item.enabled ? 'translate-x-4' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSchedule(item.id)}
+                              className="p-1 text-rose-400 hover:text-rose-300"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {schedules.length < 8 && (
+                      <form onSubmit={handleAddSchedule} className="flex gap-2 pt-1">
+                        <input
+                          type="time"
+                          value={newScheduleTime}
+                          onChange={(e) => setNewScheduleTime(e.target.value)}
+                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white"
+                        />
+                        <select
+                          value={newSchedulePortion}
+                          onChange={(e) => setNewSchedulePortion(e.target.value)}
+                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs text-white flex-1"
+                        >
+                          <option value="Leve (3g)">Leve (3g)</option>
+                          <option value="Padrão (5g)">Padrão (5g)</option>
+                          <option value="Generosa (8g)">Generosa (8g)</option>
+                        </select>
+                        <button
+                          type="submit"
+                          className="bg-[#1A539B] hover:bg-[#2364B8] text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Adicionar
+                        </button>
+                      </form>
+                    )}
                   </div>
-                )}
-
-                {/* Rodapé de Navegação Entre os Passos do Assistente */}
-                <div className="pt-5 border-t border-[#1A539B]/40 flex items-center justify-between">
-                  <button
-                    type="button"
-                    disabled={wizardStep === 1}
-                    onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border transition ${
-                      wizardStep === 1
-                        ? 'opacity-40 cursor-not-allowed bg-[#06101E] border-slate-800 text-slate-500'
-                        : 'bg-[#06101E] border-[#1A539B] text-sky-200 hover:bg-[#0F2747]'
-                    }`}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Passo Anterior
-                  </button>
-
-                  {wizardStep < 6 ? (
-                    <button
-                      type="button"
-                      onClick={() => setWizardStep((s) => Math.min(6, s + 1))}
-                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#1A539B] hover:bg-[#2364B8] text-white text-xs font-bold border border-sky-300/30 shadow-md transition"
-                    >
-                      Próximo Passo
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleSaveWizardConfig}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold shadow-lg shadow-emerald-500/25 transition"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Concluir e Salvar Configurações
-                    </button>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
