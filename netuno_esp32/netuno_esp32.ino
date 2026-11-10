@@ -126,6 +126,9 @@ enum WifiState {
 
 WifiState wifiState         = WIFI_STATE_DISCONNECTED;
 String    connectedSsid     = "";
+String    deviceUsername    = "";
+String    devicePassword    = "";
+String    deviceHardwareId  = "";
 int       currentNetIndex   = -1;
 int       consecutiveFails  = 0;
 int       httpFailCount     = 0;
@@ -155,7 +158,14 @@ void loadSavedNetworksFromNVS() {
       savedNetworks[i].enabled  = true;
     }
   }
+  deviceUsername = prefs.getString("dev_user", "");
+  devicePassword = prefs.getString("dev_pass", "");
   prefs.end();
+
+  deviceHardwareId = WiFi.macAddress();
+  Serial.printf("\n[NVS] ESP32 ID: %s | Usuario cadastrado: \"%s\"\n",
+                deviceHardwareId.c_str(),
+                deviceUsername.length() > 0 ? deviceUsername.c_str() : "(Nao configurado)");
 
   Serial.println("\n[NVS] Redes Wi-Fi cadastradas na memória do ESP32:");
   for (int i = 0; i < MAX_SAVED_WIFI; i++) {
@@ -182,6 +192,25 @@ void saveNetworkToNVS(int slot, const String& ssid, const String& password) {
   prefs.end();
 
   Serial.printf("[NVS] Rede salva no Slot %d: \"%s\"\n", slot + 1, cleanSsid.c_str());
+}
+
+void saveDeviceCredentialsToNVS(const String& user, const String& pass) {
+  String cleanUser = user;
+  cleanUser.trim();
+  String cleanPass = pass;
+  cleanPass.trim();
+
+  if (cleanUser.length() == 0) return;
+
+  deviceUsername = cleanUser;
+  devicePassword = cleanPass;
+
+  prefs.begin("netuno_wifi", false);
+  prefs.putString("dev_user", deviceUsername);
+  prefs.putString("dev_pass", devicePassword);
+  prefs.end();
+
+  Serial.printf("[NVS] Credenciais do ESP32 salvas! Usuario: \"%s\"\n", deviceUsername.c_str());
 }
 
 // Adiciona ou atualiza uma rede na lista de redes salvas (sem duplicar SSID)
@@ -248,17 +277,35 @@ void onWiFiEvent(WiFiEvent_t event) {
 void handlePortalRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
-  html += "<title>Netuno - Configurar Wi-Fi</title>";
+  html += "<title>Netuno - Configurar ESP32</title>";
   html += "<style>body{font-family:sans-serif;background:#06101E;color:#fff;padding:18px;margin:0}";
-  html += ".card{max-width:440px;margin:0 auto;background:#0B1D35;border:1px solid #1A539B;border-radius:16px;padding:20px}";
-  html += "h2{margin-top:0;color:#38bdf8}label{display:block;font-size:12px;color:#bae6fd;margin:10px 0 4px}";
+  html += ".card{max-width:460px;margin:0 auto;background:#0B1D35;border:1px solid #1A539B;border-radius:16px;padding:20px}";
+  html += "h2{margin-top:0;color:#38bdf8}h4{margin:16px 0 8px;color:#7dd3fc;border-bottom:1px solid #1e3a8a;padding-bottom:4px}";
+  html += "label{display:block;font-size:12px;color:#bae6fd;margin:10px 0 4px}";
   html += "input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #1A539B;background:#06101E;color:#fff}";
-  html += "button{width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:#10b981;color:#052e16;font-weight:bold;cursor:pointer}";
+  html += "button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:10px;background:#10b981;color:#052e16;font-weight:bold;cursor:pointer;font-size:14px}";
   html += ".net{font-size:12px;padding:6px 10px;background:#06101E;border-radius:8px;margin-bottom:6px;border:1px solid #1e3a8a}</style></head><body>";
-  html += "<div class='card'><h2>Netuno • Multi-WiFi</h2>";
-  html += "<p style='font-size:13px;color:#93c5fd'>Cadastre até 5 redes Wi-Fi (2.4GHz). O ESP32 escolherá automaticamente a rede com melhor sinal.</p>";
+  html += "<div class='card'><h2>Netuno • Setup Inicial do ESP32</h2>";
+  html += "<p style='font-size:12px;color:#93c5fd;margin-top:4px'>ID Físico (MAC): <strong>" + WiFi.macAddress() + "</strong></p>";
 
-  html += "<h4 style='margin-bottom:8px;color:#7dd3fc'>Redes Salvas na Memória:</h4>";
+  html += "<form method='POST' action='/save'>";
+  html += "<h4>1. Cadastrar Acesso deste ESP32 no Site</h4>";
+  html += "<p style='font-size:12px;color:#93c5fd;margin:4px 0 8px'>Defina o Usuário e Senha que você usará no site para acessar este ESP32 em específico:</p>";
+  html += "<label>Usuário do ESP32 (Acesso no Site):</label>";
+  html += "<input name='dev_user' value='" + deviceUsername + "' placeholder='Ex: aquario_joao' required>";
+  html += "<label>Senha do ESP32 (Acesso no Site):</label>";
+  html += "<input name='dev_pass' type='password' value='" + devicePassword + "' placeholder='Crie uma senha de acesso' required>";
+
+  html += "<h4>2. Configurar Rede Wi-Fi (2.4 GHz)</h4>";
+  html += "<label>Nome do Wi-Fi (SSID):</label>";
+  html += "<input name='ssid' value='" + (savedNetworks[0].enabled ? savedNetworks[0].ssid : String("")) + "' placeholder='Ex: Iphone de JL' required>";
+  html += "<label>Senha do Wi-Fi:</label>";
+  html += "<input name='pass' type='password' value='" + (savedNetworks[0].enabled ? savedNetworks[0].password : String("")) + "' placeholder='Senha da rede Wi-Fi'>";
+
+  html += "<button type='submit'>Salvar Usuário, Senha e Wi-Fi</button>";
+  html += "</form>";
+
+  html += "<h4>Redes Wi-Fi Salvas na Memória:</h4>";
   for (int i = 0; i < MAX_SAVED_WIFI; i++) {
     html += "<div class='net'><strong>Rede " + String(i + 1) + ":</strong> ";
     html += (savedNetworks[i].enabled && savedNetworks[i].ssid.length() > 0)
@@ -266,22 +313,20 @@ void handlePortalRoot() {
               : "<em>(Vazio)</em>";
     html += "</div>";
   }
-
-  html += "<form method='POST' action='/save'>";
-  html += "<label>Adicionar / Atualizar Nome do Wi-Fi (SSID):</label>";
-  html += "<input name='ssid' placeholder='Ex: Casa_Fibra_2.4G' required>";
-  html += "<label>Senha do Wi-Fi:</label>";
-  html += "<input name='pass' type='password' placeholder='Senha da rede'>";
-  html += "<button type='submit'>Salvar Rede e Conectar</button>";
-  html += "</form></div></body></html>";
+  html += "</div></body></html>";
 
   portalServer.send(200, "text/html", html);
 }
 
 void handlePortalSave() {
+  String devUser = portalServer.arg("dev_user");
+  String devPass = portalServer.arg("dev_pass");
   String newSsid = portalServer.arg("ssid");
   String newPass = portalServer.arg("pass");
 
+  if (devUser.length() > 0) {
+    saveDeviceCredentialsToNVS(devUser, devPass);
+  }
   if (newSsid.length() > 0) {
     addOrUpdateWifiNetwork(newSsid, newPass);
   }
@@ -290,10 +335,13 @@ void handlePortalSave() {
     200,
     "text/html",
     "<html><body style='background:#06101E;color:#34d399;font-family:sans-serif;text-align:center;padding:40px'>"
-    "<h2>Rede Wi-Fi Salva com Sucesso!</h2><p>Reconectando o sistema Netuno...</p></body></html>"
+    "<h2>Configuracao Salva com Sucesso!</h2>"
+    "<p style='color:#bae6fd'>Usuario vinculado a este ESP32: <strong>" + deviceUsername + "</strong></p>"
+    "<p>Use este mesmo usuario e senha para acessar seu aquario no site Netuno.</p>"
+    "<p>Conectando ao Wi-Fi...</p></body></html>"
   );
 
-  delay(800);
+  delay(1000);
   apPortalActive = false;
   portalServer.stop();
   WiFi.softAPdisconnect(true);
@@ -329,6 +377,14 @@ void startConfigPortalAP() {
 // ============================================================================
 void startBestWifiConnection() {
   if (apPortalActive) return;
+
+  // Se o ESP32 ainda não possui Usuário e Senha cadastrados na memória,
+  // abre automaticamente a rede NETUNO-SETUP (192.168.4.1) para o cadastro inicial!
+  if (deviceUsername.length() == 0) {
+    Serial.println("[SETUP INICIAL] Nenhum usuario/senha cadastrado neste ESP32. Abrindo Portal AP...");
+    startConfigPortalAP();
+    return;
+  }
 
   WiFi.mode(WIFI_STA);
   // Ajustes de estabilidade elétrica e compatibilidade com roteadores e iPhone/Android:
@@ -501,8 +557,10 @@ void flushOfflineQueueToSupabase() {
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
 
+  String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
   String message = "[Recuperado Offline] Água: " + String(item.waterPct) + "% • Temp: " + String(item.tempC, 1) + " °C";
-  String payload = "{\"event_type\":\"sync\","
+  String payload = "{\"device_username\":\"" + activeUser + "\","
+                   "\"event_type\":\"sync\","
                    "\"water_level_pct\":" + String(item.waterPct) + ","
                    "\"distance_cm\":" + String(item.distanceCm, 1) + ","
                    "\"temperature_c\":" + String(item.tempC, 1) + ","
@@ -704,22 +762,30 @@ void checkFeederByRtcTime() {
 void syncStatusWithSupabase() {
   if (WiFi.status() != WL_CONNECTED) return;
 
+  String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
+  String filterQuery = "device_username=eq." + activeUser;
+
   HTTPClient http;
   http.setTimeout(4500); // Timeout curto para jamais congelar o loop
-  String endpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?id=eq.1";
-  http.begin(endpoint);
+  String upsertEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?on_conflict=device_username";
+  String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?" + filterQuery;
+
+  http.begin(upsertEndpoint);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-  http.addHeader("Prefer", "return=representation");
+  http.addHeader("Prefer", "resolution=merge-duplicates,return=representation");
 
-  String payload = "{\"water_level_pct\":" + String(waterLevelPct) + ","
+  String payload = "{\"device_id\":\"" + WiFi.macAddress() + "\","
+                   "\"device_username\":\"" + activeUser + "\","
+                   "\"device_password\":\"" + devicePassword + "\","
+                   "\"water_level_pct\":" + String(waterLevelPct) + ","
                    "\"distance_cm\":" + String(distanceCm, 1) + ","
                    "\"temperature_c\":" + String(temperatureC, 1) + ","
                    "\"rtc_datetime\":\"" + getRtcIsoString() + "\","
                    "\"wifi_rssi\":" + String(WiFi.RSSI()) + "}";
 
-  int httpCode = http.PATCH(payload);
+  int httpCode = http.POST(payload);
 
   if (httpCode >= 200 && httpCode < 300) {
     httpFailCount = 0;
@@ -742,7 +808,7 @@ void syncStatusWithSupabase() {
       }
       // Limpa a flag rtc_set_command no banco
       HTTPClient ack;
-      ack.begin(endpoint);
+      ack.begin(filterEndpoint);
       ack.addHeader("Content-Type", "application/json");
       ack.addHeader("apikey", SUPABASE_KEY);
       ack.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -754,7 +820,7 @@ void syncStatusWithSupabase() {
     if (response.indexOf("\"feed_now_command\":true") >= 0) {
       dispenseFoodNow("Padrao (5g)", "Comando Manual do Site");
       HTTPClient ackFeed;
-      ackFeed.begin(endpoint);
+      ackFeed.begin(filterEndpoint);
       ackFeed.addHeader("Content-Type", "application/json");
       ackFeed.addHeader("apikey", SUPABASE_KEY);
       ackFeed.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -765,7 +831,7 @@ void syncStatusWithSupabase() {
     // 3. Se o site enviou comando para abrir o portal de configuração Wi-Fi
     if (response.indexOf("\"wifi_setup_command\":true") >= 0) {
       HTTPClient ackWifi;
-      ackWifi.begin(endpoint);
+      ackWifi.begin(filterEndpoint);
       ackWifi.addHeader("Content-Type", "application/json");
       ackWifi.addHeader("apikey", SUPABASE_KEY);
       ackWifi.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -796,8 +862,10 @@ void sendLogToSupabase() {
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
 
+  String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
   String message = "Água: " + String(waterLevelPct) + "% • Temp: " + String(temperatureC, 1) + " °C";
-  String payload = "{\"event_type\":\"sensor\","
+  String payload = "{\"device_username\":\"" + activeUser + "\","
+                   "\"event_type\":\"sensor\","
                    "\"water_level_pct\":" + String(waterLevelPct) + ","
                    "\"distance_cm\":" + String(distanceCm, 1) + ","
                    "\"temperature_c\":" + String(temperatureC, 1) + ","

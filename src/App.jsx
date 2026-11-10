@@ -28,11 +28,16 @@ import {
   Eye,
   EyeOff,
   Radio,
-  ArrowLeft
+  ArrowLeft,
+  User,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 
 const DEFAULT_CONFIG = {
+  deviceUsername: '',
+  devicePassword: '',
   wifiSsid: 'Iphone de JL',
   wifiPassword: '',
   wifiSecurity: 'WPA2-PSK',
@@ -125,6 +130,24 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'setup' | 'history'
   const [carouselTick, setCarouselTick] = useState(0);
+
+  // Autenticação do ESP32 específico (usuário e senha cadastrados no portal 192.168.4.1 do ESP32)
+  const [authDevice, setAuthDevice] = useState(() => {
+    try {
+      const saved = localStorage.getItem('netuno_esp_auth');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  });
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const activeDeviceUsername = authDevice?.username || '';
 
   // Avança o relógio do RTC a cada 1 segundo (e sincroniza sempre que o banco envia atualização)
   useEffect(() => {
@@ -266,6 +289,7 @@ export default function App() {
 
   // Acionamento automático do alimentador quando o horário do módulo RTC atinge exatamente um horário programado
   useEffect(() => {
+    if (!activeDeviceUsername) return;
     if (rtcCurrentSeconds > 2) return; // Verifica nos primeiros segundos do minuto do RTC
     const match = activeSchedules.find((s) => s.time === rtcCurrentHHMM);
     if (!match) return;
@@ -280,11 +304,12 @@ export default function App() {
       supabase
         .from('aquarium_status')
         .update({ feed_now_command: true, feed_now_portion: match.portion })
-        .eq('id', 1)
+        .eq('device_username', activeDeviceUsername)
         .catch(() => {});
     }
     setTimeout(() => setFeedNowCommand(false), 3000);
   }, [
+    activeDeviceUsername,
     rtcCurrentHHMM,
     rtcCurrentSeconds,
     rtcDateFormatted,
@@ -361,9 +386,9 @@ export default function App() {
     });
   };
 
-  // Busca dados do banco
+  // Busca dados do banco filtrando pelo usuário do ESP32 autenticado
   const fetchSupabaseData = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) {
+    if (!isSupabaseConfigured || !supabase || !activeDeviceUsername) {
       setLoading(false);
       return;
     }
@@ -373,7 +398,7 @@ export default function App() {
     const { data: statusData } = await supabase
       .from('aquarium_status')
       .select('*')
-      .eq('id', 1)
+      .eq('device_username', activeDeviceUsername)
       .maybeSingle();
 
     if (statusData) {
@@ -413,12 +438,18 @@ export default function App() {
           );
           setEspOnline(diffSec < 30);
         }
+      } else {
+        setWaterLevelPct(null);
+        setDistanceCm(null);
+        setTemperatureC(null);
+        setEspOnline(false);
       }
     }
 
     const { data: scheduleData } = await supabase
       .from('feed_schedules')
       .select('*')
+      .eq('device_username', activeDeviceUsername)
       .order('time', { ascending: true });
 
     if (scheduleData && scheduleData.length > 0) {
@@ -428,6 +459,7 @@ export default function App() {
     const { data: logData } = await supabase
       .from('telemetry_logs')
       .select('*')
+      .eq('device_username', activeDeviceUsername)
       .order('recorded_at', { ascending: false })
       .limit(20);
 
@@ -456,7 +488,7 @@ export default function App() {
     }
 
     setLoading(false);
-  }, []);
+  }, [activeDeviceUsername]);
 
   useEffect(() => {
     if (!lastSeenIso) return;
@@ -473,16 +505,17 @@ export default function App() {
   useEffect(() => {
     fetchSupabaseData();
 
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase || !activeDeviceUsername) return;
 
     const channel = supabase
-      .channel('netuno-web-realtime')
+      .channel(`netuno-web-realtime-${activeDeviceUsername}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'aquarium_status' },
         (payload) => {
           const s = payload.new;
           if (!s) return;
+          if (s.device_username && s.device_username !== activeDeviceUsername) return;
           if (s.water_level_pct !== undefined && s.water_level_pct !== null) {
             setWaterLevelPct(Number(s.water_level_pct));
           }
@@ -517,6 +550,7 @@ export default function App() {
           supabase
             .from('feed_schedules')
             .select('*')
+            .eq('device_username', activeDeviceUsername)
             .order('time', { ascending: true })
             .then(({ data }) => {
               if (data) setSchedules(data);
@@ -529,6 +563,7 @@ export default function App() {
         (payload) => {
           const l = payload.new;
           if (!l) return;
+          if (l.device_username && l.device_username !== activeDeviceUsername) return;
           setLogs((prev) => [
             {
               id: l.id,
@@ -560,25 +595,171 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchSupabaseData]);
+  }, [fetchSupabaseData, activeDeviceUsername]);
+
+  // Autenticação por usuário e senha daquele ESP32 específico
+  const handleDeviceLogin = async (e) => {
+    e.preventDefault();
+    const cleanUser = loginUsername.trim();
+    const cleanPass = loginPassword.trim();
+    if (!cleanUser || !cleanPass) {
+      setLoginError('Informe o Usuário e a Senha configurados no seu ESP32.');
+      return;
+    }
+
+    setLoginLoading(true);
+    setLoginError('');
+
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { data: existingDevice, error: fetchError } = await supabase
+          .from('aquarium_status')
+          .select('*')
+          .eq('device_username', cleanUser)
+          .maybeSingle();
+
+        if (fetchError) {
+          setLoginError('Erro ao consultar o banco no Supabase. Verifique se rodou o novo SQL.');
+          setLoginLoading(false);
+          return;
+        }
+
+        if (existingDevice) {
+          if (
+            existingDevice.device_password &&
+            existingDevice.device_password !== cleanPass
+          ) {
+            setLoginError('Senha incorreta para este ESP32. Verifique a senha cadastrada.');
+            setLoginLoading(false);
+            return;
+          }
+
+          // Caso o ESP32 antigo estivesse sem senha gravada, atualiza
+          if (!existingDevice.device_password) {
+            await supabase
+              .from('aquarium_status')
+              .update({ device_password: cleanPass })
+              .eq('device_username', cleanUser);
+          }
+
+          const sessionData = {
+            username: cleanUser,
+            password: cleanPass,
+            deviceId: existingDevice.device_id || 'ESP32',
+          };
+          setAuthDevice(sessionData);
+          localStorage.setItem('netuno_esp_auth', JSON.stringify(sessionData));
+          setConfig((prev) => ({
+            ...prev,
+            deviceUsername: cleanUser,
+            devicePassword: cleanPass,
+          }));
+          setDraftConfig((prev) => ({
+            ...prev,
+            deviceUsername: cleanUser,
+            devicePassword: cleanPass,
+          }));
+          setLoginLoading(false);
+          return;
+        }
+
+        // Se o ESP32 ainda não enviou o primeiro pacote para o Supabase, pré-cadastra o vínculo
+        const { data: createdDevice, error: insertError } = await supabase
+          .from('aquarium_status')
+          .upsert(
+            [
+              {
+                device_username: cleanUser,
+                device_password: cleanPass,
+                water_level_pct: 0,
+                distance_cm: 0,
+                temperature_c: 0,
+                pump_relay_on: true,
+                pump_mode: 'auto',
+              },
+            ],
+            { onConflict: 'device_username' }
+          )
+          .select()
+          .maybeSingle();
+
+        if (insertError) {
+          setLoginError(
+            'Não foi possível vincular este usuário no Supabase. Confirme se executou o script SQL atualizado.'
+          );
+          setLoginLoading(false);
+          return;
+        }
+
+        const sessionData = {
+          username: cleanUser,
+          password: cleanPass,
+          deviceId: createdDevice?.device_id || 'Aguardando ESP32',
+        };
+        setAuthDevice(sessionData);
+        localStorage.setItem('netuno_esp_auth', JSON.stringify(sessionData));
+        setConfig((prev) => ({
+          ...prev,
+          deviceUsername: cleanUser,
+          devicePassword: cleanPass,
+        }));
+        setDraftConfig((prev) => ({
+          ...prev,
+          deviceUsername: cleanUser,
+          devicePassword: cleanPass,
+        }));
+      } else {
+        const sessionData = {
+          username: cleanUser,
+          password: cleanPass,
+          deviceId: 'Modo Local',
+        };
+        setAuthDevice(sessionData);
+        localStorage.setItem('netuno_esp_auth', JSON.stringify(sessionData));
+      }
+    } catch (err) {
+      setLoginError('Falha ao conectar com o servidor.');
+    }
+
+    setLoginLoading(false);
+  };
+
+  const handleDeviceLogout = () => {
+    setAuthDevice(null);
+    setLoginPassword('');
+    setLoginError('');
+    setWaterLevelPct(null);
+    setDistanceCm(null);
+    setTemperatureC(null);
+    setLogs([]);
+    setHistory([]);
+    try {
+      localStorage.removeItem('netuno_esp_auth');
+    } catch (e) {
+      // ignore
+    }
+  };
 
   // Funções de controle e salvamento do assistente
   const handleTogglePump = async () => {
     const next = !pumpRelayOn;
     setPumpRelayOn(next);
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from('aquarium_status').update({ pump_relay_on: next }).eq('id', 1);
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+      await supabase
+        .from('aquarium_status')
+        .update({ pump_relay_on: next })
+        .eq('device_username', activeDeviceUsername);
     }
   };
 
   const handleTriggerFeedNow = async (portion = draftConfig.defaultPortion) => {
     setFeedNowCommand(true);
     setFeedNowPortion(portion);
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
         .update({ feed_now_command: true, feed_now_portion: portion })
-        .eq('id', 1);
+        .eq('device_username', activeDeviceUsername);
     }
     setTimeout(() => setFeedNowCommand(false), 2500);
   };
@@ -588,15 +769,17 @@ export default function App() {
     if (!newScheduleTime) return;
     const newItem = {
       id: Date.now(),
+      device_username: activeDeviceUsername || 'admin',
       time: newScheduleTime,
       portion: newSchedulePortion,
       label: 'Programado',
       enabled: true,
     };
     setSchedules((prev) => [...prev, newItem].sort((a, b) => a.time.localeCompare(b.time)));
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase.from('feed_schedules').insert([
         {
+          device_username: activeDeviceUsername,
           time: newScheduleTime,
           portion: newSchedulePortion,
           label: 'Programado',
@@ -643,20 +826,28 @@ export default function App() {
     setRtcSaveNotice(true);
     setTimeout(() => setRtcSaveNotice(false), 2500);
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
         .update({
           rtc_datetime: targetIso,
           rtc_set_command: true,
         })
-        .eq('id', 1)
+        .eq('device_username', activeDeviceUsername)
         .catch(() => {});
     }
   };
 
   const handleSaveWizardConfig = async () => {
-    const finalConfig = { ...draftConfig, setupCompleted: true };
+    const cleanNewUser = (draftConfig.deviceUsername || activeDeviceUsername || '').trim();
+    const cleanNewPass = (draftConfig.devicePassword || authDevice?.password || '').trim();
+
+    const finalConfig = {
+      ...draftConfig,
+      deviceUsername: cleanNewUser,
+      devicePassword: cleanNewPass,
+      setupCompleted: true,
+    };
     setConfig(finalConfig);
     setPumpMode(finalConfig.pumpMode);
     setFeedNowPortion(finalConfig.defaultPortion);
@@ -665,15 +856,19 @@ export default function App() {
     } catch (e) {
       // ignore
     }
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+      const updatePayload = {
+        pump_mode: finalConfig.pumpMode,
+        pump_cycle_minutes: Number(finalConfig.pumpCycleOnMin) || 45,
+        feed_now_portion: finalConfig.defaultPortion,
+      };
+      if (cleanNewPass) {
+        updatePayload.device_password = cleanNewPass;
+      }
       await supabase
         .from('aquarium_status')
-        .update({
-          pump_mode: finalConfig.pumpMode,
-          pump_cycle_minutes: Number(finalConfig.pumpCycleOnMin) || 45,
-          feed_now_portion: finalConfig.defaultPortion,
-        })
-        .eq('id', 1);
+        .update(updatePayload)
+        .eq('device_username', activeDeviceUsername);
     }
     setSaveSuccess(true);
     setTimeout(() => {
@@ -684,15 +879,19 @@ export default function App() {
   };
 
   const handleOpenExclusiveSetupCommand = async (startStep = 1) => {
-    setDraftConfig(config);
+    setDraftConfig({
+      ...config,
+      deviceUsername: activeDeviceUsername || config.deviceUsername || '',
+      devicePassword: authDevice?.password || config.devicePassword || '',
+    });
     setWizardStep(startStep);
     setExclusiveSetupMode(true);
     setActiveTab('setup');
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
         .update({ wifi_setup_command: true })
-        .eq('id', 1)
+        .eq('device_username', activeDeviceUsername)
         .catch(() => {});
     }
   };
@@ -771,6 +970,116 @@ export default function App() {
     },
   ];
 
+  // TELA DE LOGIN PARA ACESSAR O ESP32 ESPECÍFICO
+  if (!authDevice) {
+    return (
+      <div className="min-h-screen flex flex-col justify-between bg-[#050D1A] text-slate-100 selection:bg-[#1A539B] selection:text-white">
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
+          <div className="w-full max-w-md bg-[#0B1D35]/95 backdrop-blur-xl rounded-3xl border border-[#1A539B]/60 shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-[#081528] via-[#123666] to-[#081528] border-b border-[#1A539B]/50 p-6 text-center">
+              <div className="relative mx-auto w-16 h-16 rounded-2xl overflow-hidden border-2 border-sky-300/40 bg-[#1A539B] shadow-lg flex items-center justify-center mb-3">
+                <img
+                  src="/logo-netuno.jpg"
+                  alt="Logo Netuno"
+                  className="w-full h-full object-cover scale-105"
+                />
+              </div>
+              <h1 className="font-serif text-2xl font-bold tracking-[0.18em] text-white">
+                NETUNO
+              </h1>
+              <p className="text-xs text-sky-200/80 mt-1">
+                Acesso Exclusivo ao seu ESP32 • Monitoramento Inteligente
+              </p>
+            </div>
+
+            <form onSubmit={handleDeviceLogin} className="p-6 space-y-5">
+              <div className="bg-[#06101E]/90 border border-sky-400/30 rounded-2xl p-3.5 text-xs text-sky-200/85 space-y-1">
+                <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+                  <span>Como funciona o vínculo com o ESP32:</span>
+                </div>
+                <p className="leading-relaxed text-[11px] text-sky-200/75">
+                  Ao ligar o ESP32 pela primeira vez, conecte-se na rede Wi-Fi{' '}
+                  <strong className="text-white font-mono-code">NETUNO-SETUP</strong> e acesse{' '}
+                  <strong className="text-emerald-300 font-mono-code">192.168.4.1</strong> para
+                  cadastrar seu <strong>Usuário</strong> e <strong>Senha</strong>. Digite os mesmos
+                  dados abaixo para acessar seu aquário.
+                </p>
+              </div>
+
+              {loginError && (
+                <div className="bg-rose-500/15 border border-rose-400/40 rounded-xl p-3 text-xs text-rose-200 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                  Usuário do ESP32
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-sky-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    maxLength={32}
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    placeholder="Ex: aquario_joao"
+                    className="w-full bg-[#06101E] border border-[#1A539B]/70 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-sky-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                  Senha do ESP32
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-sky-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    required
+                    maxLength={32}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Digite a senha cadastrada no ESP32"
+                    className="w-full bg-[#06101E] border border-[#1A539B]/70 rounded-xl pl-10 pr-10 py-3 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sky-300/70 hover:text-white"
+                  >
+                    {showLoginPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2161B2] hover:to-sky-400 text-white text-sm font-extrabold border border-sky-300/40 shadow-lg shadow-[#1A539B]/40 transition flex items-center justify-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                {loginLoading ? 'Conectando ao ESP32...' : 'Acessar Meu ESP32'}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <footer className="border-t border-[#1A539B]/30 bg-[#06101E]/90 py-4 px-4 text-center text-xs text-sky-200/60">
+          NETUNO • Autenticação Direta por Dispositivo ESP32
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col text-slate-100 selection:bg-[#1A539B] selection:text-white">
       {/* ALERTA DE NÍVEL CRÍTICO */}
@@ -844,7 +1153,12 @@ export default function App() {
           )}
 
           {/* Relógio em Tempo Real (RTC) fora de card + Botão de Comando para Abrir Tela Exclusiva de Configuração */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B1D35] border border-sky-400/30 text-xs">
+              <User className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+              <span className="font-mono-code font-bold text-white">{activeDeviceUsername}</span>
+            </div>
+
             <div className="flex items-center gap-2 text-right">
               <Clock className="w-4 h-4 text-sky-400 shrink-0" />
               <div>
@@ -881,6 +1195,15 @@ export default function App() {
                 </button>
               )
             )}
+
+            <button
+              onClick={handleDeviceLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0B1D35] hover:bg-rose-500/20 border border-[#1A539B]/60 hover:border-rose-400/50 text-xs font-semibold text-sky-200 hover:text-rose-200 transition"
+              title="Sair ou trocar de ESP32"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Trocar ESP32</span>
+            </button>
           </div>
         </div>
 
@@ -1462,7 +1785,7 @@ export default function App() {
                               Abertura Automática no Primeiro Uso ou via Comando
                             </h4>
                             <p className="text-xs text-sky-200/75 mt-0.5">
-                              Quando ligado pela primeira vez sem Wi-Fi salvo (ou ao clicar no botão do topo), o sistema abre <strong>apenas esta tela de configuração</strong> e cria a rede <span className="font-mono-code text-sky-300">{draftConfig.wifiApName}</span> no endereço <span className="font-mono-code text-emerald-300">{draftConfig.wifiPortalIp}</span>.
+                              Quando ligado pela primeira vez sem Wi-Fi ou sem usuário cadastrado, o ESP32 cria a rede <span className="font-mono-code text-sky-300">{draftConfig.wifiApName}</span> no endereço <span className="font-mono-code text-emerald-300">{draftConfig.wifiPortalIp}</span> para cadastrar a rede Wi-Fi e o <strong>Usuário e Senha</strong> deste ESP32.
                             </p>
                           </div>
                         </div>
@@ -1485,6 +1808,49 @@ export default function App() {
                             ? 'Portal Automático: Ativo'
                             : 'Portal Automático: Inativo'}
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Credenciais de Acesso Exclusivo deste ESP32 */}
+                    <div className="bg-[#06101E]/85 border border-emerald-400/40 rounded-2xl p-4 sm:p-5 space-y-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                          Usuário e Senha de Acesso deste ESP32
+                        </h4>
+                        <p className="text-[11px] text-sky-200/70">
+                          Credenciais cadastradas na rede inicial do ESP32 (192.168.4.1) usadas para acessar exclusivamente este aquário no site.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                            Usuário Vinculado ao ESP32
+                          </label>
+                          <input
+                            type="text"
+                            readOnly
+                            value={activeDeviceUsername}
+                            className="w-full bg-[#0B1D35]/70 border border-[#1A539B]/50 rounded-xl px-4 py-2.5 text-sm font-mono-code text-emerald-300 cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                            Senha de Acesso ao ESP32 no Site
+                          </label>
+                          <input
+                            type={showWifiPassword ? 'text' : 'password'}
+                            maxLength={32}
+                            value={draftConfig.devicePassword ?? authDevice?.password ?? ''}
+                            onChange={(e) =>
+                              setDraftConfig({ ...draftConfig, devicePassword: e.target.value })
+                            }
+                            placeholder="Senha deste ESP32"
+                            className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-4 py-2.5 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          />
+                        </div>
                       </div>
                     </div>
 
