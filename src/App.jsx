@@ -346,7 +346,7 @@ export default function App() {
           ? `Temp: ${String(previewTemp).padStart(5, ' ')} C`.slice(0, 16).padEnd(16, ' ')
           : 'Sem leituras    ';
       case 'pump_status':
-        return `Bomba: ${pumpRelayOn ? 'Aberta  ' : 'Fechada '}`.slice(0, 16).padEnd(16, ' ');
+        return `Bomba: ${pumpRelayOn ? 'Ligada  ' : 'Deslig. '}`.slice(0, 16).padEnd(16, ' ');
       case 'next_feed':
         return nextSchedule
           ? `Comida: ${nextSchedule.time}`.slice(0, 16).padEnd(16, ' ')
@@ -1283,7 +1283,7 @@ export default function App() {
                     pumpRelayOn ? 'text-emerald-300' : 'text-amber-300'
                   }`}
                 >
-                  {pumpRelayOn ? 'Aberta' : 'Fechada'}
+                  {pumpRelayOn ? 'Ligada' : 'Desligada'}
                 </span>
                 <span className="text-xs text-sky-200/80">
                   Modo {pumpMode === 'auto' ? 'Automático' : 'Manual'}
@@ -2487,7 +2487,7 @@ export default function App() {
                         >
                           <option value="temp_c">Temperatura em °C (Ex: Temp: 26.0 C)</option>
                           <option value="rtc_time">Horário do Relógio RTC (Ex: Hora: 08:35:00)</option>
-                          <option value="pump_status">Status da Bomba (Aberta / Fechada)</option>
+                          <option value="pump_status">Status da Bomba (Ligada / Desligada)</option>
                           <option value="next_feed">Próximo Horário de Comida</option>
                         </select>
                       </div>
@@ -2639,7 +2639,7 @@ export default function App() {
                         <div>
                           <h4 className="text-base font-bold text-white flex items-center gap-2">
                             <Wind className="w-4 h-4 text-sky-400" />
-                            Bomba de Oxigênio ({pumpRelayOn ? 'Aberta' : 'Fechada'})
+                            Bomba de Oxigênio ({pumpRelayOn ? 'Ligada' : 'Desligada'})
                           </h4>
                           <p className="text-xs text-sky-200/70">
                             Defina o modo de operação e a proteção contra funcionamento a seco
@@ -2656,7 +2656,7 @@ export default function App() {
                           }`}
                         >
                           <Power className="w-4 h-4" />
-                          {pumpRelayOn ? 'Bomba Aberta (Fechar)' : 'Bomba Fechada (Abrir)'}
+                          {pumpRelayOn ? 'Bomba Ligada (Desligar)' : 'Bomba Desligada (Ligar)'}
                         </button>
                       </div>
 
@@ -2679,7 +2679,7 @@ export default function App() {
 
                         <div>
                           <label className="block text-xs font-semibold text-sky-200 mb-1">
-                            Tempo Aberta no Ciclo (min)
+                            Tempo Ligada no Ciclo (min)
                           </label>
                           <input
                             type="number"
