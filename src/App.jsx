@@ -892,9 +892,18 @@ export default function App() {
     }, 1200);
   };
 
-  // Envia apenas o comando para o ESP32 abrir o Ponto de Acesso de configuração inicial (sem abrir nenhuma tela no site)
-  const handleSendEspPortalCommand = async () => {
+  // Abre o Painel de Configuração Inicial no site e envia o comando para o ESP32 abrir o portal NETUNO-SETUP (10.0.0.1)
+  const handleOpenInitialSetup = async () => {
+    setDraftConfig({
+      ...config,
+      deviceUsername: activeDeviceUsername || config.deviceUsername || '',
+      devicePassword: authDevice?.password || config.devicePassword || '',
+    });
+    setWizardStep(1); // Passo 1: Acesso & Dimensões do Aquário
+    setActiveTab('setup');
+    setExclusiveSetupMode(false);
     setWifiPortalCommandSent(true);
+
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
@@ -902,7 +911,8 @@ export default function App() {
         .eq('device_username', activeDeviceUsername)
         .catch(() => {});
     }
-    setTimeout(() => setWifiPortalCommandSent(false), 3500);
+
+    setTimeout(() => setWifiPortalCommandSent(false), 5000);
   };
 
   const handleScanWifiNetworks = () => {
@@ -1112,40 +1122,33 @@ export default function App() {
           </div>
 
           {/* Navegação Central Minimalista */}
-          {!exclusiveSetupMode ? (
-            <nav className="hidden md:flex items-center bg-[#09172B]/80 p-1 rounded-2xl border border-white/[0.08] shadow-inner">
-              {[
-                { id: 'dashboard', label: 'Painel', icon: Gauge },
-                { id: 'history', label: 'Histórico', icon: TrendingUp },
-                { id: 'setup', label: 'Configurações', icon: Settings },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      if (tab.id === 'setup') setDraftConfig(config);
-                      setActiveTab(tab.id);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                      active
-                        ? 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/40 border border-sky-300/25 scale-[1.02]'
-                        : 'text-sky-200/65 hover:text-white hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <Icon className={`w-3.5 h-3.5 transition-transform duration-300 ${active ? 'scale-110' : ''}`} />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-          ) : (
-            <div className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-400/35 text-amber-200 text-xs font-semibold animate-pulse">
-              <Radio className="w-3.5 h-3.5 text-amber-300" />
-              <span>Configuração Inicial Ativa</span>
-            </div>
-          )}
+          <nav className="hidden md:flex items-center bg-[#09172B]/80 p-1 rounded-2xl border border-white/[0.08] shadow-inner">
+            {[
+              { id: 'dashboard', label: 'Painel', icon: Gauge },
+              { id: 'history', label: 'Histórico', icon: TrendingUp },
+              { id: 'setup', label: 'Configurações', icon: Settings },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === 'setup') setDraftConfig(config);
+                    setActiveTab(tab.id);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    active
+                      ? 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/40 border border-sky-300/25 scale-[1.02]'
+                      : 'text-sky-200/65 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 transition-transform duration-300 ${active ? 'scale-110' : ''}`} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
 
           {/* Ações + Relógio RTC no Canto Superior Direito */}
           <div className="flex items-center gap-2 sm:gap-2.5">
@@ -1154,20 +1157,31 @@ export default function App() {
               <span className="font-mono-code font-medium text-sky-100">{activeDeviceUsername}</span>
             </div>
 
-            <button
-              onClick={handleSendEspPortalCommand}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 ${
-                wifiPortalCommandSent
-                  ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                  : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
-              }`}
-              title="Envia comando para o ESP32 abrir a rede NETUNO-SETUP (10.0.0.1)"
-            >
-              <Wifi className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden xl:inline">
-                {wifiPortalCommandSent ? 'Portal Ativado!' : 'Portal ESP32'}
-              </span>
-            </button>
+            {activeTab === 'setup' ? (
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-[#1A539B]/50 border border-white/[0.09] hover:border-sky-400/40 text-[11px] font-semibold text-sky-200 hover:text-white transition-all duration-200 active:scale-95"
+                title="Voltar ao Painel Principal"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-sky-400" />
+                <span>Voltar ao Painel</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleOpenInitialSetup}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 ${
+                  wifiPortalCommandSent
+                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                    : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
+                }`}
+                title="Abre o painel de configuração inicial e envia comando para o ESP32"
+              >
+                <Wifi className="w-3.5 h-3.5 text-sky-400" />
+                <span>
+                  {wifiPortalCommandSent ? 'Portal Ativado!' : 'Configuração Inicial'}
+                </span>
+              </button>
+            )}
 
             <button
               onClick={handleDeviceLogout}
@@ -1196,39 +1210,37 @@ export default function App() {
         </div>
 
         {/* Navegação Mobile Clean */}
-        {!exclusiveSetupMode && (
-          <div className="flex md:hidden border-t border-white/[0.06] bg-[#06101E]/90 px-3 py-1.5 justify-around">
-            {[
-              { id: 'dashboard', label: 'Painel', icon: Gauge },
-              { id: 'history', label: 'Histórico', icon: TrendingUp },
-              { id: 'setup', label: 'Configurações', icon: Settings },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const active = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    if (tab.id === 'setup') setDraftConfig(config);
-                    setActiveTab(tab.id);
-                  }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                    active ? 'bg-[#1A539B] text-white shadow' : 'text-sky-200/65'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex md:hidden border-t border-white/[0.06] bg-[#06101E]/90 px-3 py-1.5 justify-around">
+          {[
+            { id: 'dashboard', label: 'Painel', icon: Gauge },
+            { id: 'history', label: 'Histórico', icon: TrendingUp },
+            { id: 'setup', label: 'Configurações', icon: Settings },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if (tab.id === 'setup') setDraftConfig(config);
+                  setActiveTab(tab.id);
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  active ? 'bg-[#1A539B] text-white shadow' : 'text-sky-200/65'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </header>
 
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* RESUMO RÁPIDO DOS 4 INDICADORES COM MICRO-INTERAÇÕES E ANIMAÇÃO */}
-        {!exclusiveSetupMode && (
+        {activeTab === 'dashboard' && (
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 animate-fade-up">
             {/* Card 1: Nível da Água */}
             <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group">
@@ -1329,7 +1341,7 @@ export default function App() {
         {/* ===================================================================
             ABA 1: PAINEL PRINCIPAL CLEAN & ANIMADO
            =================================================================== */}
-        {!exclusiveSetupMode && activeTab === 'dashboard' && (
+        {activeTab === 'dashboard' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
               {/* COLUNA ESQUERDA (6 cols): NÍVEL DA ÁGUA INTERATIVO */}
@@ -1935,6 +1947,13 @@ export default function App() {
 
                 <div className="flex items-center gap-2 self-start sm:self-center">
                   <button
+                    onClick={() => setActiveTab('dashboard')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-[#1A539B]/35 text-xs font-semibold text-sky-200 hover:text-white border border-white/[0.08] hover:border-sky-400/40 transition-all duration-300 active:scale-[0.98]"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5 text-sky-400" />
+                    Voltar ao Painel
+                  </button>
+                  <button
                     onClick={handleResetFactoryDefaults}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.03] hover:bg-rose-500/15 text-xs font-medium text-sky-200/80 hover:text-rose-200 border border-white/[0.08] hover:border-rose-400/40 transition-all duration-300 active:scale-[0.98]"
                   >
@@ -1974,6 +1993,21 @@ export default function App() {
                 })}
               </div>
             </div>
+
+            {wifiPortalCommandSent && (
+              <div className="mx-6 sm:mx-8 mt-5 p-4 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 flex items-start gap-3 text-emerald-200 animate-fade-up">
+                <Radio className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5 animate-pulse" />
+                <div className="space-y-1 text-xs">
+                  <div className="font-bold text-emerald-300 flex items-center gap-2">
+                    <span>Comando de Configuração do ESP32 Ativado!</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-mono-code font-bold">10.0.0.1</span>
+                  </div>
+                  <p className="text-emerald-200/80 leading-relaxed">
+                    O ESP32 abriu o ponto de acesso Wi-Fi <strong className="text-white font-mono-code">NETUNO-SETUP</strong>. Se deseja alterar o Wi-Fi em que o ESP32 se conecta, conecte seu aparelho à rede <strong className="text-white font-mono-code">NETUNO-SETUP</strong> e acesse <strong className="text-white font-mono-code">http://10.0.0.1</strong>. As medidas e parâmetros também podem ser ajustados nas abas abaixo.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {saveSuccess && (
               <div className="bg-emerald-500/15 border-b border-emerald-400/30 px-6 py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-200 animate-scale-in">
@@ -2655,7 +2689,7 @@ export default function App() {
         {/* ===================================================================
             ABA 3: HISTÓRICO
            =================================================================== */}
-        {!exclusiveSetupMode && activeTab === 'history' && (
+        {activeTab === 'history' && (
           <div className="clean-card rounded-3xl p-6 sm:p-8 space-y-6 animate-fade-up">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-5">
               <div>
