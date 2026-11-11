@@ -405,11 +405,24 @@ export default function App() {
 
     setLoading(true);
 
-    const { data: statusData } = await supabase
+    const { data: statusData, error: statusError } = await supabase
       .from('aquarium_status')
       .select('*')
-      .eq('device_username', activeDeviceUsername)
+      .ilike('device_username', activeDeviceUsername)
       .maybeSingle();
+
+    if (!statusData) {
+      // Dispositivo não existe no banco de dados (sessão inválida antiga salva no localStorage)
+      setAuthDevice(null);
+      try {
+        localStorage.removeItem('netuno_esp_auth');
+      } catch (e) {
+        // ignore
+      }
+      setLoginError(`O dispositivo "${activeDeviceUsername}" não foi encontrado no banco de dados. Faça login com um dispositivo cadastrado.`);
+      setLoading(false);
+      return;
+    }
 
     if (statusData) {
       if (statusData.pump_relay_on !== undefined && statusData.pump_relay_on !== null) {
@@ -438,7 +451,10 @@ export default function App() {
       }
 
       const espEverSent =
-        Number(statusData.distance_cm) > 0 || Number(statusData.water_level_pct) > 0;
+        Number(statusData.distance_cm) > 0 ||
+        Number(statusData.water_level_pct) > 0 ||
+        Boolean(statusData.esp_last_seen) ||
+        Boolean(statusData.rtc_datetime);
 
       if (espEverSent) {
         if (statusData.water_level_pct !== undefined && statusData.water_level_pct !== null) {
@@ -471,7 +487,7 @@ export default function App() {
     const { data: scheduleData } = await supabase
       .from('feed_schedules')
       .select('*')
-      .eq('device_username', activeDeviceUsername)
+      .ilike('device_username', activeDeviceUsername)
       .order('time', { ascending: true });
 
     if (scheduleData && scheduleData.length > 0) {
@@ -481,7 +497,7 @@ export default function App() {
     const { data: logData } = await supabase
       .from('telemetry_logs')
       .select('*')
-      .eq('device_username', activeDeviceUsername)
+      .ilike('device_username', activeDeviceUsername)
       .order('recorded_at', { ascending: false })
       .limit(20);
 
@@ -650,110 +666,63 @@ export default function App() {
         const { data: existingDevice, error: fetchError } = await supabase
           .from('aquarium_status')
           .select('*')
-          .eq('device_username', cleanUser)
+          .ilike('device_username', cleanUser)
           .maybeSingle();
 
         if (fetchError) {
-          setLoginError('Erro ao consultar o banco no Supabase. Verifique se rodou o novo SQL.');
+          setLoginError('Erro ao consultar o banco no Supabase. Tente novamente em instantes.');
           setLoginLoading(false);
           return;
         }
 
-        if (existingDevice) {
-          if (
-            existingDevice.device_password &&
-            existingDevice.device_password !== cleanPass
-          ) {
-            setLoginError('Senha incorreta para este ESP32. Verifique a senha cadastrada.');
-            setLoginLoading(false);
-            return;
-          }
-
-          // Caso o ESP32 antigo estivesse sem senha gravada, atualiza
-          if (!existingDevice.device_password) {
-            await supabase
-              .from('aquarium_status')
-              .update({ device_password: cleanPass })
-              .eq('device_username', cleanUser);
-          }
-
-          const sessionData = {
-            username: cleanUser,
-            password: cleanPass,
-            deviceId: existingDevice.device_id || 'ESP32',
-          };
-          setAuthDevice(sessionData);
-          localStorage.setItem('netuno_esp_auth', JSON.stringify(sessionData));
-          setConfig((prev) => ({
-            ...prev,
-            deviceUsername: cleanUser,
-            devicePassword: cleanPass,
-          }));
-          setDraftConfig((prev) => ({
-            ...prev,
-            deviceUsername: cleanUser,
-            devicePassword: cleanPass,
-          }));
-          setLoginLoading(false);
-          return;
-        }
-
-        // Se o ESP32 ainda não enviou o primeiro pacote para o Supabase, pré-cadastra o vínculo
-        const { data: createdDevice, error: insertError } = await supabase
-          .from('aquarium_status')
-          .upsert(
-            [
-              {
-                device_username: cleanUser,
-                device_password: cleanPass,
-                water_level_pct: 0,
-                distance_cm: 0,
-                temperature_c: 0,
-                pump_relay_on: true,
-                pump_mode: 'auto',
-              },
-            ],
-            { onConflict: 'device_username' }
-          )
-          .select()
-          .maybeSingle();
-
-        if (insertError) {
+        if (!existingDevice) {
           setLoginError(
-            'Não foi possível vincular este usuário no Supabase. Confirme se executou o script SQL atualizado.'
+            `Nenhum ESP32 encontrado com o usuário "${cleanUser}". Verifique se digitou o nome de usuário correto ou configure o ESP32 primeiro na rede Wi-Fi NETUNO-SETUP (10.0.0.1).`
           );
           setLoginLoading(false);
           return;
         }
 
+        if (
+          existingDevice.device_password &&
+          existingDevice.device_password !== cleanPass
+        ) {
+          setLoginError('Senha incorreta para este ESP32. Verifique a senha cadastrada no dispositivo.');
+          setLoginLoading(false);
+          return;
+        }
+
+        // Caso o ESP32 antigo estivesse sem senha gravada, atualiza com a senha digitada
+        if (!existingDevice.device_password) {
+          await supabase
+            .from('aquarium_status')
+            .update({ device_password: cleanPass })
+            .eq('id', existingDevice.id);
+        }
+
+        const canonicalUsername = existingDevice.device_username || cleanUser;
         const sessionData = {
-          username: cleanUser,
+          username: canonicalUsername,
           password: cleanPass,
-          deviceId: createdDevice?.device_id || 'Aguardando ESP32',
+          deviceId: existingDevice.device_id || 'ESP32',
         };
         setAuthDevice(sessionData);
         localStorage.setItem('netuno_esp_auth', JSON.stringify(sessionData));
         setConfig((prev) => ({
           ...prev,
-          deviceUsername: cleanUser,
+          deviceUsername: canonicalUsername,
           devicePassword: cleanPass,
         }));
         setDraftConfig((prev) => ({
           ...prev,
-          deviceUsername: cleanUser,
+          deviceUsername: canonicalUsername,
           devicePassword: cleanPass,
         }));
       } else {
-        const sessionData = {
-          username: cleanUser,
-          password: cleanPass,
-          deviceId: 'Modo Local',
-        };
-        setAuthDevice(sessionData);
-        localStorage.setItem('netuno_esp_auth', JSON.stringify(sessionData));
+        setLoginError('Serviço Supabase não está configurado.');
       }
     } catch (err) {
-      setLoginError('Falha ao conectar com o servidor.');
+      setLoginError('Falha ao conectar com o servidor: ' + (err.message || 'Erro de conexão'));
     }
 
     setLoginLoading(false);
