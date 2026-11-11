@@ -1241,95 +1241,146 @@ export default function App() {
         {activeTab === 'dashboard' && (
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 animate-fade-up">
             {/* Card 1: Nível da Água */}
-            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group">
-              <div>
-                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
-                  Nível d'Água
-                </span>
-                <span className="text-2xl sm:text-3xl font-extrabold text-white mt-1 block tracking-tight">
-                  {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
-                </span>
-                <span className={`text-[11px] font-medium mt-0.5 block ${waterStatus.color}`}>
-                  {waterStatus.label}
-                </span>
+            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
+                    Nível d'Água
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-extrabold text-white mt-1 block tracking-tight">
+                    {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
+                  </span>
+                  <span className={`text-[11px] font-medium mt-0.5 block ${waterStatus.color}`}>
+                    {waterStatus.label}
+                  </span>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 transition-transform duration-300 group-hover:scale-110">
+                  <Waves className="w-5 h-5" />
+                </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 transition-transform duration-300 group-hover:scale-110">
-                <Waves className="w-5 h-5" />
+
+              <div className="pt-2 flex items-center justify-between text-[11px] text-sky-200/60 border-t border-white/[0.04]">
+                <span>Volume Útil:</span>
+                <span className="font-mono-code font-bold text-sky-200">
+                  {waterVolumeLiters !== null ? `${waterVolumeLiters} L` : '--'}
+                </span>
               </div>
             </div>
 
             {/* Card 2: Temperatura */}
-            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group">
-              <div>
-                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
-                  Temperatura
-                </span>
-                <span className="text-2xl sm:text-3xl font-extrabold text-emerald-300 mt-1 block tracking-tight">
-                  {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
-                </span>
-                <span className="text-[11px] text-sky-200/75 mt-0.5 block">
-                  {tempStatus.label}
-                </span>
+            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
+                    Temperatura
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-extrabold text-emerald-300 mt-1 block tracking-tight">
+                    {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
+                  </span>
+                  <span className="text-[11px] text-sky-200/75 mt-0.5 block">
+                    {tempStatus.label}
+                  </span>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300 transition-transform duration-300 group-hover:scale-110">
+                  <Thermometer className="w-5 h-5" />
+                </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300 transition-transform duration-300 group-hover:scale-110">
-                <Thermometer className="w-5 h-5" />
+
+              <div className="pt-2 flex items-center justify-between text-[11px] text-sky-200/60 border-t border-white/[0.04]">
+                <span>Faixa Ideal:</span>
+                <span className="font-mono-code font-bold text-emerald-300">
+                  {config.tempMinC}°C – {config.tempMaxC}°C
+                </span>
               </div>
             </div>
 
             {/* Card 3: Bomba de Oxigênio */}
-            <div
-              onClick={handleTogglePump}
-              title="Clique para alternar a bomba de oxigênio"
-              className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group cursor-pointer"
-            >
-              <div>
-                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
-                  Bomba de Oxigênio
-                </span>
-                <span
-                  className={`text-2xl sm:text-3xl font-extrabold mt-1 block tracking-tight transition-colors ${
-                    pumpRelayOn ? 'text-emerald-300' : 'text-amber-300'
+            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
+                    Bomba de Oxigênio
+                  </span>
+                  <span
+                    className={`text-2xl sm:text-3xl font-extrabold mt-1 block tracking-tight transition-colors ${
+                      pumpRelayOn ? 'text-emerald-300' : 'text-amber-300'
+                    }`}
+                  >
+                    {pumpRelayOn ? 'Ligada' : 'Desligada'}
+                  </span>
+                  <span className="text-[11px] text-sky-200/75 mt-0.5 block">
+                    Modo {pumpMode === 'auto' ? 'Automático' : 'Manual'}
+                  </span>
+                </div>
+                <div
+                  className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
+                    pumpRelayOn
+                      ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
+                      : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
                   }`}
                 >
-                  {pumpRelayOn ? 'Ligada' : 'Desligada'}
-                </span>
-                <span className="text-[11px] text-sky-200/75 mt-0.5 block">
-                  Modo {pumpMode === 'auto' ? 'Automático' : 'Manual'}
-                </span>
+                  <Wind className={`w-5 h-5 ${pumpRelayOn ? 'animate-pulse' : ''}`} />
+                </div>
               </div>
-              <div
-                className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
+
+              <button
+                type="button"
+                onClick={handleTogglePump}
+                className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                   pumpRelayOn
-                    ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
-                    : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
+                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 shadow-sm shadow-emerald-500/15'
+                    : 'bg-white/[0.06] hover:bg-white/[0.12] text-sky-200 border border-white/10'
                 }`}
+                title="Ligar ou desligar a bomba de oxigênio"
               >
-                <Wind className={`w-5 h-5 ${pumpRelayOn ? 'animate-pulse' : ''}`} />
-              </div>
+                <Power className="w-3.5 h-3.5" />
+                <span>{pumpRelayOn ? 'Desligar Bomba' : 'Ligar Bomba'}</span>
+              </button>
             </div>
 
-            {/* Card 4: Alimentador */}
-            <div
-              className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group"
-            >
-              <div>
-                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
-                  Alimentador
-                </span>
-                <span className="text-xl sm:text-2xl font-extrabold text-sky-300 mt-1 block tracking-tight">
-                  {feedNowCommand
-                    ? 'Alimentando...'
-                    : nextSchedule
-                    ? `Próx: ${nextSchedule.time}`
-                    : 'Programado'}
-                </span>
-                <span className="text-[11px] text-emerald-300/90 mt-0.5 block">
-                  {nextSchedule ? nextSchedule.portion : feedNowPortion}
-                </span>
+            {/* Card 4: Alimentador com Opção de Alimentar Manualmente */}
+            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
+                    Alimentador
+                  </span>
+                  <span className="text-xl sm:text-2xl font-extrabold text-sky-300 mt-1 block tracking-tight">
+                    {feedNowCommand
+                      ? 'Alimentando...'
+                      : nextSchedule
+                      ? `Próx: ${nextSchedule.time}`
+                      : 'Programado'}
+                  </span>
+                  <span className="text-[11px] text-emerald-300/90 mt-0.5 block">
+                    Porção: {nextSchedule ? nextSchedule.portion : feedNowPortion}
+                  </span>
+                </div>
+                <div
+                  className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
+                    feedNowCommand
+                      ? 'bg-amber-400/20 border-amber-300/50 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
+                      : 'bg-sky-500/15 border-sky-400/25 text-sky-300'
+                  }`}
+                >
+                  <Utensils className={`w-5 h-5 ${feedNowCommand ? 'animate-bounce text-amber-300' : ''}`} />
+                </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 transition-transform duration-300 group-hover:scale-110">
-                <Utensils className={`w-5 h-5 ${feedNowCommand ? 'animate-bounce text-amber-300' : ''}`} />
-              </div>
+
+              <button
+                type="button"
+                onClick={() => handleTriggerFeedNow(config.defaultPortion || 'Padrão (5g)')}
+                disabled={feedNowCommand}
+                className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                  feedNowCommand
+                    ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
+                    : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20 hover:shadow-amber-500/35'
+                }`}
+                title="Acionar alimentação manual imediata dos peixes"
+              >
+                <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce' : ''}`} />
+                <span>{feedNowCommand ? 'Alimentando Peixes...' : 'Alimentar Manualmente'}</span>
+              </button>
             </div>
           </section>
         )}
