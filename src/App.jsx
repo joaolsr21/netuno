@@ -892,16 +892,8 @@ export default function App() {
     }, 1200);
   };
 
-  // Abre o Painel de Configuração Inicial no site e envia o comando para o ESP32 abrir o portal NETUNO-SETUP (10.0.0.1)
-  const handleOpenInitialSetup = async () => {
-    setDraftConfig({
-      ...config,
-      deviceUsername: activeDeviceUsername || config.deviceUsername || '',
-      devicePassword: authDevice?.password || config.devicePassword || '',
-    });
-    setWizardStep(1); // Passo 1: Acesso & Dimensões do Aquário
-    setActiveTab('setup');
-    setExclusiveSetupMode(false);
+  // Envia apenas o sinal para o ESP32 abrir o painel de configuração inicial (NETUNO-SETUP 10.0.0.1) sem mudar de aba
+  const handleSendEspPortalCommand = async () => {
     setWifiPortalCommandSent(true);
 
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
@@ -1157,31 +1149,20 @@ export default function App() {
               <span className="font-mono-code font-medium text-sky-100">{activeDeviceUsername}</span>
             </div>
 
-            {activeTab === 'setup' ? (
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-[#1A539B]/50 border border-white/[0.09] hover:border-sky-400/40 text-[11px] font-semibold text-sky-200 hover:text-white transition-all duration-200 active:scale-95"
-                title="Voltar ao Painel Principal"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-sky-400" />
-                <span>Voltar ao Painel</span>
-              </button>
-            ) : (
-              <button
-                onClick={handleOpenInitialSetup}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 ${
-                  wifiPortalCommandSent
-                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                    : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
-                }`}
-                title="Abre o painel de configuração inicial e envia comando para o ESP32"
-              >
-                <Wifi className="w-3.5 h-3.5 text-sky-400" />
-                <span>
-                  {wifiPortalCommandSent ? 'Portal Ativado!' : 'Configuração Inicial'}
-                </span>
-              </button>
-            )}
+            <button
+              onClick={handleSendEspPortalCommand}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 ${
+                wifiPortalCommandSent
+                  ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-md shadow-emerald-500/20'
+                  : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
+              }`}
+              title="Envia sinal para o ESP32 abrir a rede NETUNO-SETUP (10.0.0.1)"
+            >
+              <Wifi className={`w-3.5 h-3.5 ${wifiPortalCommandSent ? 'text-emerald-300 animate-pulse' : 'text-sky-400'}`} />
+              <span>
+                {wifiPortalCommandSent ? 'Sinal Enviado ao ESP32!' : 'Abrir Painel no ESP32'}
+              </span>
+            </button>
 
             <button
               onClick={handleDeviceLogout}
@@ -1236,6 +1217,22 @@ export default function App() {
           })}
         </div>
       </header>
+
+      {/* Notificação flutuante de sinal enviado para o ESP32 */}
+      {wifiPortalCommandSent && (
+        <div className="fixed top-20 right-4 sm:right-8 z-50 max-w-md bg-[#071324]/95 border border-emerald-400/40 rounded-2xl p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-start gap-3 animate-fade-up">
+          <Radio className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5 animate-pulse" />
+          <div className="space-y-1">
+            <div className="font-bold text-white flex items-center gap-2">
+              <span>Sinal Enviado ao ESP32!</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-mono-code font-bold">10.0.0.1</span>
+            </div>
+            <p className="text-sky-200/80 leading-relaxed text-[11px]">
+              O comando foi registrado no Supabase. O ESP32 abrirá o ponto de acesso Wi-Fi <strong className="text-white font-mono-code">NETUNO-SETUP</strong> para configuração inicial pelo IP <strong className="text-emerald-300 font-mono-code">10.0.0.1</strong>.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">

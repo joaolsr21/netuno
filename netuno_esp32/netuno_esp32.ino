@@ -864,8 +864,9 @@ void syncStatusWithSupabase() {
     String response = http.getString();
 
     // 1. Se o usuário ajustou o horário do módulo RTC pelo site ("rtc_set_command":true)
-    if (response.indexOf("\"rtc_set_command\":true") >= 0) {
+    if (response.indexOf("\"rtc_set_command\":true") >= 0 || response.indexOf("\"rtc_set_command\": true") >= 0) {
       int pos = response.indexOf("\"rtc_datetime\":\"");
+      if (pos < 0) pos = response.indexOf("\"rtc_datetime\": \"");
       if (pos >= 0 && response.length() >= pos + 35) {
         String iso = response.substring(pos + 16, pos + 35); // YYYY-MM-DDTHH:MM:SS
         int y  = iso.substring(0, 4).toInt();
@@ -880,6 +881,7 @@ void syncStatusWithSupabase() {
       }
       // Limpa a flag rtc_set_command no banco
       HTTPClient ack;
+      ack.setTimeout(2500);
       ack.begin(filterEndpoint);
       ack.addHeader("Content-Type", "application/json");
       ack.addHeader("apikey", SUPABASE_KEY);
@@ -889,9 +891,10 @@ void syncStatusWithSupabase() {
     }
 
     // 2. Se o usuário clicou em "Alimentar Agora" pelo site ("feed_now_command":true)
-    if (response.indexOf("\"feed_now_command\":true") >= 0) {
+    if (response.indexOf("\"feed_now_command\":true") >= 0 || response.indexOf("\"feed_now_command\": true") >= 0) {
       dispenseFoodNow("Padrao (5g)", "Comando Manual do Site");
       HTTPClient ackFeed;
+      ackFeed.setTimeout(2500);
       ackFeed.begin(filterEndpoint);
       ackFeed.addHeader("Content-Type", "application/json");
       ackFeed.addHeader("apikey", SUPABASE_KEY);
@@ -901,15 +904,17 @@ void syncStatusWithSupabase() {
     }
 
     // 3. Se o site enviou comando para abrir o portal de configuração Wi-Fi
-    if (response.indexOf("\"wifi_setup_command\":true") >= 0) {
+    if (response.indexOf("\"wifi_setup_command\":true") >= 0 || response.indexOf("\"wifi_setup_command\": true") >= 0) {
+      Serial.println("\n[NETUNO] >>> Comando recebido do site: Abrindo Ponto de Acesso NETUNO-SETUP (10.0.0.1)...");
+      http.end();
       HTTPClient ackWifi;
+      ackWifi.setTimeout(2500);
       ackWifi.begin(filterEndpoint);
       ackWifi.addHeader("Content-Type", "application/json");
       ackWifi.addHeader("apikey", SUPABASE_KEY);
       ackWifi.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
       ackWifi.PATCH("{\"wifi_setup_command\":false}");
       ackWifi.end();
-      http.end();
       startConfigPortalAP();
       return;
     }
