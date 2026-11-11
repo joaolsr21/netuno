@@ -748,10 +748,11 @@ export default function App() {
   const handleTogglePump = async () => {
     const next = !pumpRelayOn;
     setPumpRelayOn(next);
+    setFeedNowCommand(false); // Garante que a alimentação não seja acionada ao alternar a bomba
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
-        .update({ pump_relay_on: next })
+        .update({ pump_relay_on: next, feed_now_command: false })
         .eq('device_username', activeDeviceUsername);
     }
   };
@@ -1309,9 +1310,7 @@ export default function App() {
 
             {/* Card 4: Alimentador */}
             <div
-              onClick={() => handleTriggerFeedNow(config.defaultPortion)}
-              title="Clique para alimentar agora"
-              className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group cursor-pointer"
+              className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group"
             >
               <div>
                 <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
@@ -1360,20 +1359,6 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleTriggerFeedNow(config.defaultPortion)}
-                        disabled={feedNowCommand}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5 transition-all duration-300 active:scale-95 ${
-                          feedNowCommand
-                            ? 'bg-amber-400/20 border-amber-300/60 text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
-                            : 'bg-white/[0.05] hover:bg-amber-400/15 border-white/15 hover:border-amber-300/50 text-sky-100 hover:text-amber-200'
-                        }`}
-                      >
-                        <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce text-amber-300' : 'text-amber-300'}`} />
-                        <span>{feedNowCommand ? 'Comendo...' : 'Testar Comida'}</span>
-                      </button>
-
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${waterStatus.bg} ${waterStatus.color}`}
                       >
