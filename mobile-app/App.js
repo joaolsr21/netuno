@@ -310,12 +310,6 @@ export default function App() {
         </View>
 
         <View style={styles.headerRight}>
-          {/* Relógio em Tempo Real (RTC) fora de card no canto superior direito */}
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.clockTimeText}>{rtcTimeFormatted}</Text>
-            <Text style={styles.clockDateText}>{rtcDateFormatted}</Text>
-          </View>
-
           {!exclusiveSetupMode ? (
             <TouchableOpacity
               onPress={() => handleOpenExclusiveSetup(1)}
@@ -334,6 +328,12 @@ export default function App() {
               <Text style={styles.backHeaderBtnText}>← Voltar</Text>
             </TouchableOpacity>
           )}
+
+          {/* Relógio em Tempo Real (RTC) posicionado no canto superior direito */}
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.clockTimeText}>{rtcTimeFormatted}</Text>
+            <Text style={styles.clockDateText}>{rtcDateFormatted}</Text>
+          </View>
         </View>
       </View>
 

@@ -308,7 +308,16 @@ export default function App() {
         .eq('device_username', activeDeviceUsername)
         .catch(() => {});
     }
-    setTimeout(() => setFeedNowCommand(false), 3000);
+    setTimeout(() => {
+      setFeedNowCommand(false);
+      if (isSupabaseConfigured && supabase) {
+        supabase
+          .from('aquarium_status')
+          .update({ feed_now_command: false })
+          .eq('device_username', activeDeviceUsername)
+          .catch(() => {});
+      }
+    }, 2200);
   }, [
     activeDeviceUsername,
     rtcCurrentHHMM,
@@ -409,8 +418,20 @@ export default function App() {
       if (statusData.pump_mode) {
         setPumpMode(statusData.pump_mode);
       }
-      if (statusData.feed_now_command !== undefined && statusData.feed_now_command !== null) {
-        setFeedNowCommand(Boolean(statusData.feed_now_command));
+      if (statusData.feed_now_command) {
+        setFeedNowCommand(true);
+        setTimeout(() => {
+          setFeedNowCommand(false);
+          if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+            supabase
+              .from('aquarium_status')
+              .update({ feed_now_command: false })
+              .eq('device_username', activeDeviceUsername)
+              .catch(() => {});
+          }
+        }, 2200);
+      } else {
+        setFeedNowCommand(false);
       }
       if (statusData.feed_now_portion) {
         setFeedNowPortion(statusData.feed_now_portion);
@@ -533,7 +554,20 @@ export default function App() {
             setPumpMode(s.pump_mode);
           }
           if (s.feed_now_command !== undefined && s.feed_now_command !== null) {
-            setFeedNowCommand(Boolean(s.feed_now_command));
+            const isFeeding = Boolean(s.feed_now_command);
+            setFeedNowCommand(isFeeding);
+            if (isFeeding) {
+              setTimeout(() => {
+                setFeedNowCommand(false);
+                if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+                  supabase
+                    .from('aquarium_status')
+                    .update({ feed_now_command: false })
+                    .eq('device_username', activeDeviceUsername)
+                    .catch(() => {});
+                }
+              }, 2200);
+            }
           }
           if (s.feed_now_portion) {
             setFeedNowPortion(s.feed_now_portion);
@@ -757,12 +791,22 @@ export default function App() {
     setFeedNowCommand(true);
     setFeedNowPortion(portion);
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-      await supabase
+      supabase
         .from('aquarium_status')
         .update({ feed_now_command: true, feed_now_portion: portion })
-        .eq('device_username', activeDeviceUsername);
+        .eq('device_username', activeDeviceUsername)
+        .catch(() => {});
     }
-    setTimeout(() => setFeedNowCommand(false), 2500);
+    setTimeout(() => {
+      setFeedNowCommand(false);
+      if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+        supabase
+          .from('aquarium_status')
+          .update({ feed_now_command: false })
+          .eq('device_username', activeDeviceUsername)
+          .catch(() => {});
+      }
+    }, 2200);
   };
 
   const handleAddSchedule = async (e) => {
@@ -950,56 +994,57 @@ export default function App() {
     },
   ];
 
-  // TELA DE LOGIN PARA ACESSAR O ESP32 ESPECÍFICO
+  // TELA DE LOGIN CLEAN COM ANIMAÇÃO SUAVE PARA ACESSAR O ESP32 ESPECÍFICO
   if (!authDevice) {
     return (
-      <div className="min-h-screen flex flex-col justify-between bg-[#050D1A] text-slate-100 selection:bg-[#1A539B] selection:text-white">
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
-          <div className="w-full max-w-md bg-[#0B1D35]/95 backdrop-blur-xl rounded-3xl border border-[#1A539B]/60 shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-[#081528] via-[#123666] to-[#081528] border-b border-[#1A539B]/50 p-6 text-center">
-              <div className="relative mx-auto w-16 h-16 rounded-2xl overflow-hidden border-2 border-sky-300/40 bg-[#1A539B] shadow-lg flex items-center justify-center mb-3">
+      <div className="min-h-screen flex flex-col justify-between bg-[#040B16] text-slate-100 selection:bg-[#1A539B] selection:text-white relative overflow-hidden">
+        {/* Luzes de fundo sutis e animadas */}
+        <div className="pointer-events-none absolute -top-28 -left-28 w-96 h-96 rounded-full bg-[#1A539B]/20 blur-3xl animate-pulse" />
+        <div className="pointer-events-none absolute -bottom-28 -right-28 w-96 h-96 rounded-full bg-sky-500/15 blur-3xl animate-pulse" />
+
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative z-10">
+          <div className="w-full max-w-md clean-card rounded-3xl overflow-hidden animate-scale-in">
+            <div className="bg-gradient-to-b from-[#0C213E]/80 to-transparent border-b border-white/[0.08] p-7 text-center">
+              <div className="relative mx-auto w-16 h-16 rounded-2xl overflow-hidden border border-sky-300/40 bg-[#1A539B] shadow-xl flex items-center justify-center mb-3.5 animate-float">
                 <img
                   src="/logo-netuno.jpg"
                   alt="Logo Netuno"
                   className="w-full h-full object-cover scale-105"
                 />
               </div>
-              <h1 className="font-serif text-2xl font-bold tracking-[0.18em] text-white">
+              <h1 className="font-serif text-2xl font-bold tracking-[0.2em] text-white">
                 NETUNO
               </h1>
-              <p className="text-xs text-sky-200/80 mt-1">
-                Acesso Exclusivo ao seu ESP32 • Monitoramento Inteligente
+              <p className="text-xs text-sky-200/70 mt-1">
+                Monitoramento Inteligente do Aquário
               </p>
             </div>
 
-            <form onSubmit={handleDeviceLogin} className="p-6 space-y-5">
-              <div className="bg-[#06101E]/90 border border-sky-400/30 rounded-2xl p-3.5 text-xs text-sky-200/85 space-y-1">
-                <div className="font-bold text-sky-300 flex items-center gap-1.5">
+            <form onSubmit={handleDeviceLogin} className="p-6 sm:p-7 space-y-4">
+              <div className="bg-[#06101E]/70 border border-sky-400/20 rounded-2xl p-3.5 text-xs text-sky-200/80 space-y-1">
+                <div className="font-semibold text-sky-300 flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
-                  <span>Como funciona o vínculo com o ESP32:</span>
+                  <span>Vínculo com seu ESP32</span>
                 </div>
-                <p className="leading-relaxed text-[11px] text-sky-200/75">
-                  Ao ligar o ESP32 pela primeira vez, conecte-se na rede Wi-Fi{' '}
-                  <strong className="text-white font-mono-code">NETUNO-SETUP</strong> e acesse{' '}
-                  <strong className="text-emerald-300 font-mono-code">10.0.0.1</strong> para
-                  cadastrar seu <strong>Usuário</strong> e <strong>Senha</strong>. Digite os mesmos
-                  dados abaixo para acessar seu aquário.
+                <p className="leading-relaxed text-[11px] text-sky-200/65">
+                  No primeiro uso, conecte-se ao Wi-Fi{' '}
+                  <strong className="text-white font-mono-code">NETUNO-SETUP</strong> (<strong className="text-emerald-300 font-mono-code">10.0.0.1</strong>) para criar seu usuário e senha.
                 </p>
               </div>
 
               {loginError && (
-                <div className="bg-rose-500/15 border border-rose-400/40 rounded-xl p-3 text-xs text-rose-200 flex items-center gap-2">
+                <div className="bg-rose-500/15 border border-rose-400/35 rounded-xl p-3 text-xs text-rose-200 flex items-center gap-2 animate-scale-in">
                   <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>{loginError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                <label className="block text-xs font-medium text-sky-200/90 mb-1.5">
                   Usuário do ESP32
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-sky-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <User className="w-4 h-4 text-sky-400/80 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     required
@@ -1007,30 +1052,30 @@ export default function App() {
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
                     placeholder="Ex: aquario_joao"
-                    className="w-full bg-[#06101E] border border-[#1A539B]/70 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-sky-400"
+                    className="w-full bg-[#06101E]/90 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400/70 transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-sky-200 mb-1.5">
+                <label className="block text-xs font-medium text-sky-200/90 mb-1.5">
                   Senha do ESP32
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-sky-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Lock className="w-4 h-4 text-sky-400/80 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type={showLoginPassword ? 'text' : 'password'}
                     required
                     maxLength={32}
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="Digite a senha cadastrada no ESP32"
-                    className="w-full bg-[#06101E] border border-[#1A539B]/70 rounded-xl pl-10 pr-10 py-3 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                    placeholder="Digite sua senha"
+                    className="w-full bg-[#06101E]/90 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-sm font-mono-code text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400/70 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowLoginPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sky-300/70 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sky-300/60 hover:text-white transition-colors"
                   >
                     {showLoginPassword ? (
                       <EyeOff className="w-4 h-4" />
@@ -1044,17 +1089,17 @@ export default function App() {
               <button
                 type="submit"
                 disabled={loginLoading}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2161B2] hover:to-sky-400 text-white text-sm font-extrabold border border-sky-300/40 shadow-lg shadow-[#1A539B]/40 transition flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2161B2] hover:to-sky-400 active:scale-[0.99] text-white text-sm font-bold border border-sky-300/30 shadow-lg shadow-[#1A539B]/35 transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4" />
-                {loginLoading ? 'Conectando ao ESP32...' : 'Acessar Meu ESP32'}
+                {loginLoading ? 'Conectando...' : 'Entrar no Painel'}
               </button>
             </form>
           </div>
         </div>
 
-        <footer className="border-t border-[#1A539B]/30 bg-[#06101E]/90 py-4 px-4 text-center text-xs text-sky-200/60">
-          NETUNO • Autenticação Direta por Dispositivo ESP32
+        <footer className="border-t border-white/[0.06] bg-[#040B16]/80 py-4 px-4 text-center text-xs text-sky-200/50">
+          NETUNO • Monitoramento Inteligente
         </footer>
       </div>
     );
@@ -1064,7 +1109,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col text-slate-100 selection:bg-[#1A539B] selection:text-white">
       {/* ALERTA DE NÍVEL CRÍTICO */}
       {waterLevelPct !== null && waterLevelPct < Number(config.criticalLevelPct) && (
-        <div className="bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-2.5 text-center text-sm font-medium text-white flex items-center justify-center gap-2 animate-pulse">
+        <div className="bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-2 text-center text-xs sm:text-sm font-medium text-white flex items-center justify-center gap-2 animate-pulse">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>
             <strong>Alerta de Nível:</strong> O nível da água está crítico ({waterLevelPct}%).
@@ -1072,13 +1117,14 @@ export default function App() {
         </div>
       )}
 
-      {/* HEADER PRINCIPAL */}
-      <header className="sticky top-0 z-30 border-b border-[#1A539B]/40 bg-[#06101E]/85 backdrop-blur-xl">
+      {/* HEADER PRINCIPAL CLEAN & GLASSMORPHIC */}
+      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#040B16]/80 backdrop-blur-2xl transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative group">
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-60 blur"></div>
-              <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl overflow-hidden border-2 border-white/25 bg-[#1A539B] shadow-lg flex items-center justify-center">
+          {/* Identidade Visual */}
+          <div className="flex items-center gap-3.5">
+            <div className="relative group cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-50 group-hover:opacity-80 blur transition duration-300"></div>
+              <div className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl overflow-hidden border border-white/25 bg-[#1A539B] shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
                 <img
                   src="/logo-netuno.jpg"
                   alt="Logo Netuno"
@@ -1087,20 +1133,20 @@ export default function App() {
               </div>
             </div>
             <div>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-[0.16em] text-white drop-shadow-sm">
+              <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-[0.18em] text-white">
                 NETUNO
               </h1>
-              <p className="text-[11px] text-sky-300/80 hidden sm:block">
-                {config.aquariumName} • {TANK_LENGTH_CM} × {TANK_WIDTH_CM} × {TANK_HEIGHT_CM} cm ({maxVolumeLiters} L)
+              <p className="text-[11px] text-sky-300/70 hidden sm:block">
+                {config.aquariumName} • {maxVolumeLiters} L
               </p>
             </div>
           </div>
 
-          {/* Navegação Central (oculta se estiver em modo de tela única de setup) */}
+          {/* Navegação Central Minimalista */}
           {!exclusiveSetupMode ? (
-            <nav className="hidden md:flex items-center bg-[#0B1D35]/90 p-1 rounded-xl border border-[#1A539B]/40">
+            <nav className="hidden md:flex items-center bg-[#09172B]/80 p-1 rounded-2xl border border-white/[0.08] shadow-inner">
               {[
-                { id: 'dashboard', label: 'Painel Principal', icon: Gauge },
+                { id: 'dashboard', label: 'Painel', icon: Gauge },
                 { id: 'history', label: 'Histórico', icon: TrendingUp },
                 { id: 'setup', label: 'Configurações', icon: Settings },
               ].map((tab) => {
@@ -1113,73 +1159,76 @@ export default function App() {
                       if (tab.id === 'setup') setDraftConfig(config);
                       setActiveTab(tab.id);
                     }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
                       active
-                        ? 'bg-[#1A539B] text-white shadow-md shadow-[#1A539B]/40 border border-sky-300/25'
-                        : 'text-sky-200/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/40 border border-sky-300/25 scale-[1.02]'
+                        : 'text-sky-200/65 hover:text-white hover:bg-white/[0.04]'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={`w-3.5 h-3.5 transition-transform duration-300 ${active ? 'scale-110' : ''}`} />
                     {tab.label}
                   </button>
                 );
               })}
             </nav>
           ) : (
-            <div className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-200 text-xs font-semibold">
-              <Radio className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              <span>Modo Exclusivo de Configuração Inicial & Wi-Fi Ativo</span>
+            <div className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-400/35 text-amber-200 text-xs font-semibold animate-pulse">
+              <Radio className="w-3.5 h-3.5 text-amber-300" />
+              <span>Configuração Inicial Ativa</span>
             </div>
           )}
 
-          {/* Relógio em Tempo Real (RTC) + Botão discreto no canto para enviar comando ao ESP32 */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B1D35] border border-sky-400/30 text-xs">
-              <User className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-              <span className="font-mono-code font-bold text-white">{activeDeviceUsername}</span>
-            </div>
-
-            <div className="flex items-center gap-2 text-right">
-              <Clock className="w-4 h-4 text-sky-400 shrink-0" />
-              <div>
-                <div className="font-mono-code text-base sm:text-lg font-extrabold text-white tracking-wider leading-none">
-                  {rtcTimeFormatted}
-                </div>
-                <div className="text-[10px] text-sky-300/80 hidden sm:block mt-0.5">
-                  {rtcDateFormatted}
-                </div>
-              </div>
+          {/* Ações + Relógio RTC no Canto Superior Direito */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-mono-code font-medium text-sky-100">{activeDeviceUsername}</span>
             </div>
 
             <button
               onClick={handleSendEspPortalCommand}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 ${
                 wifiPortalCommandSent
                   ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                  : 'bg-[#0B1D35] hover:bg-[#1A539B]/70 border-[#1A539B]/60 text-sky-200 hover:text-white'
+                  : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
               }`}
               title="Envia comando para o ESP32 abrir a rede NETUNO-SETUP (10.0.0.1)"
             >
               <Wifi className="w-3.5 h-3.5 text-sky-400" />
               <span className="hidden xl:inline">
-                {wifiPortalCommandSent ? 'Comando Enviado ao ESP32!' : 'Portal ESP32'}
+                {wifiPortalCommandSent ? 'Portal Ativado!' : 'Portal ESP32'}
               </span>
             </button>
 
             <button
               onClick={handleDeviceLogout}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0B1D35] hover:bg-rose-500/20 border border-[#1A539B]/60 hover:border-rose-400/50 text-[11px] font-semibold text-sky-200 hover:text-rose-200 transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 border border-white/[0.09] hover:border-rose-400/40 text-[11px] font-semibold text-sky-200/85 hover:text-rose-200 transition-all duration-200 active:scale-95"
               title="Logout"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">Logout</span>
             </button>
+
+            <div className="hidden sm:block h-6 w-px bg-white/10 mx-1" />
+
+            {/* Relógio RTC posicionado no canto extremo direito */}
+            <div className="flex items-center gap-2 text-right pl-0.5">
+              <Clock className="w-4 h-4 text-sky-400 shrink-0 animate-pulse" />
+              <div>
+                <div className="font-mono-code text-base sm:text-lg font-extrabold text-white tracking-wider leading-none">
+                  {rtcTimeFormatted}
+                </div>
+                <div className="text-[10px] text-sky-300/70 hidden sm:block mt-0.5 font-mono-code">
+                  {rtcDateFormatted}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Navegação Mobile */}
+        {/* Navegação Mobile Clean */}
         {!exclusiveSetupMode && (
-          <div className="flex md:hidden border-t border-[#1A539B]/30 bg-[#081528] px-2 py-1.5 justify-around">
+          <div className="flex md:hidden border-t border-white/[0.06] bg-[#06101E]/90 px-3 py-1.5 justify-around">
             {[
               { id: 'dashboard', label: 'Painel', icon: Gauge },
               { id: 'history', label: 'Histórico', icon: TrendingUp },
@@ -1194,8 +1243,8 @@ export default function App() {
                     if (tab.id === 'setup') setDraftConfig(config);
                     setActiveTab(tab.id);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
-                    active ? 'bg-[#1A539B] text-white' : 'text-sky-200/70'
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    active ? 'bg-[#1A539B] text-white shadow' : 'text-sky-200/65'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -1208,136 +1257,160 @@ export default function App() {
       </header>
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        {/* RESUMO RÁPIDO DOS INDICADORES (Oculto quando está no Modo Exclusivo de Configuração Inicial) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {/* RESUMO RÁPIDO DOS 4 INDICADORES COM MICRO-INTERAÇÕES E ANIMAÇÃO */}
         {!exclusiveSetupMode && (
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1A539B] via-[#15427E] to-[#0D284D] border border-sky-300/25 shadow-2xl shadow-[#06101E]/80 p-4 sm:p-5">
-          <img
-            src="/logo-netuno.jpg"
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none select-none absolute -right-10 -bottom-14 w-60 h-60 object-contain opacity-15 mix-blend-screen rounded-full blur-[1px]"
-          />
-
-          <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 animate-fade-up">
             {/* Card 1: Nível da Água */}
-            <div className="bg-[#08172E]/65 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center justify-between">
+            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group">
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-sky-200/75 block">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                   Nível d'Água
                 </span>
-                <span className="text-2xl sm:text-3xl font-bold text-white mt-0.5 block">
+                <span className="text-2xl sm:text-3xl font-extrabold text-white mt-1 block tracking-tight">
                   {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                 </span>
-                <span className="text-xs text-sky-300">
+                <span className={`text-[11px] font-medium mt-0.5 block ${waterStatus.color}`}>
                   {waterStatus.label}
                 </span>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#1A539B]/60 border border-sky-300/25 flex items-center justify-center text-sky-200">
+              <div className="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 transition-transform duration-300 group-hover:scale-110">
                 <Waves className="w-5 h-5" />
               </div>
             </div>
 
             {/* Card 2: Temperatura */}
-            <div className="bg-[#08172E]/65 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center justify-between">
+            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group">
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-sky-200/75 block">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                   Temperatura
                 </span>
-                <span className="text-2xl sm:text-3xl font-bold text-emerald-300 mt-0.5 block">
+                <span className="text-2xl sm:text-3xl font-extrabold text-emerald-300 mt-1 block tracking-tight">
                   {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
                 </span>
-                <span className="text-xs text-sky-200/80">
+                <span className="text-[11px] text-sky-200/75 mt-0.5 block">
                   {tempStatus.label}
                 </span>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#1A539B]/60 border border-sky-300/25 flex items-center justify-center text-sky-200">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300 transition-transform duration-300 group-hover:scale-110">
                 <Thermometer className="w-5 h-5" />
               </div>
             </div>
 
             {/* Card 3: Bomba de Oxigênio */}
-            <div className="bg-[#08172E]/65 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center justify-between">
+            <div
+              onClick={handleTogglePump}
+              title="Clique para alternar a bomba de oxigênio"
+              className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group cursor-pointer"
+            >
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-sky-200/75 block">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                   Bomba de Oxigênio
                 </span>
                 <span
-                  className={`text-2xl sm:text-3xl font-bold mt-0.5 block ${
+                  className={`text-2xl sm:text-3xl font-extrabold mt-1 block tracking-tight transition-colors ${
                     pumpRelayOn ? 'text-emerald-300' : 'text-amber-300'
                   }`}
                 >
                   {pumpRelayOn ? 'Ligada' : 'Desligada'}
                 </span>
-                <span className="text-xs text-sky-200/80">
+                <span className="text-[11px] text-sky-200/75 mt-0.5 block">
                   Modo {pumpMode === 'auto' ? 'Automático' : 'Manual'}
                 </span>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#1A539B]/60 border border-sky-300/25 flex items-center justify-center text-sky-200">
-                <Wind className="w-5 h-5" />
+              <div
+                className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
+                  pumpRelayOn
+                    ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
+                    : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
+                }`}
+              >
+                <Wind className={`w-5 h-5 ${pumpRelayOn ? 'animate-pulse' : ''}`} />
               </div>
             </div>
 
             {/* Card 4: Alimentador */}
-            <div className="bg-[#08172E]/65 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center justify-between">
+            <div
+              onClick={() => handleTriggerFeedNow(config.defaultPortion)}
+              title="Clique para alimentar agora"
+              className="clean-kpi rounded-2xl p-4 sm:p-5 flex items-center justify-between group cursor-pointer"
+            >
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-sky-200/75 block">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                   Alimentador
                 </span>
-                <span className="text-xl sm:text-2xl font-bold text-sky-300 mt-0.5 block">
+                <span className="text-xl sm:text-2xl font-extrabold text-sky-300 mt-1 block tracking-tight">
                   {feedNowCommand
                     ? 'Alimentando...'
                     : nextSchedule
                     ? `Próx: ${nextSchedule.time}`
                     : 'Programado'}
                 </span>
-                <span className="text-xs text-emerald-300">
+                <span className="text-[11px] text-emerald-300/90 mt-0.5 block">
                   {nextSchedule ? nextSchedule.portion : feedNowPortion}
                 </span>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#1A539B]/60 border border-sky-300/25 flex items-center justify-center text-sky-200">
-                <Utensils className="w-5 h-5" />
+              <div className="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 transition-transform duration-300 group-hover:scale-110">
+                <Utensils className={`w-5 h-5 ${feedNowCommand ? 'animate-bounce text-amber-300' : ''}`} />
               </div>
             </div>
-          </div>
-        </section>
+          </section>
         )}
 
         {/* ===================================================================
-            ABA 1: PAINEL PRINCIPAL
+            ABA 1: PAINEL PRINCIPAL CLEAN & ANIMADO
            =================================================================== */}
         {!exclusiveSetupMode && activeTab === 'dashboard' && (
-          <>
+          <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-              {/* COLUNA ESQUERDA (6 cols): NÍVEL DA ÁGUA */}
-              <div className="lg:col-span-6 bg-[#0B1D35]/90 backdrop-blur-xl rounded-3xl border border-[#1A539B]/50 p-6 flex flex-col justify-between shadow-xl">
+              {/* COLUNA ESQUERDA (6 cols): NÍVEL DA ÁGUA INTERATIVO */}
+              <div className="lg:col-span-6 clean-card rounded-3xl p-6 flex flex-col justify-between animate-fade-up">
                 <div>
                   <div className="flex items-start justify-between gap-4 mb-5">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#1A539B] border border-sky-300/30 flex items-center justify-center text-white shadow-inner">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300">
                         <Waves className="w-5 h-5" />
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-white">
                           Nível da Água
                         </h3>
-                        <p className="text-xs text-sky-200/70">
-                          Capacidade útil: {maxVolumeLiters} Litros ({TANK_LENGTH_CM} × {TANK_WIDTH_CM} × {TANK_HEIGHT_CM} cm)
+                        <p className="text-xs text-sky-200/65">
+                          Capacidade útil: {maxVolumeLiters} L ({TANK_LENGTH_CM} × {TANK_WIDTH_CM} × {TANK_HEIGHT_CM} cm)
                         </p>
                       </div>
                     </div>
 
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold border ${waterStatus.bg} ${waterStatus.color}`}
-                    >
-                      {waterStatus.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerFeedNow(config.defaultPortion)}
+                        disabled={feedNowCommand}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5 transition-all duration-300 active:scale-95 ${
+                          feedNowCommand
+                            ? 'bg-amber-400/20 border-amber-300/60 text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
+                            : 'bg-white/[0.05] hover:bg-amber-400/15 border-white/15 hover:border-amber-300/50 text-sky-100 hover:text-amber-200'
+                        }`}
+                      >
+                        <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce text-amber-300' : 'text-amber-300'}`} />
+                        <span>{feedNowCommand ? 'Comendo...' : 'Testar Comida'}</span>
+                      </button>
+
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${waterStatus.bg} ${waterStatus.color}`}
+                      >
+                        {waterStatus.label}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Visualização Gráfica do Aquário */}
-                  <div className="relative h-64 rounded-2xl bg-gradient-to-b from-[#061121] to-[#091930] border-2 border-[#1A539B]/60 overflow-hidden shadow-inner mb-5">
-                    {/* Régua lateral em percentual */}
-                    <div className="absolute right-3 inset-y-4 z-20 flex flex-col justify-between text-[10px] font-mono-code text-sky-200/60 pointer-events-none">
+                  {/* Visualização Gráfica do Aquário com Ondas, Bolhas de Oxigênio e Ração */}
+                  <div className="relative h-64 rounded-2xl bg-gradient-to-b from-[#040C18] to-[#07162C] border border-sky-400/25 overflow-hidden shadow-inner mb-5">
+                    {/* Reflexo de vidro sutil */}
+                    <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.03] to-transparent -skew-x-12 z-20" />
+
+                    {/* Régua lateral minimalista */}
+                    <div className="absolute right-3.5 inset-y-4 z-20 flex flex-col justify-between text-[10px] font-mono-code text-sky-200/45 pointer-events-none">
                       <span>100%</span>
                       <span>75%</span>
                       <span>50%</span>
@@ -1345,14 +1418,272 @@ export default function App() {
                       <span>0%</span>
                     </div>
 
+                    {/* Dispenser + Partículas de ração caindo quando alimentando */}
+                    {feedNowCommand && (
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-32 z-30 pointer-events-none flex flex-col items-center">
+                        {/* Bico liberando ração no topo */}
+                        <div className="w-8 h-2 rounded-b-lg bg-amber-400/80 border border-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.8)]" />
+                        <div className="relative w-full h-full">
+                          <span
+                            style={{ '--pellet-duration': '1.2s', '--pellet-delay': '0s', '--drift': '-8px', left: '38%' }}
+                            className="food-pellet absolute top-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-100"
+                          />
+                          <span
+                            style={{ '--pellet-duration': '1.35s', '--pellet-delay': '0.12s', '--drift': '10px', left: '52%' }}
+                            className="food-pellet absolute top-1 w-2 h-2 rounded-full bg-orange-400 border border-amber-100"
+                          />
+                          <span
+                            style={{ '--pellet-duration': '1.15s', '--pellet-delay': '0.25s', '--drift': '-4px', left: '46%' }}
+                            className="food-pellet absolute top-1 w-2.5 h-2.5 rounded-full bg-amber-300 border border-white"
+                          />
+                          <span
+                            style={{ '--pellet-duration': '1.3s', '--pellet-delay': '0.38s', '--drift': '6px', left: '58%' }}
+                            className="food-pellet absolute top-1 w-2 h-2 rounded-full bg-amber-500 border border-amber-100"
+                          />
+                          <span
+                            style={{ '--pellet-duration': '1.25s', '--pellet-delay': '0.5s', '--drift': '-10px', left: '42%' }}
+                            className="food-pellet absolute top-1 w-2.5 h-2.5 rounded-full bg-orange-300 border border-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mangueirinha de tomada de ar subindo da bombinha até o topo externo do aquário */}
+                    <div className="pointer-events-none absolute top-0 bottom-7 left-[26px] z-20 flex flex-col items-center">
+                      {/* Ponteira de captação de ar na borda superior do aquário */}
+                      <div
+                        className={`w-3.5 h-2 rounded-b-md border transition-all duration-300 ${
+                          pumpRelayOn
+                            ? 'bg-gradient-to-b from-sky-300 to-slate-700 border-white/50 shadow-[0_0_8px_rgba(56,189,248,0.6)]'
+                            : 'bg-gradient-to-b from-slate-600 to-slate-800 border-white/20 opacity-75'
+                        }`}
+                      />
+                      {/* Mangueira translúcida (com fluxo animado apenas quando ligada) */}
+                      <div
+                        className={`w-[4px] flex-1 rounded-full border-x transition-all duration-300 ${
+                          pumpRelayOn
+                            ? 'border-sky-200/45 air-hose-active shadow-[0_0_8px_rgba(56,189,248,0.35)]'
+                            : 'border-sky-200/20 bg-sky-200/10'
+                        }`}
+                      />
+                    </div>
+
                     {/* Água animada */}
                     <div
-                      className="absolute bottom-0 inset-x-0 transition-all duration-700 ease-out"
+                      className="absolute bottom-0 inset-x-0 transition-all duration-1000 ease-out"
                       style={{ height: `${waterLevelPct !== null ? waterLevelPct : 0}%` }}
                     >
                       <div className="absolute -top-3 left-0 w-[200%] h-6 bg-[#1A539B]/80 rounded-[40%] animate-wave-slow"></div>
                       <div className="absolute -top-2 left-0 w-[200%] h-5 bg-sky-400/35 rounded-[45%] animate-wave-fast"></div>
-                      <div className="w-full h-full bg-gradient-to-b from-[#1A539B]/85 via-[#154582]/90 to-[#0D2C56] relative overflow-hidden" />
+                      <div className="w-full h-full bg-gradient-to-b from-[#1A539B]/80 via-[#133E75]/85 to-[#092244] relative overflow-hidden">
+                        {/* Dois peixinhos nadando suavemente pela água (e subindo para comer quando a ração cai!) */}
+                        {waterLevelPct > 20 && (
+                          <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+                            {/* Peixinho 1 (Laranja/Dourado) */}
+                            <div
+                              className={`absolute ${
+                                feedNowCommand ? 'animate-fish-eat-1' : 'top-[34%] animate-fish-1'
+                              }`}
+                            >
+                              <svg
+                                width="34"
+                                height="20"
+                                viewBox="0 0 34 20"
+                                fill="none"
+                                className="drop-shadow-[0_2px_6px_rgba(251,146,60,0.45)]"
+                              >
+                                {/* Cauda animada */}
+                                <path
+                                  d="M7 10L1 4V16L7 10Z"
+                                  fill="#FB923C"
+                                  className={feedNowCommand ? 'animate-fish-tail-fast' : 'animate-fish-tail'}
+                                />
+                                {/* Barbatana dorsal */}
+                                <path d="M15 4C17 1 21 1 22 4.5" fill="#F97316" />
+                                {/* Corpo */}
+                                <ellipse cx="19" cy="10" rx="11" ry="6" fill="url(#fishGrad1)" />
+                                {/* Listras sutis */}
+                                <path
+                                  d="M16 4.5C17.5 8 17.5 12 16 15.5"
+                                  stroke="#FFF7ED"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeOpacity="0.65"
+                                />
+                                <path
+                                  d="M21 4.5C22.2 8 22.2 12 21 15.5"
+                                  stroke="#FFF7ED"
+                                  strokeWidth="1.3"
+                                  strokeLinecap="round"
+                                  strokeOpacity="0.5"
+                                />
+                                {/* Olho */}
+                                <circle cx="25.5" cy="8.5" r="1.6" fill="#0F172A" />
+                                <circle cx="26" cy="8" r="0.6" fill="#FFFFFF" />
+                                {/* Boquinha abrindo quando está comendo */}
+                                {feedNowCommand && (
+                                  <circle cx="29.2" cy="10.2" r="1.3" fill="#7C2D12" />
+                                )}
+                                <defs>
+                                  <linearGradient id="fishGrad1" x1="8" y1="4" x2="30" y2="16" gradientUnits="userSpaceOnUse">
+                                    <stop stopColor="#FDBA74" />
+                                    <stop offset="0.5" stopColor="#FB923C" />
+                                    <stop offset="1" stopColor="#EA580C" />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                            </div>
+
+                            {/* Peixinho 2 (Azul Neon / Ciano) */}
+                            <div
+                              className={`absolute ${
+                                feedNowCommand ? 'animate-fish-eat-2' : 'top-[66%] animate-fish-2'
+                              }`}
+                            >
+                              <svg
+                                width="30"
+                                height="18"
+                                viewBox="0 0 34 20"
+                                fill="none"
+                                className="drop-shadow-[0_2px_6px_rgba(56,189,248,0.5)]"
+                              >
+                                {/* Cauda animada */}
+                                <path
+                                  d="M7 10L1 4.5V15.5L7 10Z"
+                                  fill="#38BDF8"
+                                  className={feedNowCommand ? 'animate-fish-tail-fast' : 'animate-fish-tail'}
+                                />
+                                {/* Barbatana dorsal */}
+                                <path d="M15 4.5C17 1.5 20.5 1.5 22 4.8" fill="#0284C7" />
+                                {/* Corpo */}
+                                <ellipse cx="19" cy="10" rx="10.5" ry="5.5" fill="url(#fishGrad2)" />
+                                {/* Faixa luminosa neon */}
+                                <path
+                                  d="M11 9.5H25"
+                                  stroke="#E0F2FE"
+                                  strokeWidth="1.6"
+                                  strokeLinecap="round"
+                                  strokeOpacity="0.8"
+                                />
+                                {/* Olho */}
+                                <circle cx="25.5" cy="8.5" r="1.5" fill="#0F172A" />
+                                <circle cx="26" cy="8" r="0.55" fill="#FFFFFF" />
+                                {/* Boquinha abrindo quando está comendo */}
+                                {feedNowCommand && (
+                                  <circle cx="28.8" cy="10.2" r="1.2" fill="#082F49" />
+                                )}
+                                <defs>
+                                  <linearGradient id="fishGrad2" x1="8" y1="4" x2="30" y2="16" gradientUnits="userSpaceOnUse">
+                                    <stop stopColor="#67E8F9" />
+                                    <stop offset="0.55" stopColor="#38BDF8" />
+                                    <stop offset="1" stopColor="#0284C7" />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bombinha submersa sempre visível no canto inferior esquerdo (vibra e solta bolhas apenas quando ligada) */}
+                        <div className="absolute bottom-2.5 left-3.5 z-20 pointer-events-none flex items-end">
+                          {/* Ventosas de fixação no vidro esquerdo */}
+                          <div className="flex flex-col gap-1.5 mr-0.5 mb-1">
+                            <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
+                            <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
+                          </div>
+
+                          {/* Corpo da bombinha submersa */}
+                          <div className={`relative flex items-center ${pumpRelayOn ? 'animate-pump-hum' : ''}`}>
+                            {/* Conector superior onde encaixa a mangueirinha de ar */}
+                            <div
+                              className={`absolute -top-2 left-2.5 w-2 h-2.5 rounded-t-sm border transition-all duration-300 ${
+                                pumpRelayOn
+                                  ? 'bg-sky-300 border-white/60 shadow-[0_0_6px_rgba(125,211,252,0.8)]'
+                                  : 'bg-slate-600 border-white/25'
+                              }`}
+                            />
+
+                            <div
+                              className={`w-9 h-7 rounded-lg bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950 border flex flex-col items-center justify-between p-1 transition-all duration-300 ${
+                                pumpRelayOn
+                                  ? 'border-sky-300/50 shadow-[0_0_16px_rgba(56,189,248,0.4)]'
+                                  : 'border-slate-500/40 opacity-85'
+                              }`}
+                            >
+                              {/* Grades de sucção */}
+                              <div className="w-full flex justify-between items-center px-0.5">
+                                <div className="space-y-0.5">
+                                  <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
+                                  <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
+                                  <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
+                                </div>
+                                {/* LED indicador de status da bomba */}
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                                    pumpRelayOn
+                                      ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse'
+                                      : 'bg-slate-500/70'
+                                  }`}
+                                />
+                              </div>
+                              <span className="text-[6px] font-mono-code tracking-tighter text-sky-200/80 uppercase leading-none">
+                                O₂
+                              </span>
+                            </div>
+
+                            {/* Bico difusor lateral de onde saem as bolhas */}
+                            <div
+                              className={`relative -top-1.5 -ml-0.5 w-3.5 h-2.5 rounded-r-md border transition-all duration-300 ${
+                                pumpRelayOn
+                                  ? 'bg-gradient-to-r from-sky-400 to-cyan-200 border-white/70 shadow-[0_0_14px_rgba(125,211,252,0.9)]'
+                                  : 'bg-gradient-to-r from-slate-600 to-slate-500 border-white/25'
+                              }`}
+                            >
+                              {/* Coluna intensa e brilhante de bolhas saindo do bico apenas quando a bomba está ligada */}
+                              {pumpRelayOn && waterLevelPct > 5 && (
+                                <div className="absolute -top-1.5 left-2 w-24 h-52 pointer-events-none">
+                                  <span
+                                    style={{ '--duration': '1.8s', '--delay': '0s', '--sway': '8px', left: '0px' }}
+                                    className="bubble absolute bottom-0 w-3 h-3 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '2.2s', '--delay': '0.2s', '--sway': '16px', left: '4px' }}
+                                    className="bubble absolute bottom-0 w-2 h-2 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '1.6s', '--delay': '0.45s', '--sway': '-5px', left: '1px' }}
+                                    className="bubble absolute bottom-0 w-3.5 h-3.5 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '2.4s', '--delay': '0.7s', '--sway': '20px', left: '6px' }}
+                                    className="bubble absolute bottom-0 w-2.5 h-2.5 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '1.9s', '--delay': '0.95s', '--sway': '12px', left: '2px' }}
+                                    className="bubble absolute bottom-0 w-3 h-3 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '2.1s', '--delay': '1.2s', '--sway': '3px', left: '0px' }}
+                                    className="bubble absolute bottom-0 w-2 h-2 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '1.75s', '--delay': '1.45s', '--sway': '14px', left: '4px' }}
+                                    className="bubble absolute bottom-0 w-3.5 h-3.5 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '2.3s', '--delay': '1.7s', '--sway': '22px', left: '7px' }}
+                                    className="bubble absolute bottom-0 w-2.5 h-2.5 rounded-full"
+                                  />
+                                  <span
+                                    style={{ '--duration': '1.95s', '--delay': '1.95s', '--sway': '9px', left: '3px' }}
+                                    className="bubble absolute bottom-0 w-3 h-3 rounded-full"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Indicador Central */}
@@ -1361,7 +1692,7 @@ export default function App() {
                         {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                       {waterVolumeLiters !== null && (
-                        <span className="text-xs font-medium text-sky-100 bg-[#06101E]/65 px-3 py-0.5 rounded-full mt-1 border border-white/15">
+                        <span className="text-xs font-medium text-sky-100 bg-[#040B16]/65 backdrop-blur-md px-3.5 py-1 rounded-full mt-1.5 border border-white/15">
                           Volume: {waterVolumeLiters} L
                         </span>
                       )}
@@ -1370,16 +1701,16 @@ export default function App() {
                 </div>
 
                 {/* Métricas do Aquário */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
-                    <span className="text-[11px] text-sky-200/70 block">Nível Atual</span>
-                    <span className="text-base font-bold text-sky-300 font-mono-code">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[#040B16]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
+                    <span className="text-[11px] text-sky-200/65 block">Nível Atual</span>
+                    <span className="text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
                       {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                     </span>
                   </div>
-                  <div className="bg-[#06101E]/70 border border-[#1A539B]/40 rounded-xl p-3 text-center">
-                    <span className="text-[11px] text-sky-200/70 block">Volume Atual</span>
-                    <span className="text-base font-bold text-white font-mono-code">
+                  <div className="bg-[#040B16]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
+                    <span className="text-[11px] text-sky-200/65 block">Volume Atual</span>
+                    <span className="text-base font-bold text-white font-mono-code mt-0.5 block">
                       {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
                     </span>
                   </div>
@@ -1389,14 +1720,17 @@ export default function App() {
               {/* COLUNA DIREITA (6 cols): DISPLAY LCD + TEMPERATURA */}
               <div className="lg:col-span-6 flex flex-col gap-6">
                 {/* CARD: DISPLAY LCD */}
-                <div className="bg-[#0B1D35]/90 backdrop-blur-xl rounded-3xl border border-[#1A539B]/50 p-6 shadow-xl">
+                <div className="clean-card rounded-3xl p-6 animate-fade-up delay-75">
                   <div className="flex items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#1A539B] border border-sky-300/30 flex items-center justify-center text-white">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
                         <Monitor className="w-5 h-5" />
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-white">Display LCD</h3>
+                        <p className="text-xs text-sky-200/65">
+                          {activeCfg.lcdCarousel ? 'Alternância automática ativa' : 'Espelhamento em tempo real'}
+                        </p>
                       </div>
                     </div>
                     <button
@@ -1405,19 +1739,19 @@ export default function App() {
                         setWizardStep(3);
                         setActiveTab('setup');
                       }}
-                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1"
+                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1 transition-transform hover:translate-x-0.5"
                     >
-                      Personalizar visor <ChevronRight className="w-3.5 h-3.5" />
+                      Personalizar <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
                   {/* Moldura do Display LCD */}
-                  <div className="rounded-2xl bg-[#050D1A] border-2 border-[#1A539B]/70 p-4 shadow-inner">
-                    <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-5 py-4 shadow-[inset_0_0_24px_rgba(16,185,129,0.25)]">
-                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.6)] whitespace-pre overflow-x-auto">
+                  <div className="rounded-2xl bg-[#040A14] border border-white/10 p-3.5 shadow-inner">
+                    <div className="rounded-xl bg-gradient-to-b from-[#0C352A] to-[#07241C] border border-emerald-400/35 px-5 py-4 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)]">
+                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre overflow-x-auto transition-all duration-300">
                         {lcdLine0}
                       </div>
-                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.6)] whitespace-pre mt-1.5 overflow-x-auto">
+                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre mt-1.5 overflow-x-auto transition-all duration-300">
                         {lcdLine1}
                       </div>
                     </div>
@@ -1425,54 +1759,72 @@ export default function App() {
                 </div>
 
                 {/* CARD: TEMPERATURA */}
-                <div className="bg-[#0B1D35]/90 backdrop-blur-xl rounded-3xl border border-[#1A539B]/50 p-6 shadow-xl flex-1 flex flex-col justify-between">
+                <div className="clean-card rounded-3xl p-6 flex-1 flex flex-col justify-between animate-fade-up delay-150">
                   <div>
                     <div className="flex items-start justify-between gap-4 mb-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-[#1A539B] border border-sky-300/30 flex items-center justify-center text-white">
+                        <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300">
                           <Thermometer className="w-5 h-5" />
                         </div>
                         <div>
                           <h3 className="text-base font-bold text-white">
                             Temperatura da Água
                           </h3>
-                          <p className="text-xs text-sky-200/70">
+                          <p className="text-xs text-sky-200/65">
                             Monitoramento térmico em tempo real
                           </p>
                         </div>
                       </div>
 
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border ${tempStatus.bg} ${tempStatus.color}`}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${tempStatus.bg} ${tempStatus.color}`}
                       >
                         {tempStatus.label}
                       </span>
                     </div>
 
-                    {/* Mostrador Principal de Temperatura */}
-                    <div className="bg-[#06101E]/80 border border-[#1A539B]/40 rounded-2xl p-5 flex items-center justify-between">
-                      <div>
-                        <span className="text-xs text-sky-200/70 block">
-                          Temperatura Atual
-                        </span>
-                        <span className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mt-1 block font-mono-code">
-                          {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
-                        </span>
-                      </div>
-                      <div className="text-right text-xs text-sky-200/70 space-y-1">
+                    {/* Mostrador Principal de Temperatura + Barra Térmica Animada */}
+                    <div className="bg-[#040B16]/60 border border-white/[0.07] rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
                         <div>
-                          Faixa Ideal:{' '}
-                          <strong className="text-emerald-300 font-mono-code">
-                            {config.tempMinC}°C – {config.tempMaxC}°C
-                          </strong>
+                          <span className="text-xs text-sky-200/65 block">
+                            Temperatura Atual
+                          </span>
+                          <span className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mt-1 block font-mono-code">
+                            {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
+                          </span>
                         </div>
-                        <div>
-                          Fahrenheit:{' '}
-                          <strong className="text-white font-mono-code">
-                            {temperatureC !== null
-                              ? `${((Number(temperatureC) * 9) / 5 + 32).toFixed(1)} °F`
-                              : '--'}
-                          </strong>
+                        <div className="text-right text-xs text-sky-200/70 space-y-1.5">
+                          <div>
+                            Faixa Ideal:{' '}
+                            <strong className="text-emerald-300 font-mono-code">
+                              {config.tempMinC}°C – {config.tempMaxC}°C
+                            </strong>
+                          </div>
+                          <div>
+                            Fahrenheit:{' '}
+                            <strong className="text-white font-mono-code">
+                              {temperatureC !== null
+                                ? `${((Number(temperatureC) * 9) / 5 + 32).toFixed(1)} °F`
+                                : '--'}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Barra visual da faixa térmica */}
+                      <div className="space-y-1">
+                        <div className="h-2 w-full rounded-full bg-[#09182E] overflow-hidden p-0.5 border border-white/5">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-rose-400 transition-all duration-700"
+                            style={{
+                              width: `${
+                                temperatureC !== null
+                                  ? Math.max(8, Math.min(100, ((Number(temperatureC) - 15) / 20) * 100))
+                                  : 55
+                              }%`,
+                            }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -1482,42 +1834,42 @@ export default function App() {
             </div>
 
             {/* SEÇÃO INFERIOR: GRÁFICO E LOGS */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-up delay-225">
               {/* Gráfico de Nível e Temperatura (7 cols) */}
-              <div className="lg:col-span-7 bg-[#0B1D35]/90 backdrop-blur-xl rounded-3xl border border-[#1A539B]/50 p-6 shadow-xl">
+              <div className="lg:col-span-7 clean-card rounded-3xl p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-sky-400" />
                       Histórico de Leituras
                     </h3>
-                    <p className="text-xs text-sky-200/70">
+                    <p className="text-xs text-sky-200/65">
                       Evolução recente do nível e temperatura da água
                     </p>
                   </div>
                 </div>
 
                 {history.length === 0 ? (
-                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#06101E]/60 border border-[#1A539B]/30 text-xs text-sky-200/60">
+                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#040B16]/50 border border-white/[0.06] text-xs text-sky-200/55">
                     Nenhum registro de histórico disponível ainda.
                   </div>
                 ) : (
                   <>
-                    <div className="h-48 flex items-end justify-between gap-3 pt-6 px-2 border-b border-[#1A539B]/40">
+                    <div className="h-48 flex items-end justify-between gap-3 pt-6 px-2 border-b border-white/[0.08]">
                       {history.map((point, idx) => {
                         const isLast = idx === history.length - 1;
                         return (
-                          <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                            <span className="text-[11px] font-mono-code text-sky-200">
+                          <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                            <span className="text-[11px] font-mono-code text-sky-200/80 group-hover:text-white transition-colors">
                               {point.level}%
                             </span>
-                            <div className="w-full max-w-[44px] h-32 bg-[#06101E] rounded-t-xl p-1 flex items-end border border-[#1A539B]/30">
+                            <div className="w-full max-w-[42px] h-32 bg-[#040B16]/70 rounded-t-xl p-1 flex items-end border border-white/[0.07] group-hover:border-sky-400/35 transition-colors">
                               <div
                                 style={{ height: `${point.level}%` }}
-                                className={`w-full rounded-t-lg transition-all duration-500 ${
+                                className={`w-full rounded-t-lg transition-all duration-700 ease-out ${
                                   isLast
-                                    ? 'bg-gradient-to-t from-[#1A539B] to-sky-400 shadow-lg shadow-sky-400/30'
-                                    : 'bg-gradient-to-t from-[#12396B] to-[#1A539B]'
+                                    ? 'bg-gradient-to-t from-[#1A539B] to-sky-400 shadow-lg shadow-sky-400/25'
+                                    : 'bg-gradient-to-t from-[#12396B]/80 to-[#1A539B] group-hover:to-sky-400/80'
                                 }`}
                               />
                             </div>
@@ -1525,7 +1877,7 @@ export default function App() {
                         );
                       })}
                     </div>
-                    <div className="flex justify-between px-2 pt-2.5 text-[11px] font-mono-code text-sky-200/70">
+                    <div className="flex justify-between px-2 pt-2.5 text-[11px] font-mono-code text-sky-200/65">
                       {history.map((point, idx) => (
                         <div key={idx} className="flex-1 text-center">
                           <div>{point.time}</div>
@@ -1540,7 +1892,7 @@ export default function App() {
               </div>
 
               {/* Últimas Leituras (5 cols) */}
-              <div className="lg:col-span-5 bg-[#0B1D35]/90 backdrop-blur-xl rounded-3xl border border-[#1A539B]/50 p-6 shadow-xl flex flex-col justify-between">
+              <div className="lg:col-span-5 clean-card rounded-3xl p-6 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div>
@@ -1548,18 +1900,18 @@ export default function App() {
                         <Activity className="w-4 h-4 text-sky-400" />
                         Últimas Leituras
                       </h3>
-                      <p className="text-xs text-sky-200/70">Eventos recentes do aquário</p>
+                      <p className="text-xs text-sky-200/65">Eventos recentes do aquário</p>
                     </div>
                     <button
                       onClick={() => setActiveTab('history')}
-                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1"
+                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1 transition-transform hover:translate-x-0.5"
                     >
                       Ver todos <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
                   {logs.length === 0 ? (
-                    <div className="h-44 flex items-center justify-center rounded-2xl bg-[#06101E]/60 border border-[#1A539B]/30 text-xs text-sky-200/60 text-center px-4">
+                    <div className="h-44 flex items-center justify-center rounded-2xl bg-[#040B16]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
                       Nenhuma leitura registrada ainda.
                     </div>
                   ) : (
@@ -1567,16 +1919,16 @@ export default function App() {
                       {logs.slice(0, 5).map((log) => (
                         <div
                           key={log.id}
-                          className="bg-[#06101E]/80 border border-[#1A539B]/35 rounded-2xl p-3 flex items-start gap-3"
+                          className="bg-[#040B16]/60 hover:bg-[#08172E]/70 border border-white/[0.07] hover:border-sky-400/25 rounded-2xl p-3 flex items-start gap-3 transition-all duration-200"
                         >
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-sky-500/15 text-sky-300 border border-sky-400/30">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-sky-500/15 text-sky-300 border border-sky-400/25">
                             <Waves className="w-4 h-4" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium text-white leading-snug">
                               {log.message}
                             </p>
-                            <div className="flex items-center justify-end mt-1 text-[10px] text-sky-200/60">
+                            <div className="flex items-center justify-end mt-1 text-[10px] text-sky-200/55">
                               <span className="font-mono-code">{log.time}</span>
                             </div>
                           </div>
@@ -1587,23 +1939,23 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* ===================================================================
             ABA DE CONFIGURAÇÕES (LIMPA E ORGANIZADA)
            =================================================================== */}
         {activeTab === 'setup' && (
-          <div className="bg-[#0B1D35]/95 backdrop-blur-xl rounded-3xl border border-[#1A539B]/60 shadow-2xl overflow-hidden">
+          <div className="clean-card rounded-3xl overflow-hidden animate-fade-up">
             {/* Cabeçalho Limpo + Abas Horizontais */}
-            <div className="bg-[#081528] border-b border-[#1A539B]/50 px-6 py-4 flex flex-col gap-4">
+            <div className="bg-[#050C17]/75 border-b border-white/[0.06] px-6 py-5 flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#1A539B] border border-sky-300/40 flex items-center justify-center text-white">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A539B] to-sky-500 border border-sky-300/30 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
                     <Settings className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-white">
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
                       Configurações do Aquário
                     </h2>
                     <p className="text-xs text-sky-200/70">
@@ -1615,14 +1967,14 @@ export default function App() {
                 <div className="flex items-center gap-2 self-start sm:self-center">
                   <button
                     onClick={handleResetFactoryDefaults}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#06101E] hover:bg-rose-500/20 text-xs font-medium text-sky-200/80 hover:text-rose-200 border border-[#1A539B]/50 hover:border-rose-400/40 transition"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.03] hover:bg-rose-500/15 text-xs font-medium text-sky-200/80 hover:text-rose-200 border border-white/[0.08] hover:border-rose-400/40 transition-all duration-300 active:scale-[0.98]"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Restaurar Padrão
                   </button>
                   <button
                     onClick={handleSaveWizardConfig}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
                   >
                     <Save className="w-4 h-4" />
                     Salvar Configurações
@@ -1631,7 +1983,7 @@ export default function App() {
               </div>
 
               {/* Sub-abas limpas de Configuração */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 rounded-2xl bg-[#040912]/80 border border-white/[0.06]">
                 {wizardSteps.map((item) => {
                   const Icon = item.icon;
                   const active = wizardStep === item.step;
@@ -1640,10 +1992,10 @@ export default function App() {
                       key={item.step}
                       type="button"
                       onClick={() => setWizardStep(item.step)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
+                      className={`p-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-300 ${
                         active
-                          ? 'bg-[#1A539B] border-sky-300/50 text-white shadow-md'
-                          : 'bg-[#06101E]/70 border-[#1A539B]/35 text-sky-200/75 hover:bg-[#0F2747]/70 hover:text-white'
+                          ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 text-white shadow-md shadow-sky-500/20 scale-[1.01]'
+                          : 'text-sky-200/70 hover:bg-white/[0.04] hover:text-white'
                       }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
@@ -1655,7 +2007,7 @@ export default function App() {
             </div>
 
             {saveSuccess && (
-              <div className="bg-emerald-500/20 border-b border-emerald-400/40 px-6 py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-200">
+              <div className="bg-emerald-500/15 border-b border-emerald-400/30 px-6 py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-200 animate-scale-in">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>Configurações salvas com sucesso!</span>
               </div>
@@ -1664,9 +2016,9 @@ export default function App() {
             <div className="p-6 sm:p-8 space-y-6">
               {/* ABA 1: ACESSO & DIMENSÕES DO AQUÁRIO */}
               {wizardStep === 1 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
                   {/* Acesso do ESP32 */}
-                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
                       Credenciais de Acesso do ESP32
@@ -1674,19 +2026,19 @@ export default function App() {
 
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Usuário do ESP32
                         </label>
                         <input
                           type="text"
                           readOnly
                           value={activeDeviceUsername}
-                          className="w-full bg-[#0B1D35]/70 border border-[#1A539B]/50 rounded-xl px-3.5 py-2 text-sm font-mono-code text-emerald-300 cursor-not-allowed"
+                          className="w-full bg-[#091628]/80 border border-white/[0.08] rounded-xl px-3.5 py-2 text-sm font-mono-code text-emerald-300 cursor-not-allowed"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Senha de Acesso no Site
                         </label>
                         <div className="relative">
@@ -1698,12 +2050,12 @@ export default function App() {
                               setDraftConfig({ ...draftConfig, devicePassword: e.target.value })
                             }
                             placeholder="Senha deste ESP32"
-                            className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl pl-3.5 pr-10 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl pl-3.5 pr-10 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                           />
                           <button
                             type="button"
                             onClick={() => setShowWifiPassword((prev) => !prev)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-sky-300/70 hover:text-white"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-sky-300/70 hover:text-white transition-colors"
                           >
                             {showWifiPassword ? (
                               <EyeOff className="w-4 h-4" />
@@ -1721,7 +2073,7 @@ export default function App() {
                   </div>
 
                   {/* Dimensões e Litragem */}
-                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-bold text-white flex items-center gap-2">
                         <Droplets className="w-4 h-4 text-sky-400" />
@@ -1734,7 +2086,7 @@ export default function App() {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Nome do Aquário
                         </label>
                         <input
@@ -1744,12 +2096,12 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, aquariumName: e.target.value })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm text-white"
+                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Comprimento (cm)
                         </label>
                         <input
@@ -1760,12 +2112,12 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, lengthCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
+                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Largura (cm)
                         </label>
                         <input
@@ -1776,12 +2128,12 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, widthCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
+                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Altura Total (cm)
                         </label>
                         <input
@@ -1792,12 +2144,12 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, heightCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
+                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Margem Sensor (cm)
                         </label>
                         <input
@@ -1811,7 +2163,7 @@ export default function App() {
                               sensorOffsetCm: Math.max(2, Number(e.target.value)),
                             })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code text-white"
+                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
                     </div>
@@ -1821,9 +2173,9 @@ export default function App() {
 
               {/* ABA 2: NÍVEIS DE ÁGUA & TEMPERATURA IDEAL */}
               {wizardStep === 2 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
                   {/* Limites de Nível */}
-                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <Waves className="w-4 h-4 text-sky-400" />
                       Alertas de Nível da Água
@@ -1899,7 +2251,7 @@ export default function App() {
                   </div>
 
                   {/* Temperatura Ideal */}
-                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <Thermometer className="w-4 h-4 text-emerald-400" />
                       Faixa de Temperatura Ideal
@@ -1925,10 +2277,10 @@ export default function App() {
                                 tempMaxC: preset.max,
                               })
                             }
-                            className={`p-2.5 rounded-xl border text-center transition ${
+                            className={`p-2.5 rounded-xl border text-center transition-all duration-300 ${
                               selected
-                                ? 'bg-[#1A539B] border-sky-300 text-white'
-                                : 'bg-[#0B1D35] border-[#1A539B]/40 text-sky-200 hover:bg-[#0F2747]'
+                                ? 'bg-gradient-to-br from-[#1A539B] to-sky-600 border-sky-300/60 text-white shadow-md shadow-sky-500/20'
+                                : 'bg-[#091628] border-white/[0.08] text-sky-200 hover:bg-white/[0.05]'
                             }`}
                           >
                             <div className="text-xs font-bold">{preset.label}</div>
@@ -1954,7 +2306,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, tempMinC: Number(e.target.value) })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white"
+                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                       </div>
 
@@ -1971,7 +2323,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, tempMaxC: Number(e.target.value) })
                           }
-                          className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white"
+                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                       </div>
                     </div>
@@ -1981,15 +2333,15 @@ export default function App() {
 
               {/* ABA 3: DISPLAY LCD */}
               {wizardStep === 3 && (
-                <div className="space-y-5">
-                  <div className="rounded-2xl bg-[#050D1A] border-2 border-[#1A539B]/70 p-4 shadow-inner">
+                <div className="space-y-5 animate-fade-up">
+                  <div className="rounded-2xl bg-[#040A14] border border-white/[0.08] p-4 shadow-inner">
                     <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between">
                       <span>Prévia do Display LCD (16x2)</span>
                       {draftConfig.lcdCarousel && (
                         <span className="text-emerald-300 font-semibold">Carrossel Ativo (4s)</span>
                       )}
                     </div>
-                    <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-5 py-3.5">
+                    <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-5 py-3.5 shadow-[0_0_25px_rgba(16,185,129,0.15)]">
                       <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 whitespace-pre">
                         {lcdLine0}
                       </div>
@@ -2001,7 +2353,7 @@ export default function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-sky-200 mb-1">
+                      <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                         Linha 1 (Superior)
                       </label>
                       <select
@@ -2009,7 +2361,7 @@ export default function App() {
                         onChange={(e) =>
                           setDraftConfig({ ...draftConfig, lcdLine1Mode: e.target.value })
                         }
-                        className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                        className="w-full bg-[#050C17] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
                       >
                         <option value="water_pct">Nível da Água (%)</option>
                         <option value="volume_liters">Volume Atual (Litros)</option>
@@ -2019,7 +2371,7 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-sky-200 mb-1">
+                      <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                         Linha 2 (Inferior)
                       </label>
                       <select
@@ -2027,7 +2379,7 @@ export default function App() {
                         onChange={(e) =>
                           setDraftConfig({ ...draftConfig, lcdLine2Mode: e.target.value })
                         }
-                        className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                        className="w-full bg-[#050C17] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
                       >
                         <option value="temp_c">Temperatura (°C)</option>
                         <option value="rtc_time">Horário do RTC</option>
@@ -2038,7 +2390,7 @@ export default function App() {
 
                     {draftConfig.lcdLine1Mode === 'custom_title' && (
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-sky-200 mb-1">
+                        <label className="block text-xs font-semibold text-sky-200/80 mb-1">
                           Texto Personalizado (Máx. 16 caracteres)
                         </label>
                         <input
@@ -2048,13 +2400,13 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, lcdCustomText: e.target.value })
                           }
-                          className="w-full bg-[#06101E] border border-[#1A539B]/60 rounded-xl px-3.5 py-2 text-sm font-mono-code uppercase text-white"
+                          className="w-full bg-[#050C17] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code uppercase text-white focus:outline-none focus:border-sky-400"
                           placeholder="NETUNO AQUARIO"
                         />
                       </div>
                     )}
 
-                    <div className="sm:col-span-2 bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4 flex items-center justify-between">
+                    <div className="sm:col-span-2 bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 flex items-center justify-between">
                       <div>
                         <span className="text-sm font-bold text-white block">
                           Alternar Telas Automaticamente (Carrossel)
@@ -2071,12 +2423,12 @@ export default function App() {
                             lcdCarousel: !draftConfig.lcdCarousel,
                           })
                         }
-                        className={`w-12 h-6 rounded-full p-1 transition ${
+                        className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${
                           draftConfig.lcdCarousel ? 'bg-emerald-500' : 'bg-slate-700'
                         }`}
                       >
                         <div
-                          className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                          className={`w-4 h-4 rounded-full bg-white transition-transform duration-300 ${
                             draftConfig.lcdCarousel ? 'translate-x-6' : 'translate-x-0'
                           }`}
                         />
@@ -2088,10 +2440,10 @@ export default function App() {
 
               {/* ABA 4: RTC, BOMBA & ALIMENTADOR */}
               {wizardStep === 4 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
                   <div className="space-y-6">
                     {/* Relógio RTC */}
-                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-3">
+                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
                           <Clock className="w-4 h-4 text-sky-400" />
@@ -2107,14 +2459,14 @@ export default function App() {
                           type="date"
                           value={rtcEditDate}
                           onChange={(e) => setRtcEditDate(e.target.value)}
-                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
+                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                         <input
                           type="time"
                           step="1"
                           value={rtcEditTime}
                           onChange={(e) => setRtcEditTime(e.target.value)}
-                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-3 py-2 text-xs font-mono-code text-white"
+                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                       </div>
 
@@ -2122,21 +2474,21 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleApplyRtcDateTime(null)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition"
+                          className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-extrabold transition-all duration-300 active:scale-[0.98]"
                         >
                           Gravar no RTC
                         </button>
                         <button
                           type="button"
                           onClick={() => handleApplyRtcDateTime(new Date().toISOString())}
-                          className="py-2 px-3 rounded-xl bg-[#1A539B] hover:bg-[#2364B8] text-white text-xs font-bold border border-sky-300/30 transition"
+                          className="py-2 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-bold border border-white/[0.1] transition-all duration-300 active:scale-[0.98]"
                         >
                           Sincronizar Hora Atual
                         </button>
                       </div>
 
                       {rtcSaveNotice && (
-                        <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold">
+                        <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold animate-scale-in">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Horário atualizado no RTC!
                         </div>
@@ -2144,7 +2496,7 @@ export default function App() {
                     </div>
 
                     {/* Bomba de Oxigênio */}
-                    <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-3">
+                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
                           <Wind className="w-4 h-4 text-sky-400" />
@@ -2153,10 +2505,10 @@ export default function App() {
                         <button
                           type="button"
                           onClick={handleTogglePump}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-300 active:scale-[0.98] ${
                             pumpRelayOn
-                              ? 'bg-emerald-500 text-slate-950'
-                              : 'bg-[#1A539B] text-white border border-sky-300/30'
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md shadow-emerald-500/20'
+                              : 'bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/[0.1]'
                           }`}
                         >
                           <Power className="w-3.5 h-3.5" />
@@ -2172,7 +2524,7 @@ export default function App() {
                             onChange={(e) =>
                               setDraftConfig({ ...draftConfig, pumpMode: e.target.value })
                             }
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs text-white"
+                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-sky-400"
                           >
                             <option value="auto">Automático</option>
                             <option value="manual">Manual</option>
@@ -2194,7 +2546,7 @@ export default function App() {
                                 pumpCycleOnMin: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white"
+                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                           />
                         </div>
 
@@ -2213,7 +2565,7 @@ export default function App() {
                                 pumpSafetyCutoffPct: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white"
+                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                           />
                         </div>
                       </div>
@@ -2221,7 +2573,7 @@ export default function App() {
                   </div>
 
                   {/* Alimentador Automático */}
-                  <div className="bg-[#06101E]/85 border border-[#1A539B]/50 rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
                     <div className="flex items-center justify-between gap-2">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <Utensils className="w-4 h-4 text-sky-400" />
@@ -2231,10 +2583,10 @@ export default function App() {
                         type="button"
                         onClick={() => handleTriggerFeedNow(draftConfig.defaultPortion)}
                         disabled={feedNowCommand}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-300 active:scale-[0.98] ${
                           feedNowCommand
                             ? 'bg-amber-400 text-slate-950 animate-pulse'
-                            : 'bg-gradient-to-r from-[#1A539B] to-sky-500 text-white'
+                            : 'bg-gradient-to-r from-[#1A539B] to-sky-500 text-white shadow-md shadow-sky-500/20'
                         }`}
                       >
                         <Utensils className="w-3.5 h-3.5" />
@@ -2250,10 +2602,10 @@ export default function App() {
                           onClick={() =>
                             setDraftConfig({ ...draftConfig, defaultPortion: portion })
                           }
-                          className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition ${
+                          className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all duration-300 ${
                             draftConfig.defaultPortion === portion
-                              ? 'bg-[#1A539B] border-sky-400 text-white'
-                              : 'bg-[#0B1D35] border-[#1A539B]/40 text-sky-200/70'
+                              ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 border-sky-400/50 text-white shadow-sm'
+                              : 'bg-[#091628] border-white/[0.08] text-sky-200/70 hover:bg-white/[0.05]'
                           }`}
                         >
                           {portion}
@@ -2265,7 +2617,7 @@ export default function App() {
                       {schedules.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-[#0B1D35] border border-[#1A539B]/50 rounded-xl p-2.5 flex items-center justify-between"
+                          className="bg-[#091628]/80 border border-white/[0.08] rounded-xl p-2.5 flex items-center justify-between transition-colors hover:border-white/[0.15]"
                         >
                           <div>
                             <span className="text-sm font-extrabold font-mono-code text-white">
@@ -2277,12 +2629,12 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleToggleSchedule(item.id)}
-                              className={`w-8 h-4 rounded-full p-0.5 transition ${
+                              className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-300 ${
                                 item.enabled ? 'bg-emerald-500' : 'bg-slate-700'
                               }`}
                             >
                               <div
-                                className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                                className={`w-3 h-3 rounded-full bg-white transition-transform duration-300 ${
                                   item.enabled ? 'translate-x-4' : 'translate-x-0'
                                 }`}
                               />
@@ -2290,7 +2642,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleDeleteSchedule(item.id)}
-                              className="p-1 text-rose-400 hover:text-rose-300"
+                              className="p-1 text-rose-400 hover:text-rose-300 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -2305,12 +2657,12 @@ export default function App() {
                           type="time"
                           value={newScheduleTime}
                           onChange={(e) => setNewScheduleTime(e.target.value)}
-                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white"
+                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                         <select
                           value={newSchedulePortion}
                           onChange={(e) => setNewSchedulePortion(e.target.value)}
-                          className="bg-[#0B1D35] border border-[#1A539B] rounded-xl px-2.5 py-2 text-xs text-white flex-1"
+                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white flex-1 focus:outline-none focus:border-sky-400"
                         >
                           <option value="Leve (3g)">Leve (3g)</option>
                           <option value="Padrão (5g)">Padrão (5g)</option>
@@ -2318,7 +2670,7 @@ export default function App() {
                         </select>
                         <button
                           type="submit"
-                          className="bg-[#1A539B] hover:bg-[#2364B8] text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1"
+                          className="bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2364B8] hover:to-sky-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 transition-all duration-300 active:scale-[0.98]"
                         >
                           <Plus className="w-3.5 h-3.5" /> Adicionar
                         </button>
@@ -2335,10 +2687,10 @@ export default function App() {
             ABA 3: HISTÓRICO
            =================================================================== */}
         {!exclusiveSetupMode && activeTab === 'history' && (
-          <div className="bg-[#0B1D35]/90 backdrop-blur-xl rounded-3xl border border-[#1A539B]/50 p-6 sm:p-8 shadow-xl space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#1A539B]/40 pb-5">
+          <div className="clean-card rounded-3xl p-6 sm:p-8 space-y-6 animate-fade-up">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-5">
               <div>
-                <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2.5 tracking-tight">
                   <Activity className="w-5 h-5 text-sky-400" />
                   Histórico de Eventos
                 </h3>
@@ -2348,7 +2700,7 @@ export default function App() {
               </div>
               <button
                 onClick={fetchSupabaseData}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1A539B] hover:bg-[#2364B8] text-xs font-semibold text-white border border-sky-300/30 transition"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-white border border-white/[0.1] transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Atualizar Agora
@@ -2356,25 +2708,26 @@ export default function App() {
             </div>
 
             {logs.length === 0 ? (
-              <div className="py-12 text-center text-sm text-sky-200/60 bg-[#06101E]/60 rounded-2xl border border-[#1A539B]/30">
+              <div className="py-12 text-center text-sm text-sky-200/60 bg-[#050C17]/60 rounded-2xl border border-white/[0.06]">
                 Nenhum registro encontrado no histórico.
               </div>
             ) : (
               <div className="space-y-3">
-                {logs.map((log) => (
+                {logs.map((log, idx) => (
                   <div
                     key={log.id}
-                    className="bg-[#06101E]/85 border border-[#1A539B]/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    style={{ animationDelay: `${Math.min(idx * 40, 300)}ms` }}
+                    className="bg-[#050C17]/75 border border-white/[0.07] hover:border-sky-400/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-300 hover:-translate-y-0.5 animate-fade-up"
                   >
                     <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 text-sky-300 border border-sky-400/30">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 text-sky-300 border border-sky-400/25">
                         <Waves className="w-5 h-5" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-white">{log.message}</p>
                       </div>
                     </div>
-                    <span className="text-xs font-mono-code text-sky-300 bg-[#0B1D35] px-3 py-1.5 rounded-lg border border-[#1A539B]/40 self-start sm:self-center">
+                    <span className="text-xs font-mono-code text-sky-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.08] self-start sm:self-center">
                       {log.time}
                     </span>
                   </div>
@@ -2386,14 +2739,14 @@ export default function App() {
       </main>
 
       {/* RODAPÉ */}
-      <footer className="border-t border-[#1A539B]/30 bg-[#06101E]/90 py-5 px-4 sm:px-6 lg:px-8 mt-8">
+      <footer className="border-t border-white/[0.06] bg-[#040A14]/80 backdrop-blur-xl py-5 px-4 sm:px-6 lg:px-8 mt-8">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2.5 text-xs text-sky-200/60">
           <img
             src="/logo-netuno.jpg"
             alt="Netuno"
-            className="w-6 h-6 rounded-md object-cover border border-white/20"
+            className="w-6 h-6 rounded-md object-cover border border-white/15"
           />
-          <span className="font-serif font-bold tracking-widest text-white">NETUNO</span>
+          <span className="font-serif font-bold tracking-widest text-white/90">NETUNO</span>
         </div>
       </footer>
     </div>
