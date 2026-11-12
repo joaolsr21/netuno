@@ -280,56 +280,56 @@
 @keyframes fishEatOne {
   0% {
     left: 26%;
-    top: 36%;
-    transform: scaleX(1) rotate(-18deg);
+    top: 34%;
+    transform: translateY(0px) scaleX(1) rotate(-18deg);
   }
   25% {
     left: 43%;
     top: 8%;
-    transform: scaleX(1) rotate(-22deg) scale(1.08);
+    transform: translateY(0px) scaleX(1) rotate(-22deg) scale(1.08);
   }
   55% {
     left: 53%;
     top: 10%;
-    transform: scaleX(-1) rotate(-18deg) scale(1.08);
+    transform: translateY(0px) scaleX(-1) rotate(-18deg) scale(1.08);
   }
   80% {
-    left: 45%;
-    top: 8%;
-    transform: scaleX(1) rotate(-12deg) scale(1.05);
+    left: 42%;
+    top: 12%;
+    transform: translateY(0px) scaleX(-1) rotate(8deg) scale(1.04);
   }
   100% {
-    left: 32%;
+    left: 16%;
     top: 34%;
-    transform: scaleX(1) rotate(0deg) scale(1);
+    transform: translateY(0px) scaleX(1) rotate(0deg) scale(1);
   }
 }
 
 @keyframes fishEatTwo {
   0% {
     left: 66%;
-    top: 64%;
-    transform: scaleX(-1) rotate(-20deg);
+    top: 66%;
+    transform: translateY(0px) scaleX(-1) rotate(-20deg);
   }
   30% {
     left: 52%;
     top: 10%;
-    transform: scaleX(-1) rotate(-25deg) scale(1.08);
+    transform: translateY(0px) scaleX(-1) rotate(-25deg) scale(1.08);
   }
   60% {
     left: 44%;
     top: 9%;
-    transform: scaleX(1) rotate(-20deg) scale(1.08);
+    transform: translateY(0px) scaleX(1) rotate(-20deg) scale(1.08);
   }
   82% {
-    left: 51%;
-    top: 12%;
-    transform: scaleX(-1) rotate(-10deg) scale(1.04);
+    left: 55%;
+    top: 18%;
+    transform: translateY(0px) scaleX(1) rotate(10deg) scale(1.04);
   }
   100% {
-    left: 62%;
+    left: 68%;
     top: 66%;
-    transform: scaleX(-1) rotate(0deg) scale(1);
+    transform: translateY(0px) scaleX(-1) rotate(0deg) scale(1);
   }
 }
 

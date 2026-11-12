@@ -288,6 +288,27 @@ export default function App() {
     activeSchedules.find((s) => s.time > rtcCurrentHHMM) ||
     (activeSchedules.length > 0 ? activeSchedules[0] : null);
 
+  // Finaliza o ciclo breve de alimentação (volta os peixes ao nado normal e limpa o status)
+  const finishFeedingCycle = useCallback(() => {
+    setFeedNowCommand(false);
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+      supabase
+        .from('aquarium_status')
+        .update({ feed_now_command: false })
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
+    }
+  }, [activeDeviceUsername]);
+
+  // Garante que o status "Alimentando..." e a animação de comer dos peixes durem apenas o ciclo breve (2.2s)
+  useEffect(() => {
+    if (!feedNowCommand) return;
+    const timer = setTimeout(() => {
+      finishFeedingCycle();
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, [feedNowCommand, finishFeedingCycle]);
+
   // Acionamento automático do alimentador quando o horário do módulo RTC atinge exatamente um horário programado
   useEffect(() => {
     if (!activeDeviceUsername) return;
@@ -305,19 +326,9 @@ export default function App() {
       supabase
         .from('aquarium_status')
         .update({ feed_now_command: true, feed_now_portion: match.portion })
-        .eq('device_username', activeDeviceUsername)
-        .catch(() => {});
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
     }
-    setTimeout(() => {
-      setFeedNowCommand(false);
-      if (isSupabaseConfigured && supabase) {
-        supabase
-          .from('aquarium_status')
-          .update({ feed_now_command: false })
-          .eq('device_username', activeDeviceUsername)
-          .catch(() => {});
-      }
-    }, 2200);
   }, [
     activeDeviceUsername,
     rtcCurrentHHMM,
@@ -432,17 +443,13 @@ export default function App() {
         setPumpMode(statusData.pump_mode);
       }
       if (statusData.feed_now_command) {
-        setFeedNowCommand(true);
-        setTimeout(() => {
-          setFeedNowCommand(false);
-          if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-            supabase
-              .from('aquarium_status')
-              .update({ feed_now_command: false })
-              .eq('device_username', activeDeviceUsername)
-              .catch(() => {});
-          }
-        }, 2200);
+        // Limpa eventual flag residual no banco para não travar a tela em "Alimentando..." ao abrir o site
+        setFeedNowCommand(false);
+        supabase
+          .from('aquarium_status')
+          .update({ feed_now_command: false })
+          .ilike('device_username', activeDeviceUsername)
+          .then(() => {}, () => {});
       } else {
         setFeedNowCommand(false);
       }
@@ -569,21 +576,8 @@ export default function App() {
           if (s.pump_mode) {
             setPumpMode(s.pump_mode);
           }
-          if (s.feed_now_command !== undefined && s.feed_now_command !== null) {
-            const isFeeding = Boolean(s.feed_now_command);
-            setFeedNowCommand(isFeeding);
-            if (isFeeding) {
-              setTimeout(() => {
-                setFeedNowCommand(false);
-                if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-                  supabase
-                    .from('aquarium_status')
-                    .update({ feed_now_command: false })
-                    .eq('device_username', activeDeviceUsername)
-                    .catch(() => {});
-                }
-              }, 2200);
-            }
+          if (s.feed_now_command === false) {
+            setFeedNowCommand(false);
           }
           if (s.feed_now_portion) {
             setFeedNowPortion(s.feed_now_portion);
@@ -757,26 +751,16 @@ export default function App() {
     }
   };
 
-  const handleTriggerFeedNow = async (portion = draftConfig.defaultPortion) => {
+  const handleTriggerFeedNow = (portion = draftConfig.defaultPortion) => {
     setFeedNowCommand(true);
     setFeedNowPortion(portion);
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       supabase
         .from('aquarium_status')
         .update({ feed_now_command: true, feed_now_portion: portion })
-        .eq('device_username', activeDeviceUsername)
-        .catch(() => {});
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
     }
-    setTimeout(() => {
-      setFeedNowCommand(false);
-      if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-        supabase
-          .from('aquarium_status')
-          .update({ feed_now_command: false })
-          .eq('device_username', activeDeviceUsername)
-          .catch(() => {});
-      }
-    }, 2200);
   };
 
   const handleAddSchedule = async (e) => {
@@ -842,14 +826,14 @@ export default function App() {
     setTimeout(() => setRtcSaveNotice(false), 2500);
 
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-      await supabase
+      supabase
         .from('aquarium_status')
         .update({
           rtc_datetime: targetIso,
           rtc_set_command: true,
         })
-        .eq('device_username', activeDeviceUsername)
-        .catch(() => {});
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
     }
   };
 
@@ -894,15 +878,15 @@ export default function App() {
   };
 
   // Envia apenas o sinal para o ESP32 abrir o painel de configuração inicial (NETUNO-SETUP 10.0.0.1) sem mudar de aba
-  const handleSendEspPortalCommand = async () => {
+  const handleSendEspPortalCommand = () => {
     setWifiPortalCommandSent(true);
 
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-      await supabase
+      supabase
         .from('aquarium_status')
         .update({ wifi_setup_command: true })
-        .eq('device_username', activeDeviceUsername)
-        .catch(() => {});
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
     }
 
     setTimeout(() => setWifiPortalCommandSent(false), 5000);
@@ -1505,6 +1489,11 @@ export default function App() {
                           <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
                             {/* Peixinho 1 (Laranja/Dourado) */}
                             <div
+                              onAnimationEnd={(e) => {
+                                if (e.animationName === 'fishEatOne') {
+                                  finishFeedingCycle();
+                                }
+                              }}
                               className={`absolute ${
                                 feedNowCommand ? 'animate-fish-eat-1' : 'top-[34%] animate-fish-1'
                               }`}
@@ -1560,6 +1549,11 @@ export default function App() {
 
                             {/* Peixinho 2 (Azul Neon / Ciano) */}
                             <div
+                              onAnimationEnd={(e) => {
+                                if (e.animationName === 'fishEatTwo') {
+                                  finishFeedingCycle();
+                                }
+                              }}
                               className={`absolute ${
                                 feedNowCommand ? 'animate-fish-eat-2' : 'top-[66%] animate-fish-2'
                               }`}
