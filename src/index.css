@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background-color: #040B16;
@@ -11,7 +18,12 @@
       radial-gradient(circle at 88% 18%, rgba(56, 189, 248, 0.12) 0px, transparent 40%),
       radial-gradient(circle at 50% 92%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
     background-attachment: fixed;
-    overflow-x: hidden;
+  }
+
+  @media (max-width: 768px) {
+    body {
+      background-attachment: scroll;
+    }
   }
 }
 

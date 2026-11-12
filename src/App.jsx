@@ -1090,13 +1090,13 @@ export default function App() {
       )}
 
       {/* HEADER PRINCIPAL CLEAN & GLASSMORPHIC */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#040B16]/80 backdrop-blur-2xl transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#040B16]/85 backdrop-blur-2xl transition-all">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
           {/* Identidade Visual */}
-          <div className="flex items-center gap-3.5">
-            <div className="relative group cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className="relative group cursor-pointer shrink-0" onClick={() => setActiveTab('dashboard')}>
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-50 group-hover:opacity-80 blur transition duration-300"></div>
-              <div className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl overflow-hidden border border-white/25 bg-[#1A539B] shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+              <div className="relative w-10 h-10 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl overflow-hidden border border-white/25 bg-[#1A539B] shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
                 <img
                   src="/logo-netuno.jpg"
                   alt="Logo Netuno"
@@ -1104,12 +1104,16 @@ export default function App() {
                 />
               </div>
             </div>
-            <div>
-              <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-[0.18em] text-white">
+            <div className="min-w-0">
+              <h1 className="font-serif text-lg sm:text-2xl font-bold tracking-[0.14em] sm:tracking-[0.18em] text-white truncate">
                 NETUNO
               </h1>
-              <p className="text-[11px] text-sky-300/70 hidden sm:block">
+              <p className="text-[11px] text-sky-300/70 hidden sm:block truncate">
                 {config.aquariumName} • {maxVolumeLiters} L
+              </p>
+              <p className="text-[10px] text-emerald-300/80 sm:hidden font-mono-code truncate flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                {activeDeviceUsername}
               </p>
             </div>
           </div>
@@ -1144,7 +1148,7 @@ export default function App() {
           </nav>
 
           {/* Ações + Relógio RTC no Canto Superior Direito */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="font-mono-code font-medium text-sky-100">{activeDeviceUsername}</span>
@@ -1152,23 +1156,27 @@ export default function App() {
 
             <button
               onClick={handleSendEspPortalCommand}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 ${
+              className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
                 wifiPortalCommandSent
                   ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-md shadow-emerald-500/20'
                   : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
               }`}
               title="Envia sinal para o ESP32 abrir a rede NETUNO-SETUP (10.0.0.1)"
             >
-              <Wifi className={`w-3.5 h-3.5 ${wifiPortalCommandSent ? 'text-emerald-300 animate-pulse' : 'text-sky-400'}`} />
-              <span>
+              <Wifi className={`w-3.5 h-3.5 shrink-0 ${wifiPortalCommandSent ? 'text-emerald-300 animate-pulse' : 'text-sky-400'}`} />
+              <span className="hidden sm:inline">
                 {wifiPortalCommandSent ? 'Sinal Enviado ao ESP32!' : 'Abrir Painel no ESP32'}
+              </span>
+              <span className="sm:hidden">
+                {wifiPortalCommandSent ? 'Enviado!' : 'ESP32'}
               </span>
             </button>
 
             <button
               onClick={handleDeviceLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 border border-white/[0.09] hover:border-rose-400/40 text-[11px] font-semibold text-sky-200/85 hover:text-rose-200 transition-all duration-200 active:scale-95"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 border border-white/[0.09] hover:border-rose-400/40 text-[11px] font-semibold text-sky-200/85 hover:text-rose-200 transition-all duration-200 active:scale-95"
               title="Logout"
+              aria-label="Sair"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">Logout</span>
@@ -1177,10 +1185,10 @@ export default function App() {
             <div className="hidden sm:block h-6 w-px bg-white/10 mx-1" />
 
             {/* Relógio RTC posicionado no canto extremo direito */}
-            <div className="flex items-center gap-2 text-right pl-0.5">
-              <Clock className="w-4 h-4 text-sky-400 shrink-0 animate-pulse" />
+            <div className="flex items-center gap-1.5 sm:gap-2 text-right pl-0.5">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-400 shrink-0 animate-pulse" />
               <div>
-                <div className="font-mono-code text-base sm:text-lg font-extrabold text-white tracking-wider leading-none">
+                <div className="font-mono-code text-xs sm:text-lg font-extrabold text-white tracking-wider leading-none">
                   {rtcTimeFormatted}
                 </div>
                 <div className="text-[10px] text-sky-300/70 hidden sm:block mt-0.5 font-mono-code">
@@ -1192,7 +1200,7 @@ export default function App() {
         </div>
 
         {/* Navegação Mobile Clean */}
-        <div className="flex md:hidden border-t border-white/[0.06] bg-[#06101E]/90 px-3 py-1.5 justify-around">
+        <div className="grid grid-cols-3 gap-1.5 md:hidden border-t border-white/[0.06] bg-[#06101E]/95 px-3 py-2">
           {[
             { id: 'dashboard', label: 'Painel', icon: Gauge },
             { id: 'history', label: 'Histórico', icon: TrendingUp },
@@ -1207,12 +1215,14 @@ export default function App() {
                   if (tab.id === 'setup') setDraftConfig(config);
                   setActiveTab(tab.id);
                 }}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  active ? 'bg-[#1A539B] text-white shadow' : 'text-sky-200/65'
+                className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                  active
+                    ? 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/30 border border-sky-300/20'
+                    : 'text-sky-200/70 hover:text-white bg-white/[0.02]'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {tab.label}
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span>{tab.label}</span>
               </button>
             );
           })}
@@ -1221,10 +1231,10 @@ export default function App() {
 
       {/* Notificação flutuante de sinal enviado para o ESP32 */}
       {wifiPortalCommandSent && (
-        <div className="fixed top-20 right-4 sm:right-8 z-50 max-w-md bg-[#071324]/95 border border-emerald-400/40 rounded-2xl p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-start gap-3 animate-fade-up">
+        <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#071324]/95 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-start gap-3 animate-fade-up">
           <Radio className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5 animate-pulse" />
           <div className="space-y-1">
-            <div className="font-bold text-white flex items-center gap-2">
+            <div className="font-bold text-white flex items-center gap-2 flex-wrap">
               <span>Sinal Enviado ao ESP32!</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-mono-code font-bold">10.0.0.1</span>
             </div>
@@ -1236,30 +1246,30 @@ export default function App() {
       )}
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* RESUMO RÁPIDO DOS 4 INDICADORES COM MICRO-INTERAÇÕES E ANIMAÇÃO */}
         {activeTab === 'dashboard' && (
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 animate-fade-up">
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-fade-up">
             {/* Card 1: Nível da Água */}
-            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
+            <div className="clean-kpi rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between gap-2.5 sm:gap-3 group">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                     Nível d'Água
                   </span>
                   <span className="text-2xl sm:text-3xl font-extrabold text-white mt-1 block tracking-tight">
                     {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                   </span>
-                  <span className={`text-[11px] font-medium mt-0.5 block ${waterStatus.color}`}>
+                  <span className={`text-[10px] sm:text-[11px] font-medium mt-0.5 block truncate ${waterStatus.color}`}>
                     {waterStatus.label}
                   </span>
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 transition-transform duration-300 group-hover:scale-110">
-                  <Waves className="w-5 h-5" />
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 shrink-0 transition-transform duration-300 group-hover:scale-110">
+                  <Waves className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-between text-[11px] text-sky-200/60 border-t border-white/[0.04]">
+              <div className="pt-2 flex items-center justify-between text-[10px] sm:text-[11px] text-sky-200/60 border-t border-white/[0.04]">
                 <span>Volume Útil:</span>
                 <span className="font-mono-code font-bold text-sky-200">
                   {waterVolumeLiters !== null ? `${waterVolumeLiters} L` : '--'}
@@ -1268,35 +1278,35 @@ export default function App() {
             </div>
 
             {/* Card 2: Temperatura */}
-            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
+            <div className="clean-kpi rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between gap-2.5 sm:gap-3 group">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                     Temperatura
                   </span>
                   <span className="text-2xl sm:text-3xl font-extrabold text-emerald-300 mt-1 block tracking-tight">
                     {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
                   </span>
-                  <span className="text-[11px] text-sky-200/75 mt-0.5 block">
+                  <span className="text-[10px] sm:text-[11px] text-sky-200/75 mt-0.5 block truncate">
                     {tempStatus.label}
                   </span>
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300 transition-transform duration-300 group-hover:scale-110">
-                  <Thermometer className="w-5 h-5" />
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300 shrink-0 transition-transform duration-300 group-hover:scale-110">
+                  <Thermometer className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-between text-[11px] text-sky-200/60 border-t border-white/[0.04]">
+              <div className="pt-2 flex items-center justify-between text-[10px] sm:text-[11px] text-sky-200/60 border-t border-white/[0.04]">
                 <span>Faixa Ideal:</span>
                 <span className="font-mono-code font-bold text-emerald-300">
-                  {config.tempMinC}°C – {config.tempMaxC}°C
+                  {config.tempMinC}°C–{config.tempMaxC}°C
                 </span>
               </div>
             </div>
 
             {/* Card 3: Bomba de Oxigênio */}
-            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
-              <div className="flex items-start justify-between">
+            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+              <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                     Bomba de Oxigênio
@@ -1313,7 +1323,7 @@ export default function App() {
                   </span>
                 </div>
                 <div
-                  className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
+                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 ${
                     pumpRelayOn
                       ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
                       : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
@@ -1326,7 +1336,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleTogglePump}
-                className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                   pumpRelayOn
                     ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 shadow-sm shadow-emerald-500/15'
                     : 'bg-white/[0.06] hover:bg-white/[0.12] text-sky-200 border border-white/10'
@@ -1339,8 +1349,8 @@ export default function App() {
             </div>
 
             {/* Card 4: Alimentador com Opção de Alimentar Manualmente */}
-            <div className="clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
-              <div className="flex items-start justify-between">
+            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+              <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                     Alimentador
@@ -1357,7 +1367,7 @@ export default function App() {
                   </span>
                 </div>
                 <div
-                  className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
+                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 ${
                     feedNowCommand
                       ? 'bg-amber-400/20 border-amber-300/50 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
                       : 'bg-sky-500/15 border-sky-400/25 text-sky-300'
@@ -1371,7 +1381,7 @@ export default function App() {
                 type="button"
                 onClick={() => handleTriggerFeedNow(config.defaultPortion || 'Padrão (5g)')}
                 disabled={feedNowCommand}
-                className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                   feedNowCommand
                     ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
                     : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20 hover:shadow-amber-500/35'
@@ -1390,28 +1400,28 @@ export default function App() {
            =================================================================== */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
               {/* COLUNA ESQUERDA (6 cols): NÍVEL DA ÁGUA INTERATIVO */}
-              <div className="lg:col-span-6 clean-card rounded-3xl p-6 flex flex-col justify-between animate-fade-up">
+              <div className="lg:col-span-6 clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col justify-between animate-fade-up">
                 <div>
-                  <div className="flex items-start justify-between gap-4 mb-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300">
+                  <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
                         <Waves className="w-5 h-5" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-base font-bold text-white">
                           Nível da Água
                         </h3>
-                        <p className="text-xs text-sky-200/65">
+                        <p className="text-[11px] sm:text-xs text-sky-200/65">
                           Capacidade útil: {maxVolumeLiters} L ({TANK_LENGTH_CM} × {TANK_WIDTH_CM} × {TANK_HEIGHT_CM} cm)
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${waterStatus.bg} ${waterStatus.color}`}
+                        className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border transition-all ${waterStatus.bg} ${waterStatus.color}`}
                       >
                         {waterStatus.label}
                       </span>
@@ -1419,7 +1429,7 @@ export default function App() {
                   </div>
 
                   {/* Visualização Gráfica do Aquário com Ondas, Bolhas de Oxigênio e Ração */}
-                  <div className="relative h-64 rounded-2xl bg-gradient-to-b from-[#040C18] to-[#07162C] border border-sky-400/25 overflow-hidden shadow-inner mb-5">
+                  <div className="relative h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#040C18] to-[#07162C] border border-sky-400/25 overflow-hidden shadow-inner mb-4 sm:mb-5">
                     {/* Reflexo de vidro sutil */}
                     <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.03] to-transparent -skew-x-12 z-20" />
 
@@ -1722,9 +1732,9 @@ export default function App() {
                       {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                     </span>
                   </div>
-                  <div className="bg-[#040B16]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
+                  <div className="bg-[#040B16]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
                     <span className="text-[11px] text-sky-200/65 block">Volume Atual</span>
-                    <span className="text-base font-bold text-white font-mono-code mt-0.5 block">
+                    <span className="text-sm sm:text-base font-bold text-white font-mono-code mt-0.5 block">
                       {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
                     </span>
                   </div>
@@ -1732,17 +1742,17 @@ export default function App() {
               </div>
 
               {/* COLUNA DIREITA (6 cols): DISPLAY LCD + TEMPERATURA */}
-              <div className="lg:col-span-6 flex flex-col gap-6">
+              <div className="lg:col-span-6 flex flex-col gap-4 sm:gap-6">
                 {/* CARD: DISPLAY LCD */}
-                <div className="clean-card rounded-3xl p-6 animate-fade-up delay-75">
-                  <div className="flex items-center justify-between gap-4 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-fade-up delay-75">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0">
                         <Monitor className="w-5 h-5" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-base font-bold text-white">Display LCD</h3>
-                        <p className="text-xs text-sky-200/65">
+                        <p className="text-[11px] sm:text-xs text-sky-200/65 truncate">
                           {activeCfg.lcdCarousel ? 'Alternância automática ativa' : 'Espelhamento em tempo real'}
                         </p>
                       </div>
@@ -1753,19 +1763,19 @@ export default function App() {
                         setWizardStep(3);
                         setActiveTab('setup');
                       }}
-                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1 transition-transform hover:translate-x-0.5"
+                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1 shrink-0 transition-transform hover:translate-x-0.5"
                     >
                       Personalizar <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
                   {/* Moldura do Display LCD */}
-                  <div className="rounded-2xl bg-[#040A14] border border-white/10 p-3.5 shadow-inner">
-                    <div className="rounded-xl bg-gradient-to-b from-[#0C352A] to-[#07241C] border border-emerald-400/35 px-5 py-4 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)]">
-                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre overflow-x-auto transition-all duration-300">
+                  <div className="rounded-2xl bg-[#040A14] border border-white/10 p-2.5 sm:p-3.5 shadow-inner">
+                    <div className="rounded-xl bg-gradient-to-b from-[#0C352A] to-[#07241C] border border-emerald-400/35 px-3 sm:px-5 py-3 sm:py-4 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)] overflow-x-auto">
+                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre transition-all duration-300">
                         {lcdLine0}
                       </div>
-                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre mt-1.5 overflow-x-auto transition-all duration-300">
+                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre mt-1.5 transition-all duration-300">
                         {lcdLine1}
                       </div>
                     </div>
@@ -1773,42 +1783,42 @@ export default function App() {
                 </div>
 
                 {/* CARD: TEMPERATURA */}
-                <div className="clean-card rounded-3xl p-6 flex-1 flex flex-col justify-between animate-fade-up delay-150">
+                <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex-1 flex flex-col justify-between animate-fade-up delay-150">
                   <div>
-                    <div className="flex items-start justify-between gap-4 mb-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300">
+                    <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
                           <Thermometer className="w-5 h-5" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <h3 className="text-base font-bold text-white">
                             Temperatura da Água
                           </h3>
-                          <p className="text-xs text-sky-200/65">
+                          <p className="text-[11px] sm:text-xs text-sky-200/65">
                             Monitoramento térmico em tempo real
                           </p>
                         </div>
                       </div>
 
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${tempStatus.bg} ${tempStatus.color}`}
+                        className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border shrink-0 transition-all ${tempStatus.bg} ${tempStatus.color}`}
                       >
                         {tempStatus.label}
                       </span>
                     </div>
 
                     {/* Mostrador Principal de Temperatura + Barra Térmica Animada */}
-                    <div className="bg-[#040B16]/60 border border-white/[0.07] rounded-2xl p-5 space-y-4">
-                      <div className="flex items-center justify-between">
+                    <div className="bg-[#040B16]/60 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+                      <div className="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between gap-3">
                         <div>
                           <span className="text-xs text-sky-200/65 block">
                             Temperatura Atual
                           </span>
-                          <span className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mt-1 block font-mono-code">
+                          <span className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mt-1 block font-mono-code">
                             {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
                           </span>
                         </div>
-                        <div className="text-right text-xs text-sky-200/70 space-y-1.5">
+                        <div className="min-[380px]:text-right text-xs text-sky-200/70 space-y-1.5">
                           <div>
                             Faixa Ideal:{' '}
                             <strong className="text-emerald-300 font-mono-code">
@@ -1848,36 +1858,36 @@ export default function App() {
             </div>
 
             {/* SEÇÃO INFERIOR: GRÁFICO E LOGS */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-up delay-225">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 animate-fade-up delay-225">
               {/* Gráfico de Nível e Temperatura (7 cols) */}
-              <div className="lg:col-span-7 clean-card rounded-3xl p-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="lg:col-span-7 clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-sky-400" />
                       Histórico de Leituras
                     </h3>
-                    <p className="text-xs text-sky-200/65">
+                    <p className="text-[11px] sm:text-xs text-sky-200/65">
                       Evolução recente do nível e temperatura da água
                     </p>
                   </div>
                 </div>
 
                 {history.length === 0 ? (
-                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#040B16]/50 border border-white/[0.06] text-xs text-sky-200/55">
+                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#040B16]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
                     Nenhum registro de histórico disponível ainda.
                   </div>
                 ) : (
                   <>
-                    <div className="h-48 flex items-end justify-between gap-3 pt-6 px-2 border-b border-white/[0.08]">
+                    <div className="h-44 sm:h-48 flex items-end justify-between gap-1.5 sm:gap-3 pt-6 px-1 sm:px-2 border-b border-white/[0.08]">
                       {history.map((point, idx) => {
                         const isLast = idx === history.length - 1;
                         return (
-                          <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                            <span className="text-[11px] font-mono-code text-sky-200/80 group-hover:text-white transition-colors">
+                          <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 sm:gap-2 group min-w-0">
+                            <span className="text-[10px] sm:text-[11px] font-mono-code text-sky-200/80 group-hover:text-white transition-colors">
                               {point.level}%
                             </span>
-                            <div className="w-full max-w-[42px] h-32 bg-[#040B16]/70 rounded-t-xl p-1 flex items-end border border-white/[0.07] group-hover:border-sky-400/35 transition-colors">
+                            <div className="w-full max-w-[42px] h-28 sm:h-32 bg-[#040B16]/70 rounded-t-xl p-0.5 sm:p-1 flex items-end border border-white/[0.07] group-hover:border-sky-400/35 transition-colors">
                               <div
                                 style={{ height: `${point.level}%` }}
                                 className={`w-full rounded-t-lg transition-all duration-700 ease-out ${
@@ -1891,12 +1901,12 @@ export default function App() {
                         );
                       })}
                     </div>
-                    <div className="flex justify-between px-2 pt-2.5 text-[11px] font-mono-code text-sky-200/65">
+                    <div className="flex justify-between gap-1 sm:gap-2 px-1 sm:px-2 pt-2.5 text-[9px] sm:text-[11px] font-mono-code text-sky-200/65">
                       {history.map((point, idx) => (
-                        <div key={idx} className="flex-1 text-center">
+                        <div key={idx} className="flex-1 text-center min-w-0 truncate">
                           <div>{point.time}</div>
                           {point.temp !== null && (
-                            <div className="text-[10px] text-emerald-300/80">{point.temp}°C</div>
+                            <div className="text-[9px] sm:text-[10px] text-emerald-300/80">{point.temp}°C</div>
                           )}
                         </div>
                       ))}
@@ -1906,19 +1916,19 @@ export default function App() {
               </div>
 
               {/* Últimas Leituras (5 cols) */}
-              <div className="lg:col-span-5 clean-card rounded-3xl p-6 flex flex-col justify-between">
+              <div className="lg:col-span-5 clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="min-w-0">
                       <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-sky-400" />
+                        <Activity className="w-4 h-4 text-sky-400 shrink-0" />
                         Últimas Leituras
                       </h3>
-                      <p className="text-xs text-sky-200/65">Eventos recentes do aquário</p>
+                      <p className="text-[11px] sm:text-xs text-sky-200/65">Eventos recentes do aquário</p>
                     </div>
                     <button
                       onClick={() => setActiveTab('history')}
-                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1 transition-transform hover:translate-x-0.5"
+                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1 shrink-0 transition-transform hover:translate-x-0.5"
                     >
                       Ver todos <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -1939,7 +1949,7 @@ export default function App() {
                             <Waves className="w-4 h-4" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-white leading-snug">
+                            <p className="text-xs font-medium text-white leading-snug break-words">
                               {log.message}
                             </p>
                             <div className="flex items-center justify-end mt-1 text-[10px] text-sky-200/55">
@@ -1960,51 +1970,51 @@ export default function App() {
             ABA DE CONFIGURAÇÕES (LIMPA E ORGANIZADA)
            =================================================================== */}
         {activeTab === 'setup' && (
-          <div className="clean-card rounded-3xl overflow-hidden animate-fade-up">
+          <div className="clean-card rounded-2xl sm:rounded-3xl overflow-hidden animate-fade-up">
             {/* Cabeçalho Limpo + Abas Horizontais */}
-            <div className="bg-[#050C17]/75 border-b border-white/[0.06] px-6 py-5 flex flex-col gap-4">
+            <div className="bg-[#050C17]/75 border-b border-white/[0.06] px-4 py-4 sm:px-6 sm:py-5 flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A539B] to-sky-500 border border-sky-300/30 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+                <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A539B] to-sky-500 border border-sky-300/30 flex items-center justify-center text-white shadow-md shadow-sky-500/20 shrink-0">
                     <Settings className="w-5 h-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
                       Configurações do Aquário
                     </h2>
-                    <p className="text-xs text-sky-200/70">
+                    <p className="text-[11px] sm:text-xs text-sky-200/70">
                       Capacidade útil calculada: <strong className="text-emerald-300 font-mono-code">{maxVolumeLiters} L</strong> ({TANK_LENGTH_CM}×{TANK_WIDTH_CM}×{TANK_HEIGHT_CM} cm)
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-center">
+                <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => setActiveTab('dashboard')}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-[#1A539B]/35 text-xs font-semibold text-sky-200 hover:text-white border border-white/[0.08] hover:border-sky-400/40 transition-all duration-300 active:scale-[0.98]"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-[#1A539B]/35 text-xs font-semibold text-sky-200 hover:text-white border border-white/[0.08] hover:border-sky-400/40 transition-all duration-300 active:scale-[0.98]"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5 text-sky-400" />
-                    Voltar ao Painel
+                    <ArrowLeft className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span>Voltar ao Painel</span>
                   </button>
                   <button
                     onClick={handleResetFactoryDefaults}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.03] hover:bg-rose-500/15 text-xs font-medium text-sky-200/80 hover:text-rose-200 border border-white/[0.08] hover:border-rose-400/40 transition-all duration-300 active:scale-[0.98]"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.03] hover:bg-rose-500/15 text-xs font-medium text-sky-200/80 hover:text-rose-200 border border-white/[0.08] hover:border-rose-400/40 transition-all duration-300 active:scale-[0.98]"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Restaurar Padrão
+                    <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                    <span>Restaurar Padrão</span>
                   </button>
                   <button
                     onClick={handleSaveWizardConfig}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+                    className="col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
                   >
-                    <Save className="w-4 h-4" />
-                    Salvar Configurações
+                    <Save className="w-4 h-4 shrink-0" />
+                    <span>Salvar Configurações</span>
                   </button>
                 </div>
               </div>
 
               {/* Sub-abas limpas de Configuração */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 rounded-2xl bg-[#040912]/80 border border-white/[0.06]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-[#040912]/80 border border-white/[0.06]">
                 {wizardSteps.map((item) => {
                   const Icon = item.icon;
                   const active = wizardStep === item.step;
@@ -2013,13 +2023,13 @@ export default function App() {
                       key={item.step}
                       type="button"
                       onClick={() => setWizardStep(item.step)}
-                      className={`p-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-300 ${
+                      className={`p-2 sm:p-2.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-300 ${
                         active
                           ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 text-white shadow-md shadow-sky-500/20 scale-[1.01]'
                           : 'text-sky-200/70 hover:bg-white/[0.04] hover:text-white'
                       }`}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
+                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span className="truncate">{item.title}</span>
                     </button>
                   );
@@ -2028,10 +2038,10 @@ export default function App() {
             </div>
 
             {wifiPortalCommandSent && (
-              <div className="mx-6 sm:mx-8 mt-5 p-4 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 flex items-start gap-3 text-emerald-200 animate-fade-up">
+              <div className="mx-4 sm:mx-8 mt-4 sm:mt-5 p-3.5 sm:p-4 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 flex items-start gap-3 text-emerald-200 animate-fade-up">
                 <Radio className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5 animate-pulse" />
                 <div className="space-y-1 text-xs">
-                  <div className="font-bold text-emerald-300 flex items-center gap-2">
+                  <div className="font-bold text-emerald-300 flex items-center gap-2 flex-wrap">
                     <span>Comando de Configuração do ESP32 Ativado!</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-mono-code font-bold">10.0.0.1</span>
                   </div>
@@ -2043,20 +2053,20 @@ export default function App() {
             )}
 
             {saveSuccess && (
-              <div className="bg-emerald-500/15 border-b border-emerald-400/30 px-6 py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-200 animate-scale-in">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <div className="bg-emerald-500/15 border-b border-emerald-400/30 px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-200 animate-scale-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Configurações salvas com sucesso!</span>
               </div>
             )}
 
-            <div className="p-6 sm:p-8 space-y-6">
+            <div className="p-4 sm:p-8 space-y-5 sm:space-y-6">
               {/* ABA 1: ACESSO & DIMENSÕES DO AQUÁRIO */}
               {wizardStep === 1 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-fade-up">
                   {/* Acesso do ESP32 */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                       Credenciais de Acesso do ESP32
                     </h3>
 
@@ -2103,16 +2113,16 @@ export default function App() {
                       </div>
 
                       <div className="pt-2 text-[11px] text-sky-200/70">
-                        Para trocar o Wi-Fi do ESP32, use o botão <strong>Portal ESP32</strong> no topo da página e conecte-se na rede <span className="font-mono-code text-sky-300">NETUNO-SETUP</span> (<span className="font-mono-code text-emerald-300">10.0.0.1</span>).
+                        Para trocar o Wi-Fi do ESP32, use o botão <strong>ESP32</strong> / <strong>Abrir Painel no ESP32</strong> no topo da página e conecte-se na rede <span className="font-mono-code text-sky-300">NETUNO-SETUP</span> (<span className="font-mono-code text-emerald-300">10.0.0.1</span>).
                       </div>
                     </div>
                   </div>
 
                   {/* Dimensões e Litragem */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
-                    <div className="flex items-center justify-between">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                        <Droplets className="w-4 h-4 text-sky-400" />
+                        <Droplets className="w-4 h-4 text-sky-400 shrink-0" />
                         Medidas do Aquário
                       </h3>
                       <span className="text-xs font-mono-code font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 px-2.5 py-1 rounded-lg">
@@ -2370,18 +2380,18 @@ export default function App() {
               {/* ABA 3: DISPLAY LCD */}
               {wizardStep === 3 && (
                 <div className="space-y-5 animate-fade-up">
-                  <div className="rounded-2xl bg-[#040A14] border border-white/[0.08] p-4 shadow-inner">
-                    <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between">
+                  <div className="rounded-2xl bg-[#040A14] border border-white/[0.08] p-3 sm:p-4 shadow-inner">
+                    <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between gap-2">
                       <span>Prévia do Display LCD (16x2)</span>
                       {draftConfig.lcdCarousel && (
                         <span className="text-emerald-300 font-semibold">Carrossel Ativo (4s)</span>
                       )}
                     </div>
-                    <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-5 py-3.5 shadow-[0_0_25px_rgba(16,185,129,0.15)]">
-                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 whitespace-pre">
+                    <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-3 sm:px-5 py-3 sm:py-3.5 shadow-[0_0_25px_rgba(16,185,129,0.15)] overflow-x-auto">
+                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 whitespace-pre">
                         {lcdLine0}
                       </div>
-                      <div className="font-mono-code text-xl sm:text-2xl font-bold tracking-[0.18em] text-emerald-200 whitespace-pre mt-1">
+                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 whitespace-pre mt-1">
                         {lcdLine1}
                       </div>
                     </div>
@@ -2442,8 +2452,8 @@ export default function App() {
                       </div>
                     )}
 
-                    <div className="sm:col-span-2 bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 flex items-center justify-between">
-                      <div>
+                    <div className="sm:col-span-2 bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
                         <span className="text-sm font-bold text-white block">
                           Alternar Telas Automaticamente (Carrossel)
                         </span>
@@ -2459,7 +2469,7 @@ export default function App() {
                             lcdCarousel: !draftConfig.lcdCarousel,
                           })
                         }
-                        className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${
+                        className={`w-12 h-6 rounded-full p-1 shrink-0 transition-colors duration-300 ${
                           draftConfig.lcdCarousel ? 'bg-emerald-500' : 'bg-slate-700'
                         }`}
                       >
@@ -2476,48 +2486,48 @@ export default function App() {
 
               {/* ABA 4: RTC, BOMBA & ALIMENTADOR */}
               {wizardStep === 4 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
-                  <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-fade-up">
+                  <div className="space-y-4 sm:space-y-6">
                     {/* Relógio RTC */}
-                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-3">
-                      <div className="flex items-center justify-between">
+                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-sky-400" />
+                          <Clock className="w-4 h-4 text-sky-400 shrink-0" />
                           Relógio do Módulo RTC
                         </h4>
-                        <span className="font-mono-code text-xs font-bold text-emerald-300">
+                        <span className="font-mono-code text-xs font-bold text-emerald-300 shrink-0">
                           {rtcTimeFormatted}
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2.5">
                         <input
                           type="date"
                           value={rtcEditDate}
                           onChange={(e) => setRtcEditDate(e.target.value)}
-                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full min-w-0 bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                         <input
                           type="time"
                           step="1"
                           value={rtcEditTime}
                           onChange={(e) => setRtcEditTime(e.target.value)}
-                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full min-w-0 bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           type="button"
                           onClick={() => handleApplyRtcDateTime(null)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-extrabold transition-all duration-300 active:scale-[0.98]"
+                          className="flex-1 py-2.5 sm:py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-extrabold transition-all duration-300 active:scale-[0.98]"
                         >
                           Gravar no RTC
                         </button>
                         <button
                           type="button"
                           onClick={() => handleApplyRtcDateTime(new Date().toISOString())}
-                          className="py-2 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-bold border border-white/[0.1] transition-all duration-300 active:scale-[0.98]"
+                          className="py-2.5 sm:py-2 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-bold border border-white/[0.1] transition-all duration-300 active:scale-[0.98]"
                         >
                           Sincronizar Hora Atual
                         </button>
@@ -2532,10 +2542,10 @@ export default function App() {
                     </div>
 
                     {/* Bomba de Oxigênio */}
-                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-3">
-                      <div className="flex items-center justify-between">
+                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <Wind className="w-4 h-4 text-sky-400" />
+                          <Wind className="w-4 h-4 text-sky-400 shrink-0" />
                           Bomba ({pumpRelayOn ? 'Ligada' : 'Desligada'})
                         </h4>
                         <button
@@ -2552,7 +2562,7 @@ export default function App() {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2.5 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                         <div>
                           <label className="block text-[11px] text-sky-200/80 mb-1">Modo</label>
                           <select
@@ -2609,10 +2619,10 @@ export default function App() {
                   </div>
 
                   {/* Alimentador Automático */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
-                    <div className="flex items-center justify-between gap-2">
+                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                        <Utensils className="w-4 h-4 text-sky-400" />
+                        <Utensils className="w-4 h-4 text-sky-400 shrink-0" />
                         Alimentador ({schedules.length}/8 horários)
                       </h4>
                       <button
@@ -2630,7 +2640,7 @@ export default function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                       {['Leve (3g)', 'Padrão (5g)', 'Generosa (8g)'].map((portion) => (
                         <button
                           key={portion}
@@ -2638,7 +2648,7 @@ export default function App() {
                           onClick={() =>
                             setDraftConfig({ ...draftConfig, defaultPortion: portion })
                           }
-                          className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all duration-300 ${
+                          className={`py-2 px-1.5 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-semibold border transition-all duration-300 ${
                             draftConfig.defaultPortion === portion
                               ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 border-sky-400/50 text-white shadow-sm'
                               : 'bg-[#091628] border-white/[0.08] text-sky-200/70 hover:bg-white/[0.05]'
@@ -2688,17 +2698,17 @@ export default function App() {
                     </div>
 
                     {schedules.length < 8 && (
-                      <form onSubmit={handleAddSchedule} className="flex gap-2 pt-1">
+                      <form onSubmit={handleAddSchedule} className="grid grid-cols-2 sm:flex gap-2 pt-1">
                         <input
                           type="time"
                           value={newScheduleTime}
                           onChange={(e) => setNewScheduleTime(e.target.value)}
-                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full min-w-0 sm:w-auto bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                         <select
                           value={newSchedulePortion}
                           onChange={(e) => setNewSchedulePortion(e.target.value)}
-                          className="bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white flex-1 focus:outline-none focus:border-sky-400"
+                          className="w-full min-w-0 bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white sm:flex-1 focus:outline-none focus:border-sky-400"
                         >
                           <option value="Leve (3g)">Leve (3g)</option>
                           <option value="Padrão (5g)">Padrão (5g)</option>
@@ -2706,7 +2716,7 @@ export default function App() {
                         </select>
                         <button
                           type="submit"
-                          className="bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2364B8] hover:to-sky-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 transition-all duration-300 active:scale-[0.98]"
+                          className="col-span-2 sm:col-span-1 justify-center bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2364B8] hover:to-sky-400 text-white text-xs font-bold px-3.5 py-2.5 sm:py-2 rounded-xl flex items-center gap-1 transition-all duration-300 active:scale-[0.98]"
                         >
                           <Plus className="w-3.5 h-3.5" /> Adicionar
                         </button>
@@ -2723,11 +2733,11 @@ export default function App() {
             ABA 3: HISTÓRICO
            =================================================================== */}
         {activeTab === 'history' && (
-          <div className="clean-card rounded-3xl p-6 sm:p-8 space-y-6 animate-fade-up">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-5">
+          <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 sm:space-y-6 animate-fade-up">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-white/[0.06] pb-4 sm:pb-5">
               <div>
-                <h3 className="text-xl font-bold text-white flex items-center gap-2.5 tracking-tight">
-                  <Activity className="w-5 h-5 text-sky-400" />
+                <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 tracking-tight">
+                  <Activity className="w-5 h-5 text-sky-400 shrink-0" />
                   Histórico de Eventos
                 </h3>
                 <p className="text-xs sm:text-sm text-sky-200/70 mt-1">
@@ -2736,7 +2746,7 @@ export default function App() {
               </div>
               <button
                 onClick={fetchSupabaseData}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-white border border-white/[0.1] transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-white border border-white/[0.1] transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] w-full sm:w-auto"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Atualizar Agora
