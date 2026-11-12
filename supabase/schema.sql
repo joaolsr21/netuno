@@ -111,7 +111,7 @@ CREATE POLICY "Acesso publico telemetry_logs" ON public.telemetry_logs
   FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
--- HABILITAR REALTIME (PARA ATUALIZAÇÃO INSTANTÂNEA NO SITE E NO APK)
+-- HABILITAR REALTIME (PARA ATUALIZAÇÃO INSTANTÂNEA NO SITE)
 -- ============================================================================
 DO $$
 BEGIN

@@ -1,24 +1,15 @@
 # Dependencies
 node_modules/
-mobile-app/node_modules/
 
 # Build outputs
 dist/
 dist-ssr/
 *.local
-mobile-app/.expo/
-mobile-app/dist/
-mobile-app/web-build/
-mobile-app/android/
-mobile-app/ios/
 
 # Environment variables (keep secrets out of Git)
 .env
 .env.*
 !.env.example
-mobile-app/.env
-mobile-app/.env.*
-!mobile-app/.env.example
 
 # Logs & OS files
 npm-debug.log*
