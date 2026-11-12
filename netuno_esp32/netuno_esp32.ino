@@ -21,6 +21,9 @@
 #include <LiquidCrystal_I2C.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <time.h>
+
+#define RTC_TZ_OFFSET_HOURS -3 // Fuso horário de Brasília (-03:00)
 
 // ===================== CONFIGURAÇÃO SUPABASE ================================
 const char* SUPABASE_URL = "https://bcdwgmhhrptygaarocjy.supabase.co";
@@ -59,11 +62,13 @@ FeedScheduleItem feedSchedules[MAX_FEED_SCHEDULES] = {
 // Estado atual do Relógio do Módulo RTC
 int rtcYear   = 2026;
 int rtcMonth  = 11;
-int rtcDay    = 9;
+int rtcDay    = 12;
 int rtcHour   = 8;
 int rtcMinute = 0;
 int rtcSecond = 0;
 int lastFedKey = -1; // Evita alimentar duas vezes no mesmo minuto do RTC
+bool rtcHardwareValid = false;
+bool ntpSynced = false;
 unsigned long lastRtcTickMs = 0;
 
 // ===================== REDES WI-FI SALVAS (ATÉ 5 REDES) =====================
@@ -254,6 +259,7 @@ void onWiFiEvent(WiFiEvent_t event) {
       connectedSsid    = WiFi.SSID();
       consecutiveFails = 0;
       httpFailCount    = 0;
+      configTime(RTC_TZ_OFFSET_HOURS * 3600, 0, "pool.ntp.org", "a.st1.ntp.br");
       Serial.printf("[WIFI-EVENT] Conectado a \"%s\" | IP: %s | RSSI: %d dBm\n",
                     connectedSsid.c_str(),
                     WiFi.localIP().toString().c_str(),
@@ -680,7 +686,44 @@ int bcdToDec(uint8_t val) {
   return (int)((val / 16 * 10) + (val % 16));
 }
 
-// Lê data e hora diretamente dos registradores do módulo RTC via I2C (ou avança fallback se desconectado)
+// Ajusta calendário em horas inteiras sem alterar variável global TZ
+int daysInMonth(int y, int mo) {
+  static const int mdays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  if (mo == 2 && ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))) return 29;
+  if (mo < 1 || mo > 12) return 30;
+  return mdays[mo - 1];
+}
+
+void shiftDateTimeHours(int& y, int& mo, int& d, int& h, int deltaHours) {
+  h += deltaHours;
+  while (h < 0) {
+    h += 24;
+    d--;
+    if (d < 1) {
+      mo--;
+      if (mo < 1) {
+        mo = 12;
+        y--;
+      }
+      d = daysInMonth(y, mo);
+    }
+  }
+  while (h >= 24) {
+    h -= 24;
+    d++;
+    int maxD = daysInMonth(y, mo);
+    if (d > maxD) {
+      d = 1;
+      mo++;
+      if (mo > 12) {
+        mo = 1;
+        y++;
+      }
+    }
+  }
+}
+
+// Lê data e hora diretamente dos registradores do módulo RTC via I2C (ou sincroniza via NTP / fallback)
 void readRtcModule() {
   bool validRtc = false;
   Wire.beginTransmission(RTC_I2C_ADDR);
@@ -709,17 +752,64 @@ void readRtcModule() {
       rtcYear   = yr;
       lastRtcTickMs = millis();
       validRtc = true;
+      rtcHardwareValid = true;
     }
   }
 
   if (!validRtc) {
-    // Fallback suave de 1 segundo caso o módulo RTC esteja sem bateria/desconectado ou desconfigurado
+    rtcHardwareValid = false;
+    struct tm timeinfo;
+    if (WiFi.status() == WL_CONNECTED && getLocalTime(&timeinfo, 0) && (timeinfo.tm_year + 1900) >= 2025) {
+      rtcYear   = timeinfo.tm_year + 1900;
+      rtcMonth  = timeinfo.tm_mon + 1;
+      rtcDay    = timeinfo.tm_mday;
+      rtcHour   = timeinfo.tm_hour;
+      rtcMinute = timeinfo.tm_min;
+      rtcSecond = timeinfo.tm_sec;
+      lastRtcTickMs = millis();
+      if (!ntpSynced) {
+        ntpSynced = true;
+        Serial.printf("[RTC/NTP] Horário sincronizado via internet (BRT): %04d-%02d-%02d %02d:%02d:%02d\n",
+                      rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
+      }
+      return;
+    }
+
+    // Fallback suave de 1 segundo caso o módulo RTC esteja sem bateria/desconectado e sem internet
     unsigned long now = millis();
     while (now - lastRtcTickMs >= 1000) {
       lastRtcTickMs += 1000;
       rtcSecond++;
       if (rtcSecond >= 60) { rtcSecond = 0; rtcMinute++; }
-      if (rtcMinute >= 60) { rtcMinute = 0; rtcHour = (rtcHour + 1) % 24; }
+      if (rtcMinute >= 60) { rtcMinute = 0; rtcHour++; }
+      if (rtcHour >= 24) {
+        shiftDateTimeHours(rtcYear, rtcMonth, rtcDay, rtcHour, 0);
+      }
+    }
+  } else if (!ntpSynced && WiFi.status() == WL_CONNECTED) {
+    // Se o RTC físico estiver em uma data desatualizada antes de 2026 ou fora do ano atual, corrige uma vez via NTP
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 0) && (timeinfo.tm_year + 1900) >= 2025) {
+      ntpSynced = true;
+      if (rtcYear < 2026) {
+        rtcYear   = timeinfo.tm_year + 1900;
+        rtcMonth  = timeinfo.tm_mon + 1;
+        rtcDay    = timeinfo.tm_mday;
+        rtcHour   = timeinfo.tm_hour;
+        rtcMinute = timeinfo.tm_min;
+        rtcSecond = timeinfo.tm_sec;
+        Wire.beginTransmission(RTC_I2C_ADDR);
+        Wire.write(0x00);
+        Wire.write(decToBcd(rtcSecond));
+        Wire.write(decToBcd(rtcMinute));
+        Wire.write(decToBcd(rtcHour));
+        Wire.write(decToBcd(1));
+        Wire.write(decToBcd(rtcDay));
+        Wire.write(decToBcd(rtcMonth));
+        Wire.write(decToBcd(rtcYear % 100));
+        Wire.endTransmission();
+        Serial.println("[RTC] Relógio físico desatualizado corrigido automaticamente via NTP!");
+      }
     }
   }
 }
@@ -749,16 +839,44 @@ void writeRtcModule(int year, int month, int day, int hour, int minute, int seco
                 rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
 }
 
+// Interpreta rtc_datetime retornado pelo Supabase convertendo UTC (+00:00 / Z) para horário local (BRT -03:00)
+void applyIsoDateTimeToRtc(const String& jsonResponse) {
+  int pos = jsonResponse.indexOf("\"rtc_datetime\":\"");
+  int offsetStart = 16;
+  if (pos < 0) {
+    pos = jsonResponse.indexOf("\"rtc_datetime\": \"");
+    offsetStart = 17;
+  }
+  if (pos < 0) return;
+
+  int quoteEnd = jsonResponse.indexOf('"', pos + offsetStart);
+  if (quoteEnd < 0 || quoteEnd < pos + offsetStart + 19) return;
+
+  String fullIso = jsonResponse.substring(pos + offsetStart, quoteEnd);
+  int y  = fullIso.substring(0, 4).toInt();
+  int mo = fullIso.substring(5, 7).toInt();
+  int d  = fullIso.substring(8, 10).toInt();
+  int h  = fullIso.substring(11, 13).toInt();
+  int mi = fullIso.substring(14, 16).toInt();
+  int s  = fullIso.substring(17, 19).toInt();
+  if (y < 2024) return;
+
+  if (fullIso.indexOf("Z") >= 19 || fullIso.indexOf("+00:00") >= 19) {
+    shiftDateTimeHours(y, mo, d, h, RTC_TZ_OFFSET_HOURS);
+  }
+  writeRtcModule(y, mo, d, h, mi, s);
+}
+
 String getRtcIsoString() {
   int safeY  = constrain(rtcYear, 2024, 2099);
   int safeMo = constrain(rtcMonth, 1, 12);
-  int safeD  = constrain(rtcDay, 1, 28);
+  int safeD  = constrain(rtcDay, 1, daysInMonth(safeY, safeMo));
   int safeH  = constrain(rtcHour, 0, 23);
   int safeMi = constrain(rtcMinute, 0, 59);
   int safeS  = constrain(rtcSecond, 0, 59);
 
-  char buf[26];
-  snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02d-03:00",
            safeY, safeMo, safeD, safeH, safeMi, safeS);
   return String(buf);
 }
@@ -827,6 +945,27 @@ void syncStatusWithSupabase() {
   String upsertEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?on_conflict=device_username";
   String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?" + filterQuery;
 
+  // 0. Verifica ANTES de enviar telemetria se o site pediu ajuste de horário do RTC (evita sobrescrever rtc_datetime)
+  http.begin(filterEndpoint + "&select=rtc_set_command,rtc_datetime");
+  http.addHeader("apikey", SUPABASE_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+  int preCode = http.GET();
+  if (preCode >= 200 && preCode < 300) {
+    String preBody = http.getString();
+    if (preBody.indexOf("\"rtc_set_command\":true") >= 0 || preBody.indexOf("\"rtc_set_command\": true") >= 0) {
+      applyIsoDateTimeToRtc(preBody);
+      HTTPClient ackPre;
+      ackPre.setTimeout(2500);
+      ackPre.begin(filterEndpoint);
+      ackPre.addHeader("Content-Type", "application/json");
+      ackPre.addHeader("apikey", SUPABASE_KEY);
+      ackPre.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+      ackPre.PATCH("{\"rtc_set_command\":false}");
+      ackPre.end();
+    }
+  }
+  http.end();
+
   http.begin(upsertEndpoint);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("apikey", SUPABASE_KEY);
@@ -863,23 +1002,9 @@ void syncStatusWithSupabase() {
     httpFailCount = 0;
     String response = http.getString();
 
-    // 1. Se o usuário ajustou o horário do módulo RTC pelo site ("rtc_set_command":true)
+    // 1. Caso tenha chegado um novo ajuste de horário do RTC durante a requisição
     if (response.indexOf("\"rtc_set_command\":true") >= 0 || response.indexOf("\"rtc_set_command\": true") >= 0) {
-      int pos = response.indexOf("\"rtc_datetime\":\"");
-      if (pos < 0) pos = response.indexOf("\"rtc_datetime\": \"");
-      if (pos >= 0 && response.length() >= pos + 35) {
-        String iso = response.substring(pos + 16, pos + 35); // YYYY-MM-DDTHH:MM:SS
-        int y  = iso.substring(0, 4).toInt();
-        int mo = iso.substring(5, 7).toInt();
-        int d  = iso.substring(8, 10).toInt();
-        int h  = iso.substring(11, 13).toInt();
-        int mi = iso.substring(14, 16).toInt();
-        int s  = iso.substring(17, 19).toInt();
-        if (y >= 2024) {
-          writeRtcModule(y, mo, d, h, mi, s);
-        }
-      }
-      // Limpa a flag rtc_set_command no banco
+      applyIsoDateTimeToRtc(response);
       HTTPClient ack;
       ack.setTimeout(2500);
       ack.begin(filterEndpoint);

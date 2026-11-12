@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Waves,
   Thermometer,
@@ -152,13 +152,22 @@ export default function App() {
   ]);
   const [newScheduleTime, setNewScheduleTime] = useState('18:00');
   const [newSchedulePortion, setNewSchedulePortion] = useState('Padrão (5g)');
-  const [rtcEditDate, setRtcEditDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const formatLocalDateInput = (dateObj) => {
+    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const [rtcEditDate, setRtcEditDate] = useState(() => formatLocalDateInput(new Date()));
   const [rtcEditTime, setRtcEditTime] = useState(() =>
     new Date().toTimeString().slice(0, 8)
   );
   const [rtcSaveNotice, setRtcSaveNotice] = useState(false);
   const [wifiPortalCommandSent, setWifiPortalCommandSent] = useState(false);
   const [lastAutoFedMinuteKey, setLastAutoFedMinuteKey] = useState('');
+  const lastDbRtcRef = useRef(null);
+  const rtcLockUntilRef = useRef(0);
 
   const [logs, setLogs] = useState([]);
   const [history, setHistory] = useState([]);
@@ -522,15 +531,25 @@ export default function App() {
         if (statusData.temperature_c !== undefined && statusData.temperature_c !== null) {
           setTemperatureC(Number(statusData.temperature_c));
         }
+        lastDbRtcRef.current = statusData.rtc_datetime || null;
         const seenAt = statusData.rtc_datetime || statusData.esp_last_seen || statusData.updated_at;
         if (seenAt) {
           setLastSeenIso(seenAt);
-          setRtcTimestamp(seenAt);
           const diffSec = Math.max(
             0,
             Math.floor((Date.now() - new Date(seenAt).getTime()) / 1000)
           );
-          setEspOnline(diffSec < 30);
+          const isOnline = diffSec < 30;
+          setEspOnline(isOnline);
+
+          // Só aplica rtc_datetime do banco se o ESP32 estiver online (ou comando pendente) e não houver trava recente do usuário
+          if (
+            Date.now() > rtcLockUntilRef.current &&
+            (isOnline || statusData.rtc_set_command) &&
+            statusData.rtc_datetime
+          ) {
+            setRtcTimestamp(statusData.rtc_datetime);
+          }
         }
       } else {
         setWaterLevelPct(null);
@@ -631,10 +650,28 @@ export default function App() {
           if (s.feed_now_portion) {
             setFeedNowPortion(s.feed_now_portion);
           }
-          const nowIso = s.rtc_datetime || s.esp_last_seen || new Date().toISOString();
-          setLastSeenIso(nowIso);
-          setRtcTimestamp(nowIso);
-          setEspOnline(true);
+          const rtcChanged = Boolean(
+            s.rtc_datetime && s.rtc_datetime !== lastDbRtcRef.current
+          );
+          if (rtcChanged) {
+            lastDbRtcRef.current = s.rtc_datetime;
+            const nowIso = s.rtc_datetime;
+            setLastSeenIso(nowIso);
+            const diffSec = Math.max(
+              0,
+              Math.floor((Date.now() - new Date(nowIso).getTime()) / 1000)
+            );
+            const isRecentClock = diffSec < 120;
+            if (isRecentClock) {
+              setEspOnline(true);
+            }
+            if (
+              Date.now() > rtcLockUntilRef.current &&
+              (isRecentClock || s.rtc_set_command)
+            ) {
+              setRtcTimestamp(nowIso);
+            }
+          }
         }
       )
       .on(
@@ -866,10 +903,12 @@ export default function App() {
       targetIso = !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
     } else {
       const d = new Date(targetIso);
-      setRtcEditDate(d.toISOString().slice(0, 10));
+      setRtcEditDate(formatLocalDateInput(d));
       setRtcEditTime(d.toTimeString().slice(0, 8));
     }
 
+    rtcLockUntilRef.current = Date.now() + 15000;
+    lastDbRtcRef.current = targetIso;
     setRtcTimestamp(targetIso);
     setRtcSaveNotice(true);
     setTimeout(() => setRtcSaveNotice(false), 2500);
