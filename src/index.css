@@ -385,6 +385,103 @@
   box-shadow: 0 0 8px rgba(251, 191, 36, 0.85);
 }
 
+/* Balanço suave das algas e corais no fundo do aquário */
+@keyframes seaweedSway {
+  0%, 100% {
+    transform: rotate(-4deg) skewX(-2deg);
+  }
+  50% {
+    transform: rotate(5deg) skewX(3deg);
+  }
+}
+
+@keyframes seaweedSwayAlt {
+  0%, 100% {
+    transform: rotate(4deg) skewX(2deg);
+  }
+  50% {
+    transform: rotate(-5deg) skewX(-3deg);
+  }
+}
+
+.animate-seaweed {
+  transform-origin: bottom center;
+  animation: seaweedSway 4.8s ease-in-out infinite;
+}
+
+.animate-seaweed-alt {
+  transform-origin: bottom center;
+  animation: seaweedSwayAlt 5.6s ease-in-out infinite;
+}
+
+/* Modo Natalino */
+body.christmas-theme {
+  background-color: #05110d;
+  background-image:
+    radial-gradient(circle at 12% 15%, rgba(190, 18, 60, 0.22) 0px, transparent 46%),
+    radial-gradient(circle at 88% 18%, rgba(16, 185, 129, 0.16) 0px, transparent 42%),
+    radial-gradient(circle at 50% 90%, rgba(245, 158, 11, 0.12) 0px, transparent 52%);
+}
+
+.christmas-theme .clean-card {
+  background: linear-gradient(165deg, rgba(11, 34, 26, 0.76) 0%, rgba(14, 18, 22, 0.84) 100%);
+  border-color: rgba(251, 191, 36, 0.2);
+  box-shadow: 0 12px 32px -8px rgba(2, 12, 8, 0.72), 0 0 20px -10px rgba(244, 63, 94, 0.16);
+}
+
+.christmas-theme .clean-card:hover {
+  border-color: rgba(251, 191, 36, 0.36);
+  box-shadow: 0 18px 40px -10px rgba(2, 12, 8, 0.85), 0 0 24px -6px rgba(16, 185, 129, 0.2);
+}
+
+.christmas-theme .clean-kpi {
+  background: linear-gradient(145deg, rgba(13, 40, 30, 0.72) 0%, rgba(16, 18, 22, 0.82) 100%);
+  border-color: rgba(251, 191, 36, 0.15);
+}
+
+.christmas-theme .clean-kpi:hover {
+  border-color: rgba(248, 113, 113, 0.42);
+  box-shadow: 0 14px 28px -8px rgba(10, 18, 14, 0.82);
+}
+
+@keyframes christmasTwinkle {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.christmas-bulb {
+  animation: christmasTwinkle var(--twinkle-duration, 1.8s) ease-in-out infinite;
+  animation-delay: var(--twinkle-delay, 0s);
+}
+
+@keyframes snowfall {
+  0% {
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.75;
+  }
+  90% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate3d(var(--snow-drift, 24px), 108vh, 0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.snowflake-particle {
+  animation: snowfall var(--snow-duration, 10s) linear infinite;
+  animation-delay: var(--snow-delay, 0s);
+}
+
 /* Scrollbar customizada mais discreta */
 ::-webkit-scrollbar {
   width: 6px;

@@ -31,9 +31,42 @@ import {
   ArrowLeft,
   User,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Snowflake
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+
+const SNOWFLAKES = [
+  { left: '4%', size: 12, duration: '11s', delay: '0s', drift: '18px' },
+  { left: '11%', size: 9, duration: '14s', delay: '2.2s', drift: '-14px' },
+  { left: '19%', size: 14, duration: '10s', delay: '4.1s', drift: '22px' },
+  { left: '27%', size: 10, duration: '13s', delay: '1.3s', drift: '-18px' },
+  { left: '35%', size: 13, duration: '9.5s', delay: '3.5s', drift: '16px' },
+  { left: '44%', size: 9, duration: '12.5s', delay: '0.7s', drift: '-20px' },
+  { left: '53%', size: 15, duration: '10.8s', delay: '5.2s', drift: '20px' },
+  { left: '61%', size: 10, duration: '13.5s', delay: '2.8s', drift: '-15px' },
+  { left: '70%', size: 13, duration: '11.4s', delay: '0.4s', drift: '24px' },
+  { left: '78%', size: 9, duration: '14.5s', delay: '4.8s', drift: '-18px' },
+  { left: '86%', size: 14, duration: '10.2s', delay: '1.9s', drift: '15px' },
+  { left: '94%', size: 11, duration: '12.2s', delay: '3.1s', drift: '-22px' },
+];
+
+const CHRISTMAS_LIGHTS = [
+  '#EF4444',
+  '#10B981',
+  '#FBBF24',
+  '#38BDF8',
+  '#EF4444',
+  '#10B981',
+  '#FBBF24',
+  '#EF4444',
+  '#10B981',
+  '#FBBF24',
+  '#38BDF8',
+  '#EF4444',
+  '#10B981',
+  '#FBBF24',
+];
 
 const DEFAULT_CONFIG = {
   deviceUsername: '',
@@ -131,6 +164,22 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'setup' | 'history'
   const [carouselTick, setCarouselTick] = useState(0);
+  const [christmasMode, setChristmasMode] = useState(() => {
+    try {
+      return localStorage.getItem('netuno_christmas_mode') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    document.body.classList.toggle('christmas-theme', christmasMode);
+    try {
+      localStorage.setItem('netuno_christmas_mode', String(christmasMode));
+    } catch (e) {
+      // ignore
+    }
+  }, [christmasMode]);
 
   // Autenticação do ESP32 específico (usuário e senha cadastrados no portal 192.168.4.1 do ESP32)
   const [authDevice, setAuthDevice] = useState(() => {
@@ -953,20 +1002,93 @@ export default function App() {
   // TELA DE LOGIN CLEAN COM ANIMAÇÃO SUAVE PARA ACESSAR O ESP32 ESPECÍFICO
   if (!authDevice) {
     return (
-      <div className="min-h-screen flex flex-col justify-between bg-[#040B16] text-slate-100 selection:bg-[#1A539B] selection:text-white relative overflow-hidden">
+      <div
+        className={`min-h-screen flex flex-col justify-between text-slate-100 relative overflow-hidden transition-colors duration-500 ${
+          christmasMode
+            ? 'bg-[#05110d] selection:bg-rose-600 selection:text-white'
+            : 'bg-[#040B16] selection:bg-[#1A539B] selection:text-white'
+        }`}
+      >
+        {/* Flocos de neve quando o Modo Natalino estiver ativo */}
+        {christmasMode && (
+          <div className="pointer-events-none fixed inset-0 z-30 overflow-hidden">
+            {SNOWFLAKES.map((flake, i) => (
+              <span
+                key={i}
+                style={{
+                  left: flake.left,
+                  '--snow-duration': flake.duration,
+                  '--snow-delay': flake.delay,
+                  '--snow-drift': flake.drift,
+                }}
+                className="snowflake-particle absolute -top-6 text-white/75 select-none drop-shadow-[0_0_6px_rgba(255,255,255,0.6)]"
+              >
+                <Snowflake style={{ width: flake.size, height: flake.size }} />
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Botãozinho no topo para alternar Modo Natalino */}
+        <div className="absolute top-4 right-4 z-20">
+          <button
+            type="button"
+            onClick={() => setChristmasMode((prev) => !prev)}
+            className={`inline-flex items-center justify-center p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
+              christmasMode
+                ? 'bg-gradient-to-r from-rose-600/80 to-emerald-600/80 border-amber-300/60 text-amber-100 shadow-md shadow-rose-500/25'
+                : 'bg-white/[0.05] hover:bg-rose-500/20 border-white/10 hover:border-rose-400/40 text-sky-200 hover:text-white'
+            }`}
+            title={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
+            aria-label="Alternar Modo Natalino"
+          >
+            <Snowflake className={`w-4 h-4 ${christmasMode ? 'text-amber-200' : 'text-sky-300'}`} />
+          </button>
+        </div>
+
         {/* Luzes de fundo sutis e animadas */}
-        <div className="pointer-events-none absolute -top-28 -left-28 w-96 h-96 rounded-full bg-[#1A539B]/20 blur-3xl animate-pulse" />
-        <div className="pointer-events-none absolute -bottom-28 -right-28 w-96 h-96 rounded-full bg-sky-500/15 blur-3xl animate-pulse" />
+        <div
+          className={`pointer-events-none absolute -top-28 -left-28 w-96 h-96 rounded-full blur-3xl animate-pulse ${
+            christmasMode ? 'bg-rose-600/20' : 'bg-[#1A539B]/20'
+          }`}
+        />
+        <div
+          className={`pointer-events-none absolute -bottom-28 -right-28 w-96 h-96 rounded-full blur-3xl animate-pulse ${
+            christmasMode ? 'bg-emerald-500/20' : 'bg-sky-500/15'
+          }`}
+        />
 
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative z-10">
           <div className="w-full max-w-md clean-card rounded-3xl overflow-hidden animate-scale-in">
-            <div className="bg-gradient-to-b from-[#0C213E]/80 to-transparent border-b border-white/[0.08] p-7 text-center">
-              <div className="relative mx-auto w-16 h-16 rounded-2xl overflow-hidden border border-sky-300/40 bg-[#1A539B] shadow-xl flex items-center justify-center mb-3.5 animate-float">
-                <img
-                  src="/logo-netuno.jpg"
-                  alt="Logo Netuno"
-                  className="w-full h-full object-cover scale-105"
-                />
+            <div
+              className={`border-b border-white/[0.08] p-7 text-center ${
+                christmasMode
+                  ? 'bg-gradient-to-b from-rose-950/60 via-emerald-950/30 to-transparent'
+                  : 'bg-gradient-to-b from-[#0C213E]/80 to-transparent'
+              }`}
+            >
+              <div className="relative mx-auto w-16 h-16 mb-3.5 animate-float">
+                {christmasMode && (
+                  <svg
+                    viewBox="0 0 36 28"
+                    className="absolute -top-3.5 -right-2.5 w-8 h-7 z-20 rotate-[18deg] drop-shadow-md pointer-events-none"
+                  >
+                    <path d="M5 20C9 7 20 2 29 9C24 14 23 18 24 21Z" fill="#DC2626" />
+                    <rect x="3" y="18.5" width="22" height="5" rx="2.5" fill="#F8FAFC" />
+                    <circle cx="30" cy="10" r="3" fill="#F8FAFC" />
+                  </svg>
+                )}
+                <div
+                  className={`w-16 h-16 rounded-2xl overflow-hidden border shadow-xl flex items-center justify-center ${
+                    christmasMode ? 'border-amber-300/60 bg-rose-700' : 'border-sky-300/40 bg-[#1A539B]'
+                  }`}
+                >
+                  <img
+                    src="/logo-netuno.jpg"
+                    alt="Logo Netuno"
+                    className="w-full h-full object-cover scale-105"
+                  />
+                </div>
               </div>
               <h1 className="font-serif text-2xl font-bold tracking-[0.2em] text-white">
                 NETUNO
@@ -1062,7 +1184,31 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col text-slate-100 selection:bg-[#1A539B] selection:text-white">
+    <div
+      className={`min-h-screen flex flex-col text-slate-100 transition-colors duration-500 ${
+        christmasMode ? 'selection:bg-rose-600 selection:text-white' : 'selection:bg-[#1A539B] selection:text-white'
+      }`}
+    >
+      {/* Flocos de neve sutis no Modo Natalino */}
+      {christmasMode && (
+        <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+          {SNOWFLAKES.map((flake, i) => (
+            <span
+              key={i}
+              style={{
+                left: flake.left,
+                '--snow-duration': flake.duration,
+                '--snow-delay': flake.delay,
+                '--snow-drift': flake.drift,
+              }}
+              className="snowflake-particle absolute -top-6 text-white/70 select-none drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]"
+            >
+              <Snowflake style={{ width: flake.size, height: flake.size }} />
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* ALERTA DE NÍVEL CRÍTICO */}
       {waterLevelPct !== null && waterLevelPct < Number(config.criticalLevelPct) && (
         <div className="bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-2 text-center text-xs sm:text-sm font-medium text-white flex items-center justify-center gap-2 animate-pulse">
@@ -1074,13 +1220,39 @@ export default function App() {
       )}
 
       {/* HEADER PRINCIPAL CLEAN & GLASSMORPHIC */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#040B16]/85 backdrop-blur-2xl transition-all">
+      <header
+        className={`sticky top-0 z-30 border-b backdrop-blur-2xl transition-all relative ${
+          christmasMode
+            ? 'border-amber-400/25 bg-[#061510]/90'
+            : 'border-white/[0.08] bg-[#040B16]/85'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
           {/* Identidade Visual */}
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
             <div className="relative group cursor-pointer shrink-0" onClick={() => setActiveTab('dashboard')}>
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-50 group-hover:opacity-80 blur transition duration-300"></div>
-              <div className="relative w-10 h-10 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl overflow-hidden border border-white/25 bg-[#1A539B] shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+              <div
+                className={`absolute -inset-1 rounded-2xl blur transition duration-300 ${
+                  christmasMode
+                    ? 'bg-gradient-to-tr from-rose-600 via-amber-400 to-emerald-500 opacity-65 group-hover:opacity-90'
+                    : 'bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-50 group-hover:opacity-80'
+                }`}
+              ></div>
+              {christmasMode && (
+                <svg
+                  viewBox="0 0 36 28"
+                  className="absolute -top-3 -right-2 w-6 h-5 sm:w-7 sm:h-6 z-20 rotate-[18deg] drop-shadow-md pointer-events-none"
+                >
+                  <path d="M5 20C9 7 20 2 29 9C24 14 23 18 24 21Z" fill="#DC2626" />
+                  <rect x="3" y="18.5" width="22" height="5" rx="2.5" fill="#F8FAFC" />
+                  <circle cx="30" cy="10" r="3" fill="#F8FAFC" />
+                </svg>
+              )}
+              <div
+                className={`relative w-10 h-10 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl overflow-hidden border shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105 ${
+                  christmasMode ? 'border-amber-300/60 bg-rose-700' : 'border-white/25 bg-[#1A539B]'
+                }`}
+              >
                 <img
                   src="/logo-netuno.jpg"
                   alt="Logo Netuno"
@@ -1092,8 +1264,8 @@ export default function App() {
               <h1 className="font-serif text-lg sm:text-2xl font-bold tracking-[0.14em] sm:tracking-[0.18em] text-white truncate">
                 NETUNO
               </h1>
-              <p className="text-[11px] text-sky-300/70 hidden sm:block truncate">
-                {config.aquariumName} • {maxVolumeLiters} L
+              <p className={`text-[11px] hidden sm:block truncate ${christmasMode ? 'text-amber-200/80' : 'text-sky-300/70'}`}>
+                {christmasMode ? `${config.aquariumName} • Boas Festas 🎄` : `${config.aquariumName} • ${maxVolumeLiters} L`}
               </p>
               <p className="text-[10px] text-emerald-300/80 sm:hidden font-mono-code truncate flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
@@ -1103,7 +1275,13 @@ export default function App() {
           </div>
 
           {/* Navegação Central Minimalista */}
-          <nav className="hidden md:flex items-center bg-[#09172B]/80 p-1 rounded-2xl border border-white/[0.08] shadow-inner">
+          <nav
+            className={`hidden md:flex items-center p-1 rounded-2xl border shadow-inner ${
+              christmasMode
+                ? 'bg-[#091E16]/85 border-amber-400/20'
+                : 'bg-[#09172B]/80 border-white/[0.08]'
+            }`}
+          >
             {[
               { id: 'dashboard', label: 'Painel', icon: Gauge },
               { id: 'history', label: 'Histórico', icon: TrendingUp },
@@ -1120,7 +1298,9 @@ export default function App() {
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
                     active
-                      ? 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/40 border border-sky-300/25 scale-[1.02]'
+                      ? christmasMode
+                        ? 'bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/30 border border-amber-300/40 scale-[1.02]'
+                        : 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/40 border border-sky-300/25 scale-[1.02]'
                       : 'text-sky-200/65 hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
@@ -1137,6 +1317,21 @@ export default function App() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="font-mono-code font-medium text-sky-100">{activeDeviceUsername}</span>
             </div>
+
+            {/* Botãozinho de Modo Natalino no topo */}
+            <button
+              type="button"
+              onClick={() => setChristmasMode((prev) => !prev)}
+              className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
+                christmasMode
+                  ? 'bg-gradient-to-r from-rose-600/85 to-emerald-600/85 border-amber-300/60 text-amber-100 shadow-md shadow-rose-500/25'
+                  : 'bg-white/[0.04] hover:bg-rose-500/20 border-white/[0.09] hover:border-rose-400/40 text-sky-200 hover:text-white'
+              }`}
+              title={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
+              aria-label="Alternar Modo Natalino"
+            >
+              <Snowflake className={`w-3.5 h-3.5 shrink-0 ${christmasMode ? 'text-amber-200' : 'text-sky-300'}`} />
+            </button>
 
             <button
               onClick={handleSendEspPortalCommand}
@@ -1170,7 +1365,7 @@ export default function App() {
 
             {/* Relógio RTC posicionado no canto extremo direito */}
             <div className="flex items-center gap-1.5 sm:gap-2 text-right pl-0.5">
-              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-400 shrink-0 animate-pulse" />
+              <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 animate-pulse ${christmasMode ? 'text-amber-300' : 'text-sky-400'}`} />
               <div>
                 <div className="font-mono-code text-xs sm:text-lg font-extrabold text-white tracking-wider leading-none">
                   {rtcTimeFormatted}
@@ -1183,8 +1378,32 @@ export default function App() {
           </div>
         </div>
 
+        {/* Cordão de luzinhas de Natal na borda do cabeçalho */}
+        {christmasMode && (
+          <div className="pointer-events-none flex items-center justify-around px-2 py-0.5 border-t border-white/[0.05] bg-[#040E0B]/80">
+            {CHRISTMAS_LIGHTS.map((color, idx) => (
+              <span
+                key={idx}
+                style={{
+                  backgroundColor: color,
+                  boxShadow: `0 0 8px ${color}`,
+                  '--twinkle-duration': `${1.4 + (idx % 4) * 0.35}s`,
+                  '--twinkle-delay': `${(idx % 5) * 0.25}s`,
+                }}
+                className="christmas-bulb w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
+              />
+            ))}
+          </div>
+        )}
+
         {/* Navegação Mobile Clean */}
-        <div className="grid grid-cols-3 gap-1.5 md:hidden border-t border-white/[0.06] bg-[#06101E]/95 px-3 py-2">
+        <div
+          className={`grid grid-cols-3 gap-1.5 md:hidden border-t px-3 py-2 ${
+            christmasMode
+              ? 'border-amber-400/15 bg-[#05120D]/95'
+              : 'border-white/[0.06] bg-[#06101E]/95'
+          }`}
+        >
           {[
             { id: 'dashboard', label: 'Painel', icon: Gauge },
             { id: 'history', label: 'Histórico', icon: TrendingUp },
@@ -1201,7 +1420,9 @@ export default function App() {
                 }}
                 className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   active
-                    ? 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/30 border border-sky-300/20'
+                    ? christmasMode
+                      ? 'bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/25 border border-amber-300/35'
+                      : 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/30 border border-sky-300/20'
                     : 'text-sky-200/70 hover:text-white bg-white/[0.02]'
                 }`}
               >
@@ -1484,6 +1705,168 @@ export default function App() {
                       <div className="absolute -top-3 left-0 w-[200%] h-6 bg-[#1A539B]/80 rounded-[40%] animate-wave-slow"></div>
                       <div className="absolute -top-2 left-0 w-[200%] h-5 bg-sky-400/35 rounded-[45%] animate-wave-fast"></div>
                       <div className="w-full h-full bg-gradient-to-b from-[#1A539B]/80 via-[#133E75]/85 to-[#092244] relative overflow-hidden">
+                        {/* Raios de luz subaquáticos sutis */}
+                        <div className="pointer-events-none absolute inset-0 z-[2] opacity-40">
+                          <div className="absolute -top-4 left-[18%] w-16 h-44 bg-gradient-to-b from-sky-300/20 to-transparent -rotate-12 blur-md" />
+                          <div className="absolute -top-4 left-[48%] w-24 h-48 bg-gradient-to-b from-cyan-200/15 to-transparent rotate-6 blur-lg" />
+                          <div className="absolute -top-4 right-[20%] w-14 h-40 bg-gradient-to-b from-sky-300/15 to-transparent rotate-12 blur-md" />
+                        </div>
+
+                        {/* Decorações do fundo do aquário: areia, pedrinhas, concha, estrela-do-mar, coral e algas */}
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[4]">
+                          {/* Algas marinhas à esquerda-centro (longe da bombinha) */}
+                          <div className="absolute bottom-2 left-[19%] sm:left-[21%] animate-seaweed opacity-85">
+                            <svg width="34" height="66" viewBox="0 0 34 66" fill="none">
+                              <path
+                                d="M12 65C9 52 16 42 11 28C7 17 13 8 15 2C18 11 14 19 17 29C21 41 14 52 16 65H12Z"
+                                fill="url(#seaweedGradLeft1)"
+                              />
+                              <path
+                                d="M21 65C24 54 18 44 23 32C26 24 23 15 25 10C29 18 26 26 27 35C28 45 23 54 25 65H21Z"
+                                fill="url(#seaweedGradLeft2)"
+                              />
+                              <defs>
+                                <linearGradient id="seaweedGradLeft1" x1="13" y1="2" x2="13" y2="65" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="#34D399" stopOpacity="0.9" />
+                                  <stop offset="1" stopColor="#065F46" stopOpacity="0.95" />
+                                </linearGradient>
+                                <linearGradient id="seaweedGradLeft2" x1="24" y1="10" x2="24" y2="65" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="#2DD4BF" stopOpacity="0.85" />
+                                  <stop offset="1" stopColor="#0F766E" stopOpacity="0.95" />
+                                </linearGradient>
+                              </defs>
+                            </svg>
+                          </div>
+
+                          {/* Algas maiores + coral rosado à direita (sem encostar na régua lateral) */}
+                          <div className="absolute bottom-2 right-11 sm:right-14 flex items-end gap-1.5 opacity-90">
+                            {/* Árvore de Natal subaquática no Modo Natalino */}
+                            {christmasMode && (
+                              <svg width="36" height="54" viewBox="0 0 36 54" fill="none" className="mr-1 drop-shadow-[0_2px_8px_rgba(251,191,36,0.35)]">
+                                <rect x="15.5" y="45" width="5" height="7" rx="1" fill="#78350F" />
+                                <path d="M18 10L6 27H30L18 10Z" fill="#059669" />
+                                <path d="M18 19L4 36H32L18 19Z" fill="#047857" />
+                                <path d="M18 28L2 46H34L18 28Z" fill="#065F46" />
+                                {/* Estrela dourada no topo */}
+                                <path
+                                  d="M18 2L19.6 6.2L24 6.5L20.6 9.3L21.7 13.5L18 11.2L14.3 13.5L15.4 9.3L12 6.5L16.4 6.2Z"
+                                  fill="#FBBF24"
+                                />
+                                {/* Bolinhas coloridas */}
+                                <circle cx="14" cy="24" r="1.8" fill="#EF4444" />
+                                <circle cx="22" cy="25" r="1.8" fill="#FBBF24" />
+                                <circle cx="11" cy="34" r="1.9" fill="#38BDF8" />
+                                <circle cx="19" cy="33" r="1.9" fill="#EF4444" />
+                                <circle cx="25" cy="35" r="1.8" fill="#FBBF24" />
+                                <circle cx="13" cy="43" r="2" fill="#FBBF24" />
+                                <circle cx="23" cy="42" r="2" fill="#FB7185" />
+                              </svg>
+                            )}
+
+                            {/* Coral ramificado */}
+                            <svg width="42" height="44" viewBox="0 0 42 44" fill="none" className="drop-shadow-[0_2px_6px_rgba(244,114,182,0.25)]">
+                              <path
+                                d="M21 42V25M21 25C16 22 12 17 11 10M21 25C25 21 29 17 31 11M16 20C16 15 18 11 17 6M26 19C26 14 24 10 25 5M13 15C9 15 7 13 5 11M29 16C33 15 35 13 37 10"
+                                stroke="url(#coralGrad)"
+                                strokeWidth="4.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <defs>
+                                <linearGradient id="coralGrad" x1="21" y1="5" x2="21" y2="42" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="#FB7185" />
+                                  <stop offset="0.6" stopColor="#F43F5E" />
+                                  <stop offset="1" stopColor="#9F1239" />
+                                </linearGradient>
+                              </defs>
+                            </svg>
+
+                            {/* Tufo de algas altas à direita */}
+                            <div className="animate-seaweed-alt">
+                              <svg width="42" height="82" viewBox="0 0 42 82" fill="none">
+                                <path
+                                  d="M12 81C8 65 17 51 11 35C7 22 14 11 16 2C20 13 14 23 18 36C23 50 14 65 17 81H12Z"
+                                  fill="url(#seaweedGradRight1)"
+                                />
+                                <path
+                                  d="M23 81C28 66 19 52 25 36C29 25 23 15 26 7C31 17 28 28 30 39C32 52 25 66 28 81H23Z"
+                                  fill="url(#seaweedGradRight2)"
+                                />
+                                <path
+                                  d="M32 81C35 70 31 59 35 48C37 41 35 34 37 29C40 36 37 43 38 51C39 61 34 71 36 81H32Z"
+                                  fill="#10B981"
+                                  fillOpacity="0.65"
+                                />
+                                <defs>
+                                  <linearGradient id="seaweedGradRight1" x1="14" y1="2" x2="14" y2="81" gradientUnits="userSpaceOnUse">
+                                    <stop stopColor="#6EE7B7" stopOpacity="0.9" />
+                                    <stop offset="1" stopColor="#047857" stopOpacity="0.95" />
+                                  </linearGradient>
+                                  <linearGradient id="seaweedGradRight2" x1="27" y1="7" x2="27" y2="81" gradientUnits="userSpaceOnUse">
+                                    <stop stopColor="#34D399" stopOpacity="0.85" />
+                                    <stop offset="1" stopColor="#065F46" stopOpacity="0.95" />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                            </div>
+                          </div>
+
+                          {/* Pedrinhas lisas, concha e estrela-do-mar no substrato */}
+                          <svg
+                            viewBox="0 0 600 42"
+                            preserveAspectRatio="none"
+                            className="w-full h-7 sm:h-8 block"
+                          >
+                            {/* Leito de areia ondulado no fundo do aquário */}
+                            <path
+                              d="M0 24C80 15 160 28 250 20C340 12 430 27 520 19C555 16 582 18 600 22V42H0V24Z"
+                              fill="url(#sandGrad)"
+                            />
+                            <path
+                              d="M0 30C95 23 190 34 295 27C395 20 490 33 600 26V42H0V30Z"
+                              fill="url(#sandGradFront)"
+                            />
+
+                            {/* Conjunto de pedrinhas arredondadas à esquerda-centro */}
+                            <ellipse cx="122" cy="27" rx="16" ry="7" fill="#334155" />
+                            <ellipse cx="122" cy="25.5" rx="13" ry="4.5" fill="#475569" opacity="0.65" />
+                            <ellipse cx="142" cy="29" rx="11" ry="5.5" fill="#1E293B" />
+                            <ellipse cx="106" cy="30" rx="9" ry="4.5" fill="#475569" />
+
+                            {/* Pedrinha central discreta */}
+                            <ellipse cx="305" cy="31" rx="14" ry="5" fill="#1E293B" opacity="0.85" />
+                            <ellipse cx="322" cy="33" rx="8" ry="3.5" fill="#334155" opacity="0.85" />
+
+                            {/* Concha com pérola e pedrinhas próximas ao coral à direita */}
+                            <ellipse cx="458" cy="29" rx="15" ry="6.5" fill="#334155" />
+                            <ellipse cx="478" cy="31" rx="10" ry="5" fill="#1E293B" />
+                            <path
+                              d="M424 31C424 24 434 20 439 27C441 30 438 33 431 33C426 33 424 32 424 31Z"
+                              fill="#FDE68A"
+                              fillOpacity="0.85"
+                            />
+                            <circle cx="432" cy="28" r="2.2" fill="#FFFBEB" />
+
+                            {/* Pequena estrela-do-mar sobre a areia */}
+                            <path
+                              d="M525 25L527.2 28.8L531.5 29.4L528.3 32.3L529.1 36.5L525 34.4L520.9 36.5L521.7 32.3L518.5 29.4L522.8 28.8Z"
+                              fill="#FB923C"
+                              fillOpacity="0.9"
+                            />
+
+                            <defs>
+                              <linearGradient id="sandGrad" x1="300" y1="14" x2="300" y2="42" gradientUnits="userSpaceOnUse">
+                                <stop stopColor="#1E3A5F" stopOpacity="0.95" />
+                                <stop offset="1" stopColor="#0B1B34" />
+                              </linearGradient>
+                              <linearGradient id="sandGradFront" x1="300" y1="20" x2="300" y2="42" gradientUnits="userSpaceOnUse">
+                                <stop stopColor="#264B78" stopOpacity="0.85" />
+                                <stop offset="1" stopColor="#071326" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </div>
+
                         {/* Dois peixinhos nadando suavemente pela água (e subindo para comer quando a ração cai!) */}
                         {waterLevelPct > 20 && (
                           <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
@@ -1536,6 +1919,14 @@ export default function App() {
                                 {/* Boquinha abrindo quando está comendo */}
                                 {feedNowCommand && (
                                   <circle cx="29.2" cy="10.2" r="1.3" fill="#7C2D12" />
+                                )}
+                                {/* Gorro natalino no peixinho laranja */}
+                                {christmasMode && (
+                                  <g transform="translate(13, -1)">
+                                    <path d="M2 5C4 0.5 9 -0.5 12 2.5C10 4 9.5 5 9.5 5.5Z" fill="#DC2626" />
+                                    <rect x="1.5" y="4.5" width="9" height="2" rx="1" fill="#F8FAFC" />
+                                    <circle cx="12.2" cy="2.6" r="1.3" fill="#F8FAFC" />
+                                  </g>
                                 )}
                                 <defs>
                                   <linearGradient id="fishGrad1" x1="8" y1="4" x2="30" y2="16" gradientUnits="userSpaceOnUse">
@@ -1590,6 +1981,14 @@ export default function App() {
                                 {feedNowCommand && (
                                   <circle cx="28.8" cy="10.2" r="1.2" fill="#082F49" />
                                 )}
+                                {/* Gorro natalino no peixinho azul */}
+                                {christmasMode && (
+                                  <g transform="translate(13, -0.5)">
+                                    <path d="M2 5C4 0.5 9 -0.5 12 2.5C10 4 9.5 5 9.5 5.5Z" fill="#DC2626" />
+                                    <rect x="1.5" y="4.5" width="9" height="2" rx="1" fill="#F8FAFC" />
+                                    <circle cx="12.2" cy="2.6" r="1.3" fill="#F8FAFC" />
+                                  </g>
+                                )}
                                 <defs>
                                   <linearGradient id="fishGrad2" x1="8" y1="4" x2="30" y2="16" gradientUnits="userSpaceOnUse">
                                     <stop stopColor="#67E8F9" />
@@ -1602,16 +2001,21 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Bombinha submersa sempre visível no canto inferior esquerdo (vibra e solta bolhas apenas quando ligada) */}
-                        <div className="absolute bottom-2.5 left-3.5 z-20 pointer-events-none flex items-end">
+                        {/* Bombinha submersa clicável no canto inferior esquerdo (ativa/desativa a bomba ao clicar) */}
+                        <div className="absolute bottom-2.5 left-3.5 z-30 pointer-events-none flex items-end">
                           {/* Ventosas de fixação no vidro esquerdo */}
                           <div className="flex flex-col gap-1.5 mr-0.5 mb-1">
                             <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
                             <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
                           </div>
 
-                          {/* Corpo da bombinha submersa */}
-                          <div className={`relative flex items-center ${pumpRelayOn ? 'animate-pump-hum' : ''}`}>
+                          {/* Corpo da bombinha submersa como botão */}
+                          <button
+                            type="button"
+                            onClick={handleTogglePump}
+                            aria-label={pumpRelayOn ? 'Desligar Bomba' : 'Ligar Bomba'}
+                            className={`pointer-events-auto cursor-pointer relative flex items-center transition-transform duration-200 hover:scale-105 active:scale-95 focus:outline-none ${pumpRelayOn ? 'animate-pump-hum' : ''}`}
+                          >
                             {/* Conector superior onde encaixa a mangueirinha de ar */}
                             <div
                               className={`absolute -top-2 left-2.5 w-2 h-2.5 rounded-t-sm border transition-all duration-300 ${
@@ -1699,7 +2103,7 @@ export default function App() {
                                 </div>
                               )}
                             </div>
-                          </div>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2779,14 +3183,20 @@ export default function App() {
       </main>
 
       {/* RODAPÉ */}
-      <footer className="border-t border-white/[0.06] bg-[#040A14]/80 backdrop-blur-xl py-5 px-4 sm:px-6 lg:px-8 mt-8">
+      <footer
+        className={`border-t backdrop-blur-xl py-5 px-4 sm:px-6 lg:px-8 mt-8 transition-colors ${
+          christmasMode ? 'border-amber-400/20 bg-[#05120D]/85' : 'border-white/[0.06] bg-[#040A14]/80'
+        }`}
+      >
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2.5 text-xs text-sky-200/60">
           <img
             src="/logo-netuno.jpg"
             alt="Netuno"
             className="w-6 h-6 rounded-md object-cover border border-white/15"
           />
-          <span className="font-serif font-bold tracking-widest text-white/90">NETUNO</span>
+          <span className="font-serif font-bold tracking-widest text-white/90">
+            {christmasMode ? 'NETUNO • FELIZ NATAL 🎄' : 'NETUNO'}
+          </span>
         </div>
       </footer>
     </div>
