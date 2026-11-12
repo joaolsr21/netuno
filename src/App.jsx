@@ -1374,20 +1374,15 @@ export default function App() {
 
             <button
               onClick={handleSendEspPortalCommand}
-              className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+              className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
                 wifiPortalCommandSent
                   ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-md shadow-emerald-500/20'
                   : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
               }`}
               title="Envia sinal para o ESP32 abrir a rede NETUNO-SETUP (10.0.0.1)"
+              aria-label="Abrir Painel no ESP32"
             >
               <Wifi className={`w-3.5 h-3.5 shrink-0 ${wifiPortalCommandSent ? 'text-emerald-300 animate-pulse' : 'text-sky-400'}`} />
-              <span className="hidden sm:inline">
-                {wifiPortalCommandSent ? 'Sinal Enviado ao ESP32!' : 'Abrir Painel no ESP32'}
-              </span>
-              <span className="sm:hidden">
-                {wifiPortalCommandSent ? 'Enviado!' : 'ESP32'}
-              </span>
             </button>
 
             <button
