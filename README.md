@@ -47,7 +47,8 @@ npm run dev
 
 ### 3. Firmware do ESP32
 Abra [`netuno_esp32/netuno_esp32.ino`](./netuno_esp32/netuno_esp32.ino) na **Arduino IDE** ou **PlatformIO** e grave na placa ESP32:
-* **Display LCD 16x2 I2C (`0x27`) & RTC (`0x68`):** `GPIO 21` (`SDA`) e `GPIO 22` (`SCL`)
+* **Display LCD 16x2 I2C (`0x27`) & RTC DS3231 (`0x68`):** `GPIO 21` (`SDA`) e `GPIO 22` (`SCL`)
 * **Sensor Ultrassônico (`HC-SR04`):** `GPIO 5` (`TRIG`) e `GPIO 18` (`ECHO`)
 * **Sensor de Temperatura (`DS18B20`):** `GPIO 15` (`OneWire`)
-* **Alimentador Automático (Servo / Motor):** `GPIO 13`
+* **Módulo da Bomba de Oxigênio:** `GPIO 23`
+* **Alimentador Automático (Motor de Passo — 3g por acionamento):** `GPIO 12` (`IN1`), `GPIO 13` (`IN2`), `GPIO 14` (`IN3`) e `GPIO 27` (`IN4`)

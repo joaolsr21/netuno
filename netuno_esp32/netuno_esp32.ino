@@ -5,10 +5,12 @@
  * Dimensionamento Padrão do Aquário: 25 cm (C) x 13 cm (L) x 18 cm (A)
  *
  * Módulos Ativos:
- * 1. Display LCD 16x2 I2C (0x27) -> Porta 21 (SDA) e Porta 22 (SCL)
+ * 1. Display LCD 16x2 I2C (0x27) & RTC DS3231 (0x68) -> Porta 21 (SDA) e Porta 22 (SCL)
  * 2. Sensor Ultrassônico HC-SR04 -> Porta 5 (TRIG) e Porta 18 (ECHO)
  * 3. Sensor de Temperatura DS18B20 -> Porta 15 (OneWire)
- * 4. Multi-WiFi Resiliente + Fila Offline + Portal AP ("NETUNO-SETUP")
+ * 4. Módulo da Bomba de Oxigênio -> Porta 23
+ * 5. Motor de Passo do Alimentador (3g por acionamento) -> Portas 12, 13, 14 e 27
+ * 6. Multi-WiFi Resiliente + Fila Offline + Portal AP ("NETUNO-SETUP")
  */
 
 #include <WiFi.h>
@@ -21,6 +23,8 @@
 #include <LiquidCrystal_I2C.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <RTClib.h>
+#include <Stepper.h>
 #include <time.h>
 
 #define RTC_TZ_OFFSET_HOURS -3 // Fuso horário de Brasília (-03:00)
@@ -30,13 +34,22 @@ const char* SUPABASE_URL = "https://bcdwgmhhrptygaarocjy.supabase.co";
 const char* SUPABASE_KEY = "sb_publishable_3C-PPYFJNBrzQ1msagDQAQ_1EQm7GUa";
 
 // ===================== PINAGEM DO HARDWARE (ESP32) ==========================
-#define PIN_LCD_SDA     21   // Barramento I2C: Display LCD 16x2 (0x27) + Módulo RTC (0x68)
-#define PIN_LCD_SCL     22   // Barramento I2C: Display LCD 16x2 (0x27) + Módulo RTC (0x68)
-#define PIN_TRIG        5    // Sensor Ultrassônico HC-SR04 (Trigger)
-#define PIN_ECHO        18   // Sensor Ultrassônico HC-SR04 (Echo)
-#define PIN_ONEWIRE     15   // Sensor de Temperatura DS18B20 (OneWire)
-#define PIN_FEEDER_PWM  13   // Saída do Alimentador Automático (Servo / Motor)
-#define RTC_I2C_ADDR    0x68 // Endereço I2C padrão do Módulo RTC (DS3231 / DS1307)
+#define PIN_LCD_SDA           21    // Barramento I2C: Display LCD 16x2 (0x27) + Módulo RTC DS3231 (0x68)
+#define PIN_LCD_SCL           22    // Barramento I2C: Display LCD 16x2 (0x27) + Módulo RTC DS3231 (0x68)
+#define PIN_TRIG              5     // Sensor Ultrassônico HC-SR04 (Trigger)
+#define PIN_ECHO              18    // Sensor Ultrassônico HC-SR04 (Echo)
+#define PIN_ONEWIRE           15    // Sensor de Temperatura DS18B20 (OneWire)
+#define PIN_PUMP_RELAY        23    // Módulo da Bomba de Oxigênio
+#define PUMP_RELAY_ACTIVE_LOW false // Troque para true se o seu módulo relé ativar em nível LOW
+#define IN1_PIN               12    // Motor de Passo - IN1
+#define IN2_PIN               13    // Motor de Passo - IN2
+#define IN3_PIN               14    // Motor de Passo - IN3
+#define IN4_PIN               27    // Motor de Passo - IN4
+
+// ===================== ALIMENTADOR (MOTOR DE PASSO - 3g EM 3g) ===============
+const int GRAMS_PER_DOSE     = 3;    // Gramas depositadas a cada acionamento do motor
+const int MAX_DOSES_PER_FEED = 10;   // Máximo 30g por acionamento (10 x 3g)
+const int passosPorAcionamento = 2048; // 2048 passos por volta (ajustável conforme calibração mecânica)
 
 // ===================== HORÁRIOS PROGRAMADOS DO ALIMENTADOR (BASEADOS NO RTC) =
 #define MAX_FEED_SCHEDULES 8
@@ -49,27 +62,30 @@ struct FeedScheduleItem {
 };
 
 FeedScheduleItem feedSchedules[MAX_FEED_SCHEDULES] = {
-  { 8,  0,  "Padrao (5g)", true  },
-  { 14, 0,  "Leve (3g)",   true  },
-  { 20, 0,  "Padrao (5g)", true  },
-  { 0,  0,  "",            false },
-  { 0,  0,  "",            false },
-  { 0,  0,  "",            false },
-  { 0,  0,  "",            false },
-  { 0,  0,  "",            false }
+  { 8,  0,  "3g", true  },
+  { 14, 0,  "3g", true  },
+  { 20, 0,  "6g", true  },
+  { 0,  0,  "",   false },
+  { 0,  0,  "",   false },
+  { 0,  0,  "",   false },
+  { 0,  0,  "",   false },
+  { 0,  0,  "",   false }
 };
 
 // Estado atual do Relógio do Módulo RTC
 int rtcYear   = 2026;
 int rtcMonth  = 11;
-int rtcDay    = 12;
+int rtcDay    = 23;
 int rtcHour   = 8;
 int rtcMinute = 0;
 int rtcSecond = 0;
 int lastFedKey = -1; // Evita alimentar duas vezes no mesmo minuto do RTC
+bool rtcOk = false;
 bool rtcHardwareValid = false;
 bool ntpSynced = false;
 unsigned long lastRtcTickMs = 0;
+unsigned long lastRtcNtpSyncMs = 0;
+const unsigned long RTC_NTP_RESYNC_INTERVAL_MS = 3600000UL; // Ressincroniza DS3231 a cada 1h com a internet
 
 // ===================== REDES WI-FI SALVAS (ATÉ 5 REDES) =====================
 #define MAX_SAVED_WIFI  5
@@ -108,6 +124,8 @@ int offlineCount = 0;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 OneWire oneWire(PIN_ONEWIRE);
 DallasTemperature tempSensor(&oneWire);
+RTC_DS3231 rtc;
+Stepper mp(passosPorAcionamento, IN1_PIN, IN3_PIN, IN2_PIN, IN4_PIN);
 Preferences prefs;
 WebServer portalServer(80);
 DNSServer dnsServer;
@@ -121,11 +139,14 @@ float tankWidthCm    = 13.0; // Largura (cm)
 float tankHeightCm   = 18.0; // Altura total (cm)
 float sensorOffsetCm = 2.0;  // Margem do sensor até 100%
 
-// ===================== ESTADO ATUAL DOS SENSORES E WI-FI ====================
-int   waterLevelPct = 0;
-float distanceCm    = 0.0;
-float waterVolumeL  = 0.0;
-float temperatureC  = 26.0;
+// ===================== ESTADO ATUAL DOS SENSORES, BOMBA E WI-FI =============
+int   waterLevelPct       = 0;
+float distanceCm          = 0.0;
+float lastValidDistanceCm = 0.0;
+float rawDistanceCm       = -1.0;
+float waterVolumeL        = 0.0;
+float temperatureC        = 26.0;
+bool  pumpRelayOn         = true;
 
 enum WifiState {
   WIFI_STATE_DISCONNECTED,
@@ -144,12 +165,16 @@ int       consecutiveFails  = 0;
 int       httpFailCount     = 0;
 bool      apPortalActive    = false;
 
-unsigned long lastSensorMs      = 0;
-unsigned long lastSupabaseMs    = 0;
-unsigned long lastHistoryLogMs  = 0;
-unsigned long lastWifiAttemptMs = 0;
-unsigned long connectStartMs    = 0;
-unsigned long apPortalStartMs   = 0;
+unsigned long lastSensorMs        = 0;
+unsigned long lastLcdToggleMs     = 0;
+unsigned long lastSupabaseMs      = 0;
+unsigned long lastSchedulesSyncMs = 0;
+unsigned long lastHistoryLogMs    = 0;
+unsigned long lastWifiAttemptMs   = 0;
+unsigned long connectStartMs      = 0;
+unsigned long apPortalStartMs     = 0;
+int           lcdScreen           = 0; // 0 = Nível/Temp | 1 = Data/Hora e Próx. Alimentação
+bool          schedulesSyncedOnce = false;
 
 // ============================================================================
 // 1. PERSISTÊNCIA NA MEMÓRIA FLASH (NVS) — SALVA ATÉ 5 REDES WI-FI
@@ -259,7 +284,7 @@ void onWiFiEvent(WiFiEvent_t event) {
       connectedSsid    = WiFi.SSID();
       consecutiveFails = 0;
       httpFailCount    = 0;
-      configTime(RTC_TZ_OFFSET_HOURS * 3600, 0, "pool.ntp.org", "a.st1.ntp.br");
+      configTime(RTC_TZ_OFFSET_HOURS * 3600, 0, "a.st1.ntp.br", "b.st1.ntp.br", "pool.ntp.org");
       Serial.printf("[WIFI-EVENT] Conectado a \"%s\" | IP: %s | RSSI: %d dBm\n",
                     connectedSsid.c_str(),
                     WiFi.localIP().toString().c_str(),
@@ -598,51 +623,71 @@ void flushOfflineQueueToSupabase() {
 }
 
 // ============================================================================
-// 7. LEITURA DOS SENSORES COM FILTRO DE MEDIANA (EVITA PICOS DE RUÍDO)
+// 7. LEITURA DOS SENSORES (FILTRO MEDIANA 7 AMOSTRAS), BOMBA E DISPLAY LCD
 // ============================================================================
+void applyPumpRelay(bool on) {
+  pumpRelayOn = on;
+  uint8_t level = PUMP_RELAY_ACTIVE_LOW ? (on ? LOW : HIGH) : (on ? HIGH : LOW);
+  digitalWrite(PIN_PUMP_RELAY, level);
+}
+
+float lerDistanciaUnica() {
+  digitalWrite(PIN_TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(PIN_TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(PIN_TRIG, LOW);
+
+  long duracao = pulseIn(PIN_ECHO, HIGH, 30000);
+  if (duracao == 0) return -1.0f;
+
+  float dist = (duracao * 0.034f) / 2.0f;
+  if (dist < 2.0f || dist > 400.0f) return -1.0f;
+  return dist;
+}
+
 void readWaterLevel() {
-  float samples[3];
-  int validSamples = 0;
+  const int AMOSTRAS = 7;
+  float leituras[AMOSTRAS];
+  int validas = 0;
 
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(PIN_TRIG, LOW);
-    delayMicroseconds(2);
-    digitalWrite(PIN_TRIG, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(PIN_TRIG, LOW);
-
-    long duration = pulseIn(PIN_ECHO, HIGH, 28000);
-    if (duration > 0) {
-      samples[validSamples++] = (duration * 0.0343f) / 2.0f;
+  for (int i = 0; i < AMOSTRAS; i++) {
+    float d = lerDistanciaUnica();
+    if (d > 0.0f) {
+      leituras[validas++] = d;
     }
-    delay(15);
+    delay(12);
   }
 
-  if (validSamples > 0) {
-    float measuredCm = samples[0];
-    if (validSamples == 3) {
-      // Ordena as 3 amostras e pega a mediana para descartar reflexos falsos na água
-      for (int i = 0; i < 2; i++) {
-        for (int j = i + 1; j < 3; j++) {
-          if (samples[j] < samples[i]) {
-            float tmp  = samples[i];
-            samples[i] = samples[j];
-            samples[j] = tmp;
-          }
-        }
+  if (validas == 0) {
+    rawDistanceCm = -1.0f;
+    return;
+  }
+
+  for (int i = 0; i < validas - 1; i++) {
+    for (int j = i + 1; j < validas; j++) {
+      if (leituras[i] > leituras[j]) {
+        float tmp   = leituras[i];
+        leituras[i] = leituras[j];
+        leituras[j] = tmp;
       }
-      measuredCm = samples[1];
     }
-
-    distanceCm = constrain(measuredCm, 0.5f, tankHeightCm);
-
-    float maxColumn   = max(1.0f, tankHeightCm - sensorOffsetCm);
-    float waterColumn = constrain(tankHeightCm - distanceCm, 0.0f, maxColumn);
-
-    int pct       = round((waterColumn / maxColumn) * 100.0f);
-    waterLevelPct = constrain(pct, 0, 100);
-    waterVolumeL  = (tankLengthCm * tankWidthCm * waterColumn) / 1000.0f;
   }
+
+  float mediana = leituras[validas / 2];
+  if (fabs(mediana - lastValidDistanceCm) > 0.8f || lastValidDistanceCm == 0.0f) {
+    lastValidDistanceCm = mediana;
+  }
+
+  rawDistanceCm = lastValidDistanceCm;
+  distanceCm    = constrain(lastValidDistanceCm, 0.5f, tankHeightCm);
+
+  float maxColumn   = max(1.0f, tankHeightCm - sensorOffsetCm);
+  float waterColumn = constrain(tankHeightCm - distanceCm, 0.0f, maxColumn);
+
+  int pct       = round((waterColumn / maxColumn) * 100.0f);
+  waterLevelPct = constrain(pct, 0, 100);
+  waterVolumeL  = (tankLengthCm * tankWidthCm * waterColumn) / 1000.0f;
 }
 
 void readTemperature() {
@@ -654,20 +699,65 @@ void readTemperature() {
   }
 }
 
+int parsePortionGrams(const String& portionLabel) {
+  String digits = "";
+  for (size_t i = 0; i < portionLabel.length(); i++) {
+    char c = portionLabel.charAt(i);
+    if (isdigit((unsigned char)c)) {
+      digits += c;
+    } else if (digits.length() > 0) {
+      break;
+    }
+  }
+  int rawGrams = (digits.length() > 0) ? digits.toInt() : GRAMS_PER_DOSE;
+  int doses = (rawGrams + (GRAMS_PER_DOSE / 2)) / GRAMS_PER_DOSE;
+  doses = constrain(doses, 1, MAX_DOSES_PER_FEED);
+  return doses * GRAMS_PER_DOSE;
+}
+
+int findNextScheduleIndex() {
+  int nowMinutes = rtcHour * 60 + rtcMinute;
+  int bestAfterIdx = -1;
+  int bestAfterMin = 24 * 60 + 1;
+  int earliestIdx  = -1;
+  int earliestMin  = 24 * 60 + 1;
+
+  for (int i = 0; i < MAX_FEED_SCHEDULES; i++) {
+    if (!feedSchedules[i].enabled) continue;
+    int schedMin = feedSchedules[i].hour * 60 + feedSchedules[i].minute;
+    if (schedMin > nowMinutes && schedMin < bestAfterMin) {
+      bestAfterMin = schedMin;
+      bestAfterIdx = i;
+    }
+    if (schedMin < earliestMin) {
+      earliestMin = schedMin;
+      earliestIdx = i;
+    }
+  }
+  return (bestAfterIdx >= 0) ? bestAfterIdx : earliestIdx;
+}
+
 void updateLCD() {
   if (apPortalActive) return; // Mantém mensagem do Portal AP visível quando ativo
 
   char line0[17];
   char line1[17];
 
-  snprintf(line0, sizeof(line0), "Nivel Agua: %3d%%", waterLevelPct);
-  snprintf(
-    line1,
-    sizeof(line1),
-    "Temp:%4.1fC %s",
-    temperatureC,
-    (WiFi.status() == WL_CONNECTED) ? "WiFi+" : "Local"
-  );
+  if (lcdScreen == 0) {
+    snprintf(line0, sizeof(line0), "Nivel Agua: %3d%%", waterLevelPct);
+    snprintf(line1, sizeof(line1), "Temp: %5.1f %cC  ", temperatureC, (char)223);
+  } else {
+    snprintf(line0, sizeof(line0), "%02d/%02d  %02d:%02d:%02d ",
+             rtcDay, rtcMonth, rtcHour, rtcMinute, rtcSecond);
+    int nextIdx = findNextScheduleIndex();
+    if (nextIdx >= 0) {
+      int nextGrams = parsePortionGrams(feedSchedules[nextIdx].portion);
+      snprintf(line1, sizeof(line1), "Prox: %02d:%02d %2dg ",
+               feedSchedules[nextIdx].hour, feedSchedules[nextIdx].minute, nextGrams);
+    } else {
+      snprintf(line1, sizeof(line1), "Prox: --:--     ");
+    }
+  }
 
   lcd.setCursor(0, 0);
   lcd.print(line0);
@@ -676,17 +766,8 @@ void updateLCD() {
 }
 
 // ============================================================================
-// 8. MÓDULO RTC (LEITURA/GRAVAÇÃO I2C 0x68) + ALIMENTADOR BASEADO NO RTC
+// 8. MÓDULO RTC DS3231 (RTClib + NTP) + ALIMENTADOR (MOTOR DE PASSO 3g/3g)
 // ============================================================================
-uint8_t decToBcd(int val) {
-  return (uint8_t)((val / 10 * 16) + (val % 10));
-}
-
-int bcdToDec(uint8_t val) {
-  return (int)((val / 16 * 10) + (val % 16));
-}
-
-// Ajusta calendário em horas inteiras sem alterar variável global TZ
 int daysInMonth(int y, int mo) {
   static const int mdays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   if (mo == 2 && ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))) return 29;
@@ -723,21 +804,51 @@ void shiftDateTimeHours(int& y, int& mo, int& d, int& h, int deltaHours) {
   }
 }
 
-// Lê data e hora diretamente dos registradores do módulo RTC via I2C (ou sincroniza via NTP / fallback)
+// Prioridade 1: Horário da internet (NTP -03:00), mantendo o RTC DS3231 sempre sincronizado.
+// Prioridade 2: RTC DS3231 físico como backup offline quando estiver sem internet.
+// Prioridade 3: Fallback via millis() caso não haja internet nem módulo RTC.
 void readRtcModule() {
-  bool validRtc = false;
-  Wire.beginTransmission(RTC_I2C_ADDR);
-  Wire.write(0x00);
-  if (Wire.endTransmission() == 0 && Wire.requestFrom(RTC_I2C_ADDR, 7) == 7) {
-    int sec  = bcdToDec(Wire.read() & 0x7F);
-    int min  = bcdToDec(Wire.read() & 0x7F);
-    int hr   = bcdToDec(Wire.read() & 0x3F);
-    Wire.read(); // Dia da semana
-    int day  = bcdToDec(Wire.read() & 0x3F);
-    int mon  = bcdToDec(Wire.read() & 0x1F);
-    int yr   = 2000 + bcdToDec(Wire.read());
+  struct tm timeinfo;
+  if (WiFi.status() == WL_CONNECTED && getLocalTime(&timeinfo, 0) && (timeinfo.tm_year + 1900) >= 2025) {
+    rtcYear   = timeinfo.tm_year + 1900;
+    rtcMonth  = timeinfo.tm_mon + 1;
+    rtcDay    = timeinfo.tm_mday;
+    rtcHour   = timeinfo.tm_hour;
+    rtcMinute = timeinfo.tm_min;
+    rtcSecond = timeinfo.tm_sec;
+    lastRtcTickMs = millis();
 
-    // Valida se a data/hora do RTC é uma data real para nunca quebrar o formato ISO no Supabase
+    if (rtcOk) {
+      rtcHardwareValid = true;
+      DateTime ntpDt(rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
+      DateTime hwDt = rtc.now();
+      long driftSec = labs((long)ntpDt.unixtime() - (long)hwDt.unixtime());
+
+      if (!ntpSynced || driftSec >= 2 || (millis() - lastRtcNtpSyncMs >= RTC_NTP_RESYNC_INTERVAL_MS)) {
+        rtc.adjust(ntpDt);
+        lastRtcNtpSyncMs = millis();
+        Serial.printf("[RTC/NTP] Módulo DS3231 sincronizado com horário da internet: %04d-%02d-%02d %02d:%02d:%02d\n",
+                      rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
+      }
+    } else if (!ntpSynced) {
+      Serial.printf("[NTP] Horário oficial da internet obtido (BRT): %04d-%02d-%02d %02d:%02d:%02d\n",
+                    rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
+    }
+
+    ntpSynced = true;
+    return;
+  }
+
+  bool validRtc = false;
+  if (rtcOk) {
+    DateTime now = rtc.now();
+    int yr  = now.year();
+    int mon = now.month();
+    int day = now.day();
+    int hr  = now.hour();
+    int min = now.minute();
+    int sec = now.second();
+
     if (yr >= 2024 && yr <= 2099 &&
         mon >= 1 && mon <= 12 &&
         day >= 1 && day <= 31 &&
@@ -758,24 +869,7 @@ void readRtcModule() {
 
   if (!validRtc) {
     rtcHardwareValid = false;
-    struct tm timeinfo;
-    if (WiFi.status() == WL_CONNECTED && getLocalTime(&timeinfo, 0) && (timeinfo.tm_year + 1900) >= 2025) {
-      rtcYear   = timeinfo.tm_year + 1900;
-      rtcMonth  = timeinfo.tm_mon + 1;
-      rtcDay    = timeinfo.tm_mday;
-      rtcHour   = timeinfo.tm_hour;
-      rtcMinute = timeinfo.tm_min;
-      rtcSecond = timeinfo.tm_sec;
-      lastRtcTickMs = millis();
-      if (!ntpSynced) {
-        ntpSynced = true;
-        Serial.printf("[RTC/NTP] Horário sincronizado via internet (BRT): %04d-%02d-%02d %02d:%02d:%02d\n",
-                      rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
-      }
-      return;
-    }
-
-    // Fallback suave de 1 segundo caso o módulo RTC esteja sem bateria/desconectado e sem internet
+    // Fallback suave de 1 segundo caso esteja sem internet e sem módulo RTC válido
     unsigned long now = millis();
     while (now - lastRtcTickMs >= 1000) {
       lastRtcTickMs += 1000;
@@ -786,35 +880,10 @@ void readRtcModule() {
         shiftDateTimeHours(rtcYear, rtcMonth, rtcDay, rtcHour, 0);
       }
     }
-  } else if (!ntpSynced && WiFi.status() == WL_CONNECTED) {
-    // Se o RTC físico estiver em uma data desatualizada antes de 2026 ou fora do ano atual, corrige uma vez via NTP
-    struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 0) && (timeinfo.tm_year + 1900) >= 2025) {
-      ntpSynced = true;
-      if (rtcYear < 2026) {
-        rtcYear   = timeinfo.tm_year + 1900;
-        rtcMonth  = timeinfo.tm_mon + 1;
-        rtcDay    = timeinfo.tm_mday;
-        rtcHour   = timeinfo.tm_hour;
-        rtcMinute = timeinfo.tm_min;
-        rtcSecond = timeinfo.tm_sec;
-        Wire.beginTransmission(RTC_I2C_ADDR);
-        Wire.write(0x00);
-        Wire.write(decToBcd(rtcSecond));
-        Wire.write(decToBcd(rtcMinute));
-        Wire.write(decToBcd(rtcHour));
-        Wire.write(decToBcd(1));
-        Wire.write(decToBcd(rtcDay));
-        Wire.write(decToBcd(rtcMonth));
-        Wire.write(decToBcd(rtcYear % 100));
-        Wire.endTransmission();
-        Serial.println("[RTC] Relógio físico desatualizado corrigido automaticamente via NTP!");
-      }
-    }
   }
 }
 
-// Grava um novo horário configurado pelo site diretamente nos registradores do Módulo RTC (0x68)
+// Grava um novo horário configurado pelo site no Módulo RTC DS3231
 void writeRtcModule(int year, int month, int day, int hour, int minute, int second) {
   rtcYear   = year;
   rtcMonth  = month;
@@ -824,35 +893,35 @@ void writeRtcModule(int year, int month, int day, int hour, int minute, int seco
   rtcSecond = second;
   lastRtcTickMs = millis();
 
-  Wire.beginTransmission(RTC_I2C_ADDR);
-  Wire.write(0x00);
-  Wire.write(decToBcd(second));
-  Wire.write(decToBcd(minute));
-  Wire.write(decToBcd(hour));
-  Wire.write(decToBcd(1)); // Dia da semana
-  Wire.write(decToBcd(day));
-  Wire.write(decToBcd(month));
-  Wire.write(decToBcd(year % 100));
-  Wire.endTransmission();
+  if (rtcOk) {
+    rtc.adjust(DateTime(year, month, day, hour, minute, second));
+  }
 
   Serial.printf("[RTC] Novo horário gravado no módulo RTC: %04d-%02d-%02d %02d:%02d:%02d\n",
                 rtcYear, rtcMonth, rtcDay, rtcHour, rtcMinute, rtcSecond);
 }
 
+String extractJsonStringField(const String& json, const String& fieldName) {
+  String pattern1 = "\"" + fieldName + "\":\"";
+  String pattern2 = "\"" + fieldName + "\": \"";
+  int offset = pattern1.length();
+  int pos = json.indexOf(pattern1);
+  if (pos < 0) {
+    pos = json.indexOf(pattern2);
+    offset = pattern2.length();
+  }
+  if (pos < 0) return "";
+
+  int quoteEnd = json.indexOf('"', pos + offset);
+  if (quoteEnd < pos + offset) return "";
+  return json.substring(pos + offset, quoteEnd);
+}
+
 // Interpreta rtc_datetime retornado pelo Supabase convertendo UTC (+00:00 / Z) para horário local (BRT -03:00)
 void applyIsoDateTimeToRtc(const String& jsonResponse) {
-  int pos = jsonResponse.indexOf("\"rtc_datetime\":\"");
-  int offsetStart = 16;
-  if (pos < 0) {
-    pos = jsonResponse.indexOf("\"rtc_datetime\": \"");
-    offsetStart = 17;
-  }
-  if (pos < 0) return;
+  String fullIso = extractJsonStringField(jsonResponse, "rtc_datetime");
+  if (fullIso.length() < 19) return;
 
-  int quoteEnd = jsonResponse.indexOf('"', pos + offsetStart);
-  if (quoteEnd < 0 || quoteEnd < pos + offsetStart + 19) return;
-
-  String fullIso = jsonResponse.substring(pos + offsetStart, quoteEnd);
   int y  = fullIso.substring(0, 4).toInt();
   int mo = fullIso.substring(5, 7).toInt();
   int d  = fullIso.substring(8, 10).toInt();
@@ -865,6 +934,25 @@ void applyIsoDateTimeToRtc(const String& jsonResponse) {
     shiftDateTimeHours(y, mo, d, h, RTC_TZ_OFFSET_HOURS);
   }
   writeRtcModule(y, mo, d, h, mi, s);
+}
+
+// Sincroniza o DS3231 preferindo NTP ativo da internet, ou usando o horário enviado pelo site como backup
+void syncRtcWithNtpOrIso(const String& jsonResponse) {
+  struct tm timeinfo;
+  if (WiFi.status() == WL_CONNECTED && getLocalTime(&timeinfo, 0) && (timeinfo.tm_year + 1900) >= 2025) {
+    writeRtcModule(
+      timeinfo.tm_year + 1900,
+      timeinfo.tm_mon + 1,
+      timeinfo.tm_mday,
+      timeinfo.tm_hour,
+      timeinfo.tm_min,
+      timeinfo.tm_sec
+    );
+    lastRtcNtpSyncMs = millis();
+    ntpSynced = true;
+    return;
+  }
+  applyIsoDateTimeToRtc(jsonResponse);
 }
 
 String getRtcIsoString() {
@@ -881,21 +969,44 @@ String getRtcIsoString() {
   return String(buf);
 }
 
-// Aciona o motor/servo do alimentador conforme a porção escolhida
+// Aciona o motor de passo do alimentador em múltiplos de 3g por acionamento
 void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
-  int pulseMs = 700; // Padrão (5g)
-  if (portionLabel.indexOf("Leve") >= 0) pulseMs = 400;
-  else if (portionLabel.indexOf("Generosa") >= 0) pulseMs = 1100;
+  int grams = parsePortionGrams(portionLabel);
+  int doses = grams / GRAMS_PER_DOSE;
 
-  Serial.printf("[ALIMENTADOR] %s -> Dispensando porção \"%s\" (%d ms) no horário RTC %02d:%02d:%02d\n",
-                triggerReason.c_str(), portionLabel.c_str(), pulseMs, rtcHour, rtcMinute, rtcSecond);
+  Serial.printf("[ALIMENTADOR] %s -> Depositando %dg (%d acionamento(s) de %dg) no horário RTC %02d:%02d:%02d\n",
+                triggerReason.c_str(), grams, doses, GRAMS_PER_DOSE, rtcHour, rtcMinute, rtcSecond);
 
-  digitalWrite(PIN_FEEDER_PWM, HIGH);
-  delay(pulseMs);
-  digitalWrite(PIN_FEEDER_PWM, LOW);
+  if (!apPortalActive) {
+    char line1[17];
+    snprintf(line1, sizeof(line1), "Porcao:%2dg (%dx) ", grams, doses);
+    lcd.setCursor(0, 0);
+    lcd.print("  ALIMENTANDO   ");
+    lcd.setCursor(0, 1);
+    lcd.print(line1);
+  }
+
+  for (int d = 0; d < doses; d++) {
+    int remaining = passosPorAcionamento;
+    while (remaining > 0) {
+      int chunk = (remaining > 64) ? 64 : remaining;
+      mp.step(chunk);
+      remaining -= chunk;
+      yield();
+    }
+  }
+
+  // Desenergiza as bobinas do motor de passo após o depósito
+  digitalWrite(IN1_PIN, LOW);
+  digitalWrite(IN2_PIN, LOW);
+  digitalWrite(IN3_PIN, LOW);
+  digitalWrite(IN4_PIN, LOW);
+  delay(300);
+
+  updateLCD();
 }
 
-// Verifica a cada segundo se o horário do módulo RTC atingiu algum horário programado do alimentador
+// Verifica continuamente se o horário do módulo RTC atingiu algum horário programado do alimentador
 void checkFeederByRtcTime() {
   readRtcModule();
 
@@ -945,7 +1056,7 @@ void syncStatusWithSupabase() {
   String upsertEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?on_conflict=device_username";
   String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?" + filterQuery;
 
-  // 0. Verifica ANTES de enviar telemetria se o site pediu ajuste de horário do RTC (evita sobrescrever rtc_datetime)
+  // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC (evita sobrescrever rtc_datetime)
   http.begin(filterEndpoint + "&select=rtc_set_command,rtc_datetime");
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -953,7 +1064,7 @@ void syncStatusWithSupabase() {
   if (preCode >= 200 && preCode < 300) {
     String preBody = http.getString();
     if (preBody.indexOf("\"rtc_set_command\":true") >= 0 || preBody.indexOf("\"rtc_set_command\": true") >= 0) {
-      applyIsoDateTimeToRtc(preBody);
+      syncRtcWithNtpOrIso(preBody);
       HTTPClient ackPre;
       ackPre.setTimeout(2500);
       ackPre.begin(filterEndpoint);
@@ -1002,9 +1113,16 @@ void syncStatusWithSupabase() {
     httpFailCount = 0;
     String response = http.getString();
 
-    // 1. Caso tenha chegado um novo ajuste de horário do RTC durante a requisição
+    // Sincroniza estado da bomba (GPIO 23) conforme comando salvo no Supabase
+    if (response.indexOf("\"pump_relay_on\":false") >= 0 || response.indexOf("\"pump_relay_on\": false") >= 0) {
+      applyPumpRelay(false);
+    } else if (response.indexOf("\"pump_relay_on\":true") >= 0 || response.indexOf("\"pump_relay_on\": true") >= 0) {
+      applyPumpRelay(true);
+    }
+
+    // 1. Caso tenha chegado pedido de sincronização do RTC durante a requisição
     if (response.indexOf("\"rtc_set_command\":true") >= 0 || response.indexOf("\"rtc_set_command\": true") >= 0) {
-      applyIsoDateTimeToRtc(response);
+      syncRtcWithNtpOrIso(response);
       HTTPClient ack;
       ack.setTimeout(2500);
       ack.begin(filterEndpoint);
@@ -1015,9 +1133,12 @@ void syncStatusWithSupabase() {
       ack.end();
     }
 
-    // 2. Se o usuário clicou em "Alimentar Agora" pelo site ("feed_now_command":true)
+    // 2. Se o usuário clicou em "Alimentar Manualmente" pelo site ("feed_now_command":true)
     if (response.indexOf("\"feed_now_command\":true") >= 0 || response.indexOf("\"feed_now_command\": true") >= 0) {
-      dispenseFoodNow("Padrao (5g)", "Comando Manual do Site");
+      String portionStr = extractJsonStringField(response, "feed_now_portion");
+      if (portionStr.length() == 0) portionStr = "3g";
+
+      // Limpa o comando antes de girar o motor de passo para evitar re-disparo caso a porção leve vários segundos
       HTTPClient ackFeed;
       ackFeed.setTimeout(2500);
       ackFeed.begin(filterEndpoint);
@@ -1026,6 +1147,8 @@ void syncStatusWithSupabase() {
       ackFeed.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
       ackFeed.PATCH("{\"feed_now_command\":false}");
       ackFeed.end();
+
+      dispenseFoodNow(portionStr, "Comando Manual do Site");
     }
 
     // 3. Se o site enviou comando para abrir o portal de configuração Wi-Fi
@@ -1047,6 +1170,67 @@ void syncStatusWithSupabase() {
     httpFailCount++;
     String errBody = http.getString();
     Serial.printf("[SUPABASE] Falha HTTP %d (Tentativa %d/5): %s\n", httpCode, httpFailCount, errBody.c_str());
+  }
+  http.end();
+}
+
+// Baixa os horários programados de alimentação da tabela feed_schedules no Supabase
+void syncSchedulesFromSupabase() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
+  activeUser.trim();
+  String endpoint = String(SUPABASE_URL) + "/rest/v1/feed_schedules?device_username=ilike." +
+                    urlEncodeValue(activeUser) + "&select=time,portion,enabled&order=time.asc";
+
+  HTTPClient http;
+  http.setTimeout(4000);
+  http.begin(endpoint);
+  http.addHeader("apikey", SUPABASE_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+
+  int code = http.GET();
+  if (code >= 200 && code < 300) {
+    String body = http.getString();
+    schedulesSyncedOnce = true;
+
+    int count = 0;
+    int cursor = 0;
+    while (count < MAX_FEED_SCHEDULES) {
+      int objStart = body.indexOf('{', cursor);
+      if (objStart < 0) break;
+      int objEnd = body.indexOf('}', objStart);
+      if (objEnd < 0) break;
+
+      String itemJson = body.substring(objStart, objEnd + 1);
+      String timeStr = extractJsonStringField(itemJson, "time");
+      String portionStr = extractJsonStringField(itemJson, "portion");
+      bool isEnabled = (itemJson.indexOf("\"enabled\":false") < 0 && itemJson.indexOf("\"enabled\": false") < 0);
+
+      int colonIdx = timeStr.indexOf(':');
+      if (colonIdx > 0) {
+        int hr = constrain(timeStr.substring(0, colonIdx).toInt(), 0, 23);
+        int mi = constrain(timeStr.substring(colonIdx + 1).toInt(), 0, 59);
+        int grams = parsePortionGrams(portionStr);
+
+        feedSchedules[count].hour    = hr;
+        feedSchedules[count].minute  = mi;
+        feedSchedules[count].portion = String(grams) + "g";
+        feedSchedules[count].enabled = isEnabled;
+        count++;
+      }
+      cursor = objEnd + 1;
+    }
+
+    if (count > 0) {
+      for (int i = count; i < MAX_FEED_SCHEDULES; i++) {
+        feedSchedules[i].hour    = 0;
+        feedSchedules[i].minute  = 0;
+        feedSchedules[i].portion = "";
+        feedSchedules[i].enabled = false;
+      }
+      Serial.printf("[SUPABASE] %d horário(s) de alimentação sincronizados.\n", count);
+    }
   }
   http.end();
 }
@@ -1091,17 +1275,36 @@ void setup() {
 
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
-  pinMode(PIN_FEEDER_PWM, OUTPUT);
-  digitalWrite(PIN_FEEDER_PWM, LOW);
+  pinMode(PIN_PUMP_RELAY, OUTPUT);
+  applyPumpRelay(pumpRelayOn);
+
+  pinMode(IN1_PIN, OUTPUT);
+  pinMode(IN2_PIN, OUTPUT);
+  pinMode(IN3_PIN, OUTPUT);
+  pinMode(IN4_PIN, OUTPUT);
+  digitalWrite(IN1_PIN, LOW);
+  digitalWrite(IN2_PIN, LOW);
+  digitalWrite(IN3_PIN, LOW);
+  digitalWrite(IN4_PIN, LOW);
+  mp.setSpeed(10);
 
   Wire.begin(PIN_LCD_SDA, PIN_LCD_SCL);
-  readRtcModule(); // Lê horário inicial do módulo RTC
   lcd.init();
   lcd.backlight();
   lcd.setCursor(0, 0);
   lcd.print("NETUNO AQUARIO  ");
   lcd.setCursor(0, 1);
   lcd.print("Iniciando...    ");
+
+  rtcOk = rtc.begin();
+  if (rtcOk) {
+    if (rtc.lostPower()) {
+      rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    }
+  } else {
+    Serial.println("[RTC] Modulo DS3231 nao encontrado! Usando NTP/fallback.");
+  }
+  readRtcModule(); // Lê horário inicial do módulo RTC
 
   tempSensor.begin();
   tempSensor.setWaitForConversion(false); // Leitura não-bloqueante do sensor de temperatura
@@ -1114,6 +1317,7 @@ void setup() {
   readWaterLevel();
   readTemperature();
   updateLCD();
+  lastLcdToggleMs = millis();
 
   // Dispara busca inteligente pela melhor rede Wi-Fi cadastrada
   startBestWifiConnection();
@@ -1128,7 +1332,14 @@ void loop() {
   // 2. Lê o horário do Módulo RTC continuamente e aciona o alimentador nos horários programados (mesmo sem Wi-Fi!)
   checkFeederByRtcTime();
 
-  // 3. Leitura contínua dos sensores e Display LCD a cada 3 segundos (nunca trava se o Wi-Fi cair)
+  // 3. Alterna entre Tela 0 (Nível/Temp) e Tela 1 (Data/Hora + Próx. Alimentação) a cada 3 segundos
+  if (now - lastLcdToggleMs >= 3000) {
+    lastLcdToggleMs = now;
+    lcdScreen = (lcdScreen == 0) ? 1 : 0;
+    updateLCD();
+  }
+
+  // 4. Leitura contínua dos sensores e Display LCD a cada 3 segundos (nunca trava se o Wi-Fi cair)
   if (now - lastSensorMs >= 3000) {
     lastSensorMs = now;
     readWaterLevel();
@@ -1136,19 +1347,21 @@ void loop() {
     updateLCD();
 
     Serial.printf(
-      "[NETUNO] RTC: %02d:%02d:%02d | Agua: %d%% (%.2f L) | Temp: %.1f C | WiFi: %s (%s)\n",
+      "[NETUNO] RTC: %02d:%02d:%02d | Agua: %d%% (%.2f L, %.1f cm) | Temp: %.1f C | Bomba: %s | WiFi: %s (%s)\n",
       rtcHour,
       rtcMinute,
       rtcSecond,
       waterLevelPct,
       waterVolumeL,
+      rawDistanceCm,
       temperatureC,
+      pumpRelayOn ? "ON" : "OFF",
       (WiFi.status() == WL_CONNECTED) ? "ONLINE" : "OFFLINE",
       connectedSsid.length() > 0 ? connectedSsid.c_str() : "Sem rede"
     );
   }
 
-  // 3. Sincronização rápida com Supabase a cada 5 segundos + esvaziamento da fila offline
+  // 5. Sincronização rápida com Supabase a cada 5 segundos + esvaziamento da fila offline
   if (now - lastSupabaseMs >= 5000) {
     lastSupabaseMs = now;
     if (WiFi.status() == WL_CONNECTED) {
@@ -1157,7 +1370,13 @@ void loop() {
     }
   }
 
-  // 4. Histórico a cada 60 segundos (se estiver sem Wi-Fi, salva na Fila Offline automaticamente)
+  // 6. Sincroniza horários programados do site (feed_schedules) ao conectar e depois a cada 15 segundos
+  if (WiFi.status() == WL_CONNECTED && (!schedulesSyncedOnce || now - lastSchedulesSyncMs >= 15000)) {
+    lastSchedulesSyncMs = now;
+    syncSchedulesFromSupabase();
+  }
+
+  // 7. Histórico a cada 60 segundos (se estiver sem Wi-Fi, salva na Fila Offline automaticamente)
   if (now - lastHistoryLogMs >= 60000) {
     lastHistoryLogMs = now;
     sendLogToSupabase();

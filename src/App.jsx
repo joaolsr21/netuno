@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Sliders,
   Plus,
+  Minus,
   Trash2,
   Power,
   RotateCcw,
@@ -68,6 +69,45 @@ const CHRISTMAS_LIGHTS = [
   '#FBBF24',
 ];
 
+const GRAMS_PER_DOSE = 3;
+const MIN_PORTION_GRAMS = 3;
+const MAX_PORTION_GRAMS = 30;
+const PORTION_OPTIONS_GRAMS = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30];
+
+const parsePortionGrams = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const doses = Math.max(
+      1,
+      Math.min(MAX_PORTION_GRAMS / GRAMS_PER_DOSE, Math.round(value / GRAMS_PER_DOSE))
+    );
+    return doses * GRAMS_PER_DOSE;
+  }
+  const match = String(value || '').match(/(\d+)/);
+  const raw = match ? parseInt(match[1], 10) : GRAMS_PER_DOSE;
+  const doses = Math.max(
+    1,
+    Math.min(MAX_PORTION_GRAMS / GRAMS_PER_DOSE, Math.round(raw / GRAMS_PER_DOSE))
+  );
+  return doses * GRAMS_PER_DOSE;
+};
+
+const formatPortionGrams = (value) => `${parsePortionGrams(value)}g`;
+
+const formatPortionDetail = (value) => {
+  const grams = parsePortionGrams(value);
+  const doses = grams / GRAMS_PER_DOSE;
+  return `${grams}g (${doses}× 3g)`;
+};
+
+const stepPortionGrams = (currentValue, deltaSteps) => {
+  const current = parsePortionGrams(currentValue);
+  const next = Math.max(
+    MIN_PORTION_GRAMS,
+    Math.min(MAX_PORTION_GRAMS, current + deltaSteps * GRAMS_PER_DOSE)
+  );
+  return `${next}g`;
+};
+
 const DEFAULT_CONFIG = {
   deviceUsername: '',
   devicePassword: '',
@@ -99,10 +139,8 @@ const DEFAULT_CONFIG = {
   pumpCycleOnMin: 45,
   pumpCycleOffMin: 15,
   pumpSafetyCutoffPct: 30,
-  portionLightMs: 400,
-  portionStandardMs: 700,
-  portionGenerousMs: 1100,
-  defaultPortion: 'Padrão (5g)',
+  gramsPerDose: GRAMS_PER_DOSE,
+  defaultPortion: '3g',
   setupCompleted: true,
 };
 
@@ -111,7 +149,15 @@ export default function App() {
   const [config, setConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('netuno_router_config');
-      if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_CONFIG,
+          ...parsed,
+          gramsPerDose: GRAMS_PER_DOSE,
+          defaultPortion: formatPortionGrams(parsed.defaultPortion || '3g'),
+        };
+      }
     } catch (e) {
       // ignore
     }
@@ -144,30 +190,21 @@ export default function App() {
   const [pumpRelayOn, setPumpRelayOn] = useState(true);
   const [pumpMode, setPumpMode] = useState(config.pumpMode || 'auto');
   const [feedNowCommand, setFeedNowCommand] = useState(false);
-  const [feedNowPortion, setFeedNowPortion] = useState(config.defaultPortion || 'Padrão (5g)');
+  const [feedNowPortion, setFeedNowPortion] = useState(() =>
+    formatPortionGrams(config.defaultPortion || '3g')
+  );
   const [schedules, setSchedules] = useState([
-    { id: 1, time: '08:00', portion: 'Padrão (5g)', label: 'Manhã', enabled: true },
-    { id: 2, time: '14:00', portion: 'Leve (3g)', label: 'Tarde', enabled: true },
-    { id: 3, time: '20:00', portion: 'Padrão (5g)', label: 'Noite', enabled: true },
+    { id: 1, time: '08:00', portion: '3g', label: 'Manhã', enabled: true },
+    { id: 2, time: '14:00', portion: '3g', label: 'Tarde', enabled: true },
+    { id: 3, time: '20:00', portion: '6g', label: 'Noite', enabled: true },
   ]);
   const [newScheduleTime, setNewScheduleTime] = useState('18:00');
-  const [newSchedulePortion, setNewSchedulePortion] = useState('Padrão (5g)');
-  const formatLocalDateInput = (dateObj) => {
-    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-  const [rtcEditDate, setRtcEditDate] = useState(() => formatLocalDateInput(new Date()));
-  const [rtcEditTime, setRtcEditTime] = useState(() =>
-    new Date().toTimeString().slice(0, 8)
-  );
+  const [newSchedulePortion, setNewSchedulePortion] = useState('3g');
+  const [espRtcIso, setEspRtcIso] = useState(null);
   const [rtcSaveNotice, setRtcSaveNotice] = useState(false);
   const [wifiPortalCommandSent, setWifiPortalCommandSent] = useState(false);
   const [lastAutoFedMinuteKey, setLastAutoFedMinuteKey] = useState('');
-  const lastDbRtcRef = useRef(null);
-  const rtcLockUntilRef = useRef(0);
+  const feedDbCleanupTimerRef = useRef(null);
 
   const [logs, setLogs] = useState([]);
   const [history, setHistory] = useState([]);
@@ -208,13 +245,10 @@ export default function App() {
 
   const activeDeviceUsername = authDevice?.username || '';
 
-  // Avança o relógio do RTC a cada 1 segundo (e sincroniza sempre que o banco envia atualização)
+  // Mantém o relógio do site sempre sincronizado segundo a segundo com o horário real da internet
   useEffect(() => {
     const timer = setInterval(() => {
-      setRtcTimestamp((prev) => {
-        const base = prev ? new Date(prev).getTime() : Date.now();
-        return new Date(base + 1000).toISOString();
-      });
+      setRtcTimestamp(new Date().toISOString());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -346,17 +380,18 @@ export default function App() {
     activeSchedules.find((s) => s.time > rtcCurrentHHMM) ||
     (activeSchedules.length > 0 ? activeSchedules[0] : null);
 
-  // Finaliza o ciclo breve de alimentação (volta os peixes ao nado normal e limpa o status)
+  // Finaliza apenas a animação visual breve (2.2s) no site sem limpar prematuramente o comando no Supabase antes do ESP32 ler
   const finishFeedingCycle = useCallback(() => {
     setFeedNowCommand(false);
-    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-      supabase
-        .from('aquarium_status')
-        .update({ feed_now_command: false })
-        .ilike('device_username', activeDeviceUsername)
-        .then(() => {}, () => {});
-    }
-  }, [activeDeviceUsername]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (feedDbCleanupTimerRef.current) {
+        clearTimeout(feedDbCleanupTimerRef.current);
+      }
+    };
+  }, []);
 
   // Garante que o status "Alimentando..." e a animação de comer dos peixes durem apenas o ciclo breve (2.2s)
   useEffect(() => {
@@ -367,7 +402,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [feedNowCommand, finishFeedingCycle]);
 
-  // Acionamento automático do alimentador quando o horário do módulo RTC atinge exatamente um horário programado
+  // Exibe animação breve no site quando o horário programado do módulo RTC atinge um agendamento (o ESP32 executa pelo próprio RTC)
   useEffect(() => {
     if (!activeDeviceUsername) return;
     if (rtcCurrentSeconds > 2) return; // Verifica nos primeiros segundos do minuto do RTC
@@ -378,15 +413,8 @@ export default function App() {
     if (lastAutoFedMinuteKey === minuteKey) return;
 
     setLastAutoFedMinuteKey(minuteKey);
+    setFeedNowPortion(formatPortionGrams(match.portion));
     setFeedNowCommand(true);
-    setFeedNowPortion(match.portion);
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from('aquarium_status')
-        .update({ feed_now_command: true, feed_now_portion: match.portion })
-        .ilike('device_username', activeDeviceUsername)
-        .then(() => {}, () => {});
-    }
   }, [
     activeDeviceUsername,
     rtcCurrentHHMM,
@@ -512,7 +540,7 @@ export default function App() {
         setFeedNowCommand(false);
       }
       if (statusData.feed_now_portion) {
-        setFeedNowPortion(statusData.feed_now_portion);
+        setFeedNowPortion(formatPortionGrams(statusData.feed_now_portion));
       }
 
       const espEverSent =
@@ -531,7 +559,7 @@ export default function App() {
         if (statusData.temperature_c !== undefined && statusData.temperature_c !== null) {
           setTemperatureC(Number(statusData.temperature_c));
         }
-        lastDbRtcRef.current = statusData.rtc_datetime || null;
+        setEspRtcIso(statusData.rtc_datetime || null);
         const seenAt = statusData.rtc_datetime || statusData.esp_last_seen || statusData.updated_at;
         if (seenAt) {
           setLastSeenIso(seenAt);
@@ -539,17 +567,7 @@ export default function App() {
             0,
             Math.floor((Date.now() - new Date(seenAt).getTime()) / 1000)
           );
-          const isOnline = diffSec < 30;
-          setEspOnline(isOnline);
-
-          // Só aplica rtc_datetime do banco se o ESP32 estiver online (ou comando pendente) e não houver trava recente do usuário
-          if (
-            Date.now() > rtcLockUntilRef.current &&
-            (isOnline || statusData.rtc_set_command) &&
-            statusData.rtc_datetime
-          ) {
-            setRtcTimestamp(statusData.rtc_datetime);
-          }
+          setEspOnline(diffSec < 30);
         }
       } else {
         setWaterLevelPct(null);
@@ -566,7 +584,12 @@ export default function App() {
       .order('time', { ascending: true });
 
     if (scheduleData && scheduleData.length > 0) {
-      setSchedules(scheduleData);
+      setSchedules(
+        scheduleData.map((s) => ({
+          ...s,
+          portion: formatPortionGrams(s.portion),
+        }))
+      );
     }
 
     const { data: logData } = await supabase
@@ -648,28 +671,17 @@ export default function App() {
             setFeedNowCommand(false);
           }
           if (s.feed_now_portion) {
-            setFeedNowPortion(s.feed_now_portion);
+            setFeedNowPortion(formatPortionGrams(s.feed_now_portion));
           }
-          const rtcChanged = Boolean(
-            s.rtc_datetime && s.rtc_datetime !== lastDbRtcRef.current
-          );
-          if (rtcChanged) {
-            lastDbRtcRef.current = s.rtc_datetime;
-            const nowIso = s.rtc_datetime;
-            setLastSeenIso(nowIso);
+          if (s.rtc_datetime) {
+            setEspRtcIso(s.rtc_datetime);
+            setLastSeenIso(s.rtc_datetime);
             const diffSec = Math.max(
               0,
-              Math.floor((Date.now() - new Date(nowIso).getTime()) / 1000)
+              Math.floor((Date.now() - new Date(s.rtc_datetime).getTime()) / 1000)
             );
-            const isRecentClock = diffSec < 120;
-            if (isRecentClock) {
+            if (diffSec < 120) {
               setEspOnline(true);
-            }
-            if (
-              Date.now() > rtcLockUntilRef.current &&
-              (isRecentClock || s.rtc_set_command)
-            ) {
-              setRtcTimestamp(nowIso);
             }
           }
         }
@@ -681,10 +693,17 @@ export default function App() {
           supabase
             .from('feed_schedules')
             .select('*')
-            .eq('device_username', activeDeviceUsername)
+            .ilike('device_username', activeDeviceUsername)
             .order('time', { ascending: true })
             .then(({ data }) => {
-              if (data) setSchedules(data);
+              if (data) {
+                setSchedules(
+                  data.map((item) => ({
+                    ...item,
+                    portion: formatPortionGrams(item.portion),
+                  }))
+                );
+              }
             });
         }
       )
@@ -828,35 +847,48 @@ export default function App() {
   const handleTogglePump = async () => {
     const next = !pumpRelayOn;
     setPumpRelayOn(next);
-    setFeedNowCommand(false); // Garante que a alimentação não seja acionada ao alternar a bomba
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
-        .update({ pump_relay_on: next, feed_now_command: false })
-        .eq('device_username', activeDeviceUsername);
+        .update({ pump_relay_on: next })
+        .ilike('device_username', activeDeviceUsername);
     }
   };
 
-  const handleTriggerFeedNow = (portion = draftConfig.defaultPortion) => {
+  const handleTriggerFeedNow = (portion = feedNowPortion) => {
+    const normalizedPortion = formatPortionGrams(portion);
     setFeedNowCommand(true);
-    setFeedNowPortion(portion);
+    setFeedNowPortion(normalizedPortion);
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       supabase
         .from('aquarium_status')
-        .update({ feed_now_command: true, feed_now_portion: portion })
+        .update({ feed_now_command: true, feed_now_portion: normalizedPortion })
         .ilike('device_username', activeDeviceUsername)
         .then(() => {}, () => {});
+
+      if (feedDbCleanupTimerRef.current) {
+        clearTimeout(feedDbCleanupTimerRef.current);
+      }
+      // Fallback de segurança após 15s para evitar comando preso no banco caso o ESP32 esteja offline
+      feedDbCleanupTimerRef.current = setTimeout(() => {
+        supabase
+          .from('aquarium_status')
+          .update({ feed_now_command: false })
+          .ilike('device_username', activeDeviceUsername)
+          .then(() => {}, () => {});
+      }, 15000);
     }
   };
 
   const handleAddSchedule = async (e) => {
     e.preventDefault();
     if (!newScheduleTime) return;
+    const normalizedPortion = formatPortionGrams(newSchedulePortion);
     const newItem = {
       id: Date.now(),
       device_username: activeDeviceUsername || 'admin',
       time: newScheduleTime,
-      portion: newSchedulePortion,
+      portion: normalizedPortion,
       label: 'Programado',
       enabled: true,
     };
@@ -866,7 +898,7 @@ export default function App() {
         {
           device_username: activeDeviceUsername,
           time: newScheduleTime,
-          portion: newSchedulePortion,
+          portion: normalizedPortion,
           label: 'Programado',
           enabled: true,
         },
@@ -893,23 +925,10 @@ export default function App() {
     }
   };
 
-  // Ajusta manualmente ou sincroniza o horário que ficará gravado no módulo RTC do ESP32
-  const handleApplyRtcDateTime = async (customIso = null) => {
-    let targetIso = customIso;
-    if (!targetIso) {
-      const safeTime =
-        rtcEditTime && rtcEditTime.length === 5 ? `${rtcEditTime}:00` : rtcEditTime || '12:00:00';
-      const parsed = new Date(`${rtcEditDate}T${safeTime}`);
-      targetIso = !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
-    } else {
-      const d = new Date(targetIso);
-      setRtcEditDate(formatLocalDateInput(d));
-      setRtcEditTime(d.toTimeString().slice(0, 8));
-    }
-
-    rtcLockUntilRef.current = Date.now() + 15000;
-    lastDbRtcRef.current = targetIso;
-    setRtcTimestamp(targetIso);
+  // Envia o horário atual da internet para sincronizar o módulo RTC DS3231 do ESP32
+  const handleSyncRtcWithInternet = () => {
+    const nowIso = new Date().toISOString();
+    setRtcTimestamp(nowIso);
     setRtcSaveNotice(true);
     setTimeout(() => setRtcSaveNotice(false), 2500);
 
@@ -917,7 +936,7 @@ export default function App() {
       supabase
         .from('aquarium_status')
         .update({
-          rtc_datetime: targetIso,
+          rtc_datetime: nowIso,
           rtc_set_command: true,
         })
         .ilike('device_username', activeDeviceUsername)
@@ -929,15 +948,18 @@ export default function App() {
     const cleanNewUser = (draftConfig.deviceUsername || activeDeviceUsername || '').trim();
     const cleanNewPass = (draftConfig.devicePassword || authDevice?.password || '').trim();
 
+    const normalizedPortion = formatPortionGrams(draftConfig.defaultPortion);
     const finalConfig = {
       ...draftConfig,
+      gramsPerDose: GRAMS_PER_DOSE,
+      defaultPortion: normalizedPortion,
       deviceUsername: cleanNewUser,
       devicePassword: cleanNewPass,
       setupCompleted: true,
     };
     setConfig(finalConfig);
     setPumpMode(finalConfig.pumpMode);
-    setFeedNowPortion(finalConfig.defaultPortion);
+    setFeedNowPortion(normalizedPortion);
     try {
       localStorage.setItem('netuno_router_config', JSON.stringify(finalConfig));
     } catch (e) {
@@ -1587,10 +1609,10 @@ export default function App() {
               </button>
             </div>
 
-            {/* Card 4: Alimentador com Opção de Alimentar Manualmente */}
-            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+            {/* Card 4: Alimentador com Opção de Alimentar Manualmente (3g em 3g) */}
+            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-2.5 group">
               <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="min-w-0">
                   <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                     Alimentador
                   </span>
@@ -1601,8 +1623,10 @@ export default function App() {
                       ? `Próx: ${nextSchedule.time}`
                       : 'Programado'}
                   </span>
-                  <span className="text-[11px] text-emerald-300/90 mt-0.5 block">
-                    Porção: {nextSchedule ? nextSchedule.portion : feedNowPortion}
+                  <span className="text-[11px] text-emerald-300/90 mt-0.5 block truncate">
+                    {nextSchedule
+                      ? `Próx. porção: ${formatPortionDetail(nextSchedule.portion)}`
+                      : `Padrão: ${formatPortionDetail(feedNowPortion)}`}
                   </span>
                 </div>
                 <div
@@ -1616,20 +1640,57 @@ export default function App() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => handleTriggerFeedNow(config.defaultPortion || 'Padrão (5g)')}
-                disabled={feedNowCommand}
-                className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
-                  feedNowCommand
-                    ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
-                    : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20 hover:shadow-amber-500/35'
-                }`}
-                title="Acionar alimentação manual imediata dos peixes"
-              >
-                <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce' : ''}`} />
-                <span>{feedNowCommand ? 'Alimentando Peixes...' : 'Alimentar Manualmente'}</span>
-              </button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-1.5 bg-[#040B16]/60 border border-white/[0.08] rounded-xl p-1">
+                  <button
+                    type="button"
+                    disabled={feedNowCommand || parsePortionGrams(feedNowPortion) <= MIN_PORTION_GRAMS}
+                    onClick={() => setFeedNowPortion((prev) => stepPortionGrams(prev, -1))}
+                    className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors"
+                    title="Diminuir 3g"
+                    aria-label="Diminuir 3g"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="text-center leading-tight">
+                    <span className="text-xs font-extrabold font-mono-code text-white">
+                      {formatPortionGrams(feedNowPortion)}
+                    </span>
+                    <span className="text-[10px] text-sky-300/75 ml-1.5 font-mono-code">
+                      ({parsePortionGrams(feedNowPortion) / GRAMS_PER_DOSE}× 3g)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={feedNowCommand || parsePortionGrams(feedNowPortion) >= MAX_PORTION_GRAMS}
+                    onClick={() => setFeedNowPortion((prev) => stepPortionGrams(prev, 1))}
+                    className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors"
+                    title="Aumentar 3g"
+                    aria-label="Aumentar 3g"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleTriggerFeedNow(feedNowPortion)}
+                  disabled={feedNowCommand}
+                  className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                    feedNowCommand
+                      ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
+                      : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20 hover:shadow-amber-500/35'
+                  }`}
+                  title="Acionar alimentação manual imediata dos peixes"
+                >
+                  <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce' : ''}`} />
+                  <span>
+                    {feedNowCommand
+                      ? 'Alimentando Peixes...'
+                      : `Alimentar Manualmente (${formatPortionGrams(feedNowPortion)})`}
+                  </span>
+                </button>
+              </div>
             </div>
           </section>
         )}
@@ -2843,7 +2904,7 @@ export default function App() {
                       >
                         <option value="water_pct">Nível da Água (%)</option>
                         <option value="volume_liters">Volume Atual (Litros)</option>
-                        <option value="rtc_time">Horário do RTC</option>
+                        <option value="rtc_time">Horário Atual (Internet / RTC)</option>
                         <option value="custom_title">Texto Personalizado</option>
                       </select>
                     </div>
@@ -2860,7 +2921,7 @@ export default function App() {
                         className="w-full bg-[#050C17] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
                       >
                         <option value="temp_c">Temperatura (°C)</option>
-                        <option value="rtc_time">Horário do RTC</option>
+                        <option value="rtc_time">Horário Atual (Internet / RTC)</option>
                         <option value="pump_status">Status da Bomba (Ligada / Desligada)</option>
                         <option value="next_feed">Próximo Horário de Comida</option>
                       </select>
@@ -2920,55 +2981,48 @@ export default function App() {
               {wizardStep === 4 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-fade-up">
                   <div className="space-y-4 sm:space-y-6">
-                    {/* Relógio RTC */}
+                    {/* Relógio da Internet & Sincronização do RTC */}
                     <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
                           <Clock className="w-4 h-4 text-sky-400 shrink-0" />
-                          Relógio do Módulo RTC
+                          Horário da Internet & RTC DS3231
                         </h4>
                         <span className="font-mono-code text-xs font-bold text-emerald-300 shrink-0">
                           {rtcTimeFormatted}
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2.5">
-                        <input
-                          type="date"
-                          value={rtcEditDate}
-                          onChange={(e) => setRtcEditDate(e.target.value)}
-                          className="w-full min-w-0 bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
-                        />
-                        <input
-                          type="time"
-                          step="1"
-                          value={rtcEditTime}
-                          onChange={(e) => setRtcEditTime(e.target.value)}
-                          className="w-full min-w-0 bg-[#091628] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
-                        />
+                      <div className="bg-[#091628]/80 border border-white/[0.08] rounded-xl p-3 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sky-200/75">Horário atual (Internet):</span>
+                          <span className="font-mono-code font-bold text-white">
+                            {rtcDateFormatted} • {rtcTimeFormatted}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sky-200/75">Último registro do RTC:</span>
+                          <span className="font-mono-code text-emerald-300">
+                            {espRtcIso ? formatLogTime(espRtcIso) : 'Aguardando ESP32'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-sky-200/60 pt-1">
+                          O sistema usa automaticamente o horário oficial da internet (NTP -03:00), mantendo o RTC DS3231 sincronizado como backup offline.
+                        </p>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleApplyRtcDateTime(null)}
-                          className="flex-1 py-2.5 sm:py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-extrabold transition-all duration-300 active:scale-[0.98]"
-                        >
-                          Gravar no RTC
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleApplyRtcDateTime(new Date().toISOString())}
-                          className="py-2.5 sm:py-2 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-bold border border-white/[0.1] transition-all duration-300 active:scale-[0.98]"
-                        >
-                          Sincronizar Hora Atual
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSyncRtcWithInternet}
+                        className="w-full py-2.5 sm:py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-extrabold transition-all duration-300 active:scale-[0.98]"
+                      >
+                        Sincronizar RTC com a Internet
+                      </button>
 
                       {rtcSaveNotice && (
                         <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold animate-scale-in">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          Horário atualizado no RTC!
+                          Sinal de sincronização enviado ao RTC!
                         </div>
                       )}
                     </div>
@@ -3072,23 +3126,70 @@ export default function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                      {['Leve (3g)', 'Padrão (5g)', 'Generosa (8g)'].map((portion) => (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 bg-[#091628] border border-white/[0.08] rounded-xl p-2">
                         <button
-                          key={portion}
                           type="button"
+                          disabled={parsePortionGrams(draftConfig.defaultPortion) <= MIN_PORTION_GRAMS}
                           onClick={() =>
-                            setDraftConfig({ ...draftConfig, defaultPortion: portion })
+                            setDraftConfig({
+                              ...draftConfig,
+                              defaultPortion: stepPortionGrams(draftConfig.defaultPortion, -1),
+                            })
                           }
-                          className={`py-2 px-1.5 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-semibold border transition-all duration-300 ${
-                            draftConfig.defaultPortion === portion
-                              ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 border-sky-400/50 text-white shadow-sm'
-                              : 'bg-[#091628] border-white/[0.08] text-sky-200/70 hover:bg-white/[0.05]'
-                          }`}
+                          className="px-2.5 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed text-xs font-bold text-white flex items-center gap-1 transition-colors"
                         >
-                          {portion}
+                          <Minus className="w-3.5 h-3.5" /> 3g
                         </button>
-                      ))}
+                        <div className="text-center">
+                          <span className="text-sm font-extrabold font-mono-code text-white">
+                            {formatPortionGrams(draftConfig.defaultPortion)}
+                          </span>
+                          <span className="text-[11px] text-sky-300 block">
+                            {parsePortionGrams(draftConfig.defaultPortion) / GRAMS_PER_DOSE} acionamento(s) de 3g
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={parsePortionGrams(draftConfig.defaultPortion) >= MAX_PORTION_GRAMS}
+                          onClick={() =>
+                            setDraftConfig({
+                              ...draftConfig,
+                              defaultPortion: stepPortionGrams(draftConfig.defaultPortion, 1),
+                            })
+                          }
+                          className="px-2.5 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed text-xs font-bold text-white flex items-center gap-1 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> 3g
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[3, 6, 9, 12, 15].map((grams) => {
+                          const portion = `${grams}g`;
+                          const active = formatPortionGrams(draftConfig.defaultPortion) === portion;
+                          return (
+                            <button
+                              key={portion}
+                              type="button"
+                              onClick={() =>
+                                setDraftConfig({ ...draftConfig, defaultPortion: portion })
+                              }
+                              className={`py-1.5 px-1 rounded-xl text-[11px] sm:text-xs font-semibold border transition-all duration-300 ${
+                                active
+                                  ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 border-sky-400/50 text-white shadow-sm'
+                                  : 'bg-[#091628] border-white/[0.08] text-sky-200/70 hover:bg-white/[0.05]'
+                              }`}
+                            >
+                              {portion}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <p className="text-[11px] text-sky-200/65">
+                        Cada acionamento do motor de passo deposita 3g.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -3101,7 +3202,9 @@ export default function App() {
                             <span className="text-sm font-extrabold font-mono-code text-white">
                               {item.time}
                             </span>
-                            <span className="text-[11px] text-sky-300 block">{item.portion}</span>
+                            <span className="text-[11px] text-sky-300 block">
+                              {formatPortionDetail(item.portion)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <button
@@ -3142,9 +3245,11 @@ export default function App() {
                           onChange={(e) => setNewSchedulePortion(e.target.value)}
                           className="w-full min-w-0 bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white sm:flex-1 focus:outline-none focus:border-sky-400"
                         >
-                          <option value="Leve (3g)">Leve (3g)</option>
-                          <option value="Padrão (5g)">Padrão (5g)</option>
-                          <option value="Generosa (8g)">Generosa (8g)</option>
+                          {PORTION_OPTIONS_GRAMS.map((grams) => (
+                            <option key={grams} value={`${grams}g`}>
+                              {grams}g ({grams / GRAMS_PER_DOSE}× 3g)
+                            </option>
+                          ))}
                         </select>
                         <button
                           type="submit"
