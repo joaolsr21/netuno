@@ -1090,23 +1090,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Botãozinho no topo para alternar Modo Natalino */}
-        <div className="absolute top-4 right-4 z-20">
-          <button
-            type="button"
-            onClick={() => setChristmasMode((prev) => !prev)}
-            className={`inline-flex items-center justify-center p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
-              christmasMode
-                ? 'bg-gradient-to-r from-rose-600/80 to-emerald-600/80 border-amber-300/60 text-amber-100 shadow-md shadow-rose-500/25'
-                : 'bg-white/[0.05] hover:bg-rose-500/20 border-white/10 hover:border-rose-400/40 text-sky-200 hover:text-white'
-            }`}
-            title={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
-            aria-label="Alternar Modo Natalino"
-          >
-            <Snowflake className={`w-4 h-4 ${christmasMode ? 'text-amber-200' : 'text-sky-300'}`} />
-          </button>
-        </div>
-
         {/* Luzes de fundo sutis e animadas */}
         <div
           className={`pointer-events-none absolute -top-28 -left-28 w-96 h-96 rounded-full blur-3xl animate-pulse ${
@@ -1346,7 +1329,6 @@ export default function App() {
             {[
               { id: 'dashboard', label: 'Painel', icon: Gauge },
               { id: 'history', label: 'Histórico', icon: TrendingUp },
-              { id: 'setup', label: 'Configurações', icon: Settings },
             ].map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -1379,43 +1361,49 @@ export default function App() {
               <span className="font-mono-code font-medium text-sky-100">{activeDeviceUsername}</span>
             </div>
 
-            {/* Botãozinho de Modo Natalino no topo */}
-            <button
-              type="button"
-              onClick={() => setChristmasMode((prev) => !prev)}
-              className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
-                christmasMode
-                  ? 'bg-gradient-to-r from-rose-600/85 to-emerald-600/85 border-amber-300/60 text-amber-100 shadow-md shadow-rose-500/25'
-                  : 'bg-white/[0.04] hover:bg-rose-500/20 border-white/[0.09] hover:border-rose-400/40 text-sky-200 hover:text-white'
-              }`}
-              title={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
-              aria-label="Alternar Modo Natalino"
-            >
-              <Snowflake className={`w-3.5 h-3.5 shrink-0 ${christmasMode ? 'text-amber-200' : 'text-sky-300'}`} />
-            </button>
+            {/* Engrenagem de Configurações à esquerda do Logout */}
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeTab === 'setup') {
+                    setActiveTab('dashboard');
+                  } else {
+                    setDraftConfig(config);
+                    setActiveTab('setup');
+                  }
+                }}
+                className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
+                  activeTab === 'setup'
+                    ? christmasMode
+                      ? 'bg-gradient-to-r from-rose-600 to-emerald-600 border-amber-300/50 text-white shadow-md shadow-rose-500/25'
+                      : 'bg-[#1A539B] border-sky-300/40 text-white shadow-md shadow-[#1A539B]/40'
+                    : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
+                }`}
+                title="Configurações"
+                aria-label="Configurações"
+              >
+                <Settings className="w-3.5 h-3.5 shrink-0" />
+              </button>
+              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#071324]/95 border border-white/15 text-[10px] font-semibold text-white px-2 py-0.5 rounded-md shadow-lg z-50">
+                Configurações
+              </span>
+            </div>
 
-            <button
-              onClick={handleSendEspPortalCommand}
-              className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
-                wifiPortalCommandSent
-                  ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-md shadow-emerald-500/20'
-                  : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
-              }`}
-              title="Envia sinal para o ESP32 abrir a rede NETUNO-SETUP (10.0.0.1)"
-              aria-label="Abrir Painel no ESP32"
-            >
-              <Wifi className={`w-3.5 h-3.5 shrink-0 ${wifiPortalCommandSent ? 'text-emerald-300 animate-pulse' : 'text-sky-400'}`} />
-            </button>
-
-            <button
-              onClick={handleDeviceLogout}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 border border-white/[0.09] hover:border-rose-400/40 text-[11px] font-semibold text-sky-200/85 hover:text-rose-200 transition-all duration-200 active:scale-95"
-              title="Logout"
-              aria-label="Sair"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Logout</span>
-            </button>
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={handleDeviceLogout}
+                className="inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 border border-white/[0.09] hover:border-rose-400/40 text-sky-200/85 hover:text-rose-200 transition-all duration-200 active:scale-95"
+                title="Logout"
+                aria-label="Logout"
+              >
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+              </button>
+              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#071324]/95 border border-white/15 text-[10px] font-semibold text-rose-200 px-2 py-0.5 rounded-md shadow-lg z-50">
+                Logout
+              </span>
+            </div>
 
             <div className="hidden sm:block h-6 w-px bg-white/10 mx-1" />
 
@@ -1454,7 +1442,7 @@ export default function App() {
 
         {/* Navegação Mobile Clean */}
         <div
-          className={`grid grid-cols-3 gap-1.5 md:hidden border-t px-3 py-2 ${
+          className={`grid grid-cols-2 gap-1.5 md:hidden border-t px-3 py-2 ${
             christmasMode
               ? 'border-amber-400/15 bg-[#05120D]/95'
               : 'border-white/[0.06] bg-[#06101E]/95'
@@ -1463,7 +1451,6 @@ export default function App() {
           {[
             { id: 'dashboard', label: 'Painel', icon: Gauge },
             { id: 'history', label: 'Histórico', icon: TrendingUp },
-            { id: 'setup', label: 'Configurações', icon: Settings },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -1835,29 +1822,6 @@ export default function App() {
 
                           {/* Algas maiores + coral rosado à direita (sem encostar na régua lateral) */}
                           <div className="absolute bottom-2 right-11 sm:right-14 flex items-end gap-1.5 opacity-90">
-                            {/* Árvore de Natal subaquática no Modo Natalino */}
-                            {christmasMode && (
-                              <svg width="36" height="54" viewBox="0 0 36 54" fill="none" className="mr-1 drop-shadow-[0_2px_8px_rgba(251,191,36,0.35)]">
-                                <rect x="15.5" y="45" width="5" height="7" rx="1" fill="#78350F" />
-                                <path d="M18 10L6 27H30L18 10Z" fill="#059669" />
-                                <path d="M18 19L4 36H32L18 19Z" fill="#047857" />
-                                <path d="M18 28L2 46H34L18 28Z" fill="#065F46" />
-                                {/* Estrela dourada no topo */}
-                                <path
-                                  d="M18 2L19.6 6.2L24 6.5L20.6 9.3L21.7 13.5L18 11.2L14.3 13.5L15.4 9.3L12 6.5L16.4 6.2Z"
-                                  fill="#FBBF24"
-                                />
-                                {/* Bolinhas coloridas */}
-                                <circle cx="14" cy="24" r="1.8" fill="#EF4444" />
-                                <circle cx="22" cy="25" r="1.8" fill="#FBBF24" />
-                                <circle cx="11" cy="34" r="1.9" fill="#38BDF8" />
-                                <circle cx="19" cy="33" r="1.9" fill="#EF4444" />
-                                <circle cx="25" cy="35" r="1.8" fill="#FBBF24" />
-                                <circle cx="13" cy="43" r="2" fill="#FBBF24" />
-                                <circle cx="23" cy="42" r="2" fill="#FB7185" />
-                              </svg>
-                            )}
-
                             {/* Coral ramificado */}
                             <svg width="42" height="44" viewBox="0 0 42 44" fill="none" className="drop-shadow-[0_2px_6px_rgba(244,114,182,0.25)]">
                               <path
@@ -2095,6 +2059,47 @@ export default function App() {
                             </div>
                           </div>
                         )}
+
+                        {/* Árvore de Natal permanente e clicável no fundo do aquário (easter egg do Modo Natalino) */}
+                        <button
+                          type="button"
+                          onClick={() => setChristmasMode((prev) => !prev)}
+                          aria-label={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
+                          className={`absolute bottom-2.5 right-[118px] sm:right-[140px] z-30 pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none ${
+                            christmasMode ? 'opacity-100' : 'opacity-80 hover:opacity-100'
+                          }`}
+                        >
+                          <svg
+                            width="34"
+                            height="50"
+                            viewBox="0 0 36 54"
+                            fill="none"
+                            className={
+                              christmasMode
+                                ? 'drop-shadow-[0_2px_10px_rgba(251,191,36,0.45)]'
+                                : 'drop-shadow-[0_2px_6px_rgba(6,78,59,0.5)]'
+                            }
+                          >
+                            <rect x="15.5" y="45" width="5" height="7" rx="1" fill="#78350F" />
+                            <path d="M18 10L6 27H30L18 10Z" fill={christmasMode ? '#10B981' : '#065F46'} />
+                            <path d="M18 19L4 36H32L18 19Z" fill={christmasMode ? '#059669' : '#064E3B'} />
+                            <path d="M18 28L2 46H34L18 28Z" fill={christmasMode ? '#047857' : '#022C22'} />
+                            {/* Estrela no topo */}
+                            <path
+                              d="M18 2L19.6 6.2L24 6.5L20.6 9.3L21.7 13.5L18 11.2L14.3 13.5L15.4 9.3L12 6.5L16.4 6.2Z"
+                              fill={christmasMode ? '#FBBF24' : '#94A3B8'}
+                              fillOpacity={christmasMode ? 1 : 0.75}
+                            />
+                            {/* Bolinhas decorativas */}
+                            <circle cx="14" cy="24" r="1.8" fill={christmasMode ? '#EF4444' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.65} />
+                            <circle cx="22" cy="25" r="1.8" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.6} />
+                            <circle cx="11" cy="34" r="1.9" fill={christmasMode ? '#38BDF8' : '#FB7185'} fillOpacity={christmasMode ? 1 : 0.65} />
+                            <circle cx="19" cy="33" r="1.9" fill={christmasMode ? '#EF4444' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
+                            <circle cx="25" cy="35" r="1.8" fill={christmasMode ? '#FBBF24' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.6} />
+                            <circle cx="13" cy="43" r="2" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.65} />
+                            <circle cx="23" cy="42" r="2" fill={christmasMode ? '#FB7185' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
+                          </svg>
+                        </button>
 
                         {/* Bombinha submersa clicável no canto inferior esquerdo (ativa/desativa a bomba ao clicar) */}
                         <div className="absolute bottom-2.5 left-3.5 z-30 pointer-events-none flex items-end">
@@ -2605,8 +2610,26 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="pt-2 text-[11px] text-sky-200/70">
-                        Para trocar o Wi-Fi do ESP32, use o botão <strong>ESP32</strong> / <strong>Abrir Painel no ESP32</strong> no topo da página e conecte-se na rede <span className="font-mono-code text-sky-300">NETUNO-SETUP</span> (<span className="font-mono-code text-emerald-300">10.0.0.1</span>).
+                      <div className="pt-2 space-y-2 border-t border-white/[0.06]">
+                        <button
+                          type="button"
+                          onClick={handleSendEspPortalCommand}
+                          className={`w-full py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                            wifiPortalCommandSent
+                              ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-md shadow-emerald-500/20'
+                              : 'bg-white/[0.05] hover:bg-[#1A539B]/50 border-white/[0.1] hover:border-sky-400/50 text-sky-100 hover:text-white'
+                          }`}
+                        >
+                          <Wifi className={`w-4 h-4 shrink-0 ${wifiPortalCommandSent ? 'text-emerald-300 animate-pulse' : 'text-sky-400'}`} />
+                          <span>
+                            {wifiPortalCommandSent
+                              ? 'Sinal Enviado ao ESP32!'
+                              : 'Abrir Painel de Configuração no ESP32'}
+                          </span>
+                        </button>
+                        <p className="text-[11px] text-sky-200/70">
+                          Ao acionar, o ESP32 abrirá a rede Wi-Fi <span className="font-mono-code text-sky-300">NETUNO-SETUP</span> (<span className="font-mono-code text-emerald-300">10.0.0.1</span>) para reconfigurar o acesso e Wi-Fi.
+                        </p>
                       </div>
                     </div>
                   </div>
