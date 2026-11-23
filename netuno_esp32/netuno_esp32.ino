@@ -24,7 +24,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <RTClib.h>
-#include <Stepper.h>
+#include <AccelStepper.h>
 #include <time.h>
 
 #define RTC_TZ_OFFSET_HOURS -3 // Fuso horário de Brasília (-03:00)
@@ -46,10 +46,13 @@ const char* SUPABASE_KEY = "sb_publishable_3C-PPYFJNBrzQ1msagDQAQ_1EQm7GUa";
 #define IN3_PIN               14    // Motor de Passo - IN3
 #define IN4_PIN               27    // Motor de Passo - IN4
 
-// ===================== ALIMENTADOR (MOTOR DE PASSO - 3g EM 3g) ===============
-const int GRAMS_PER_DOSE     = 3;    // Gramas depositadas a cada acionamento do motor
-const int MAX_DOSES_PER_FEED = 10;   // Máximo 30g por acionamento (10 x 3g)
-const int passosPorAcionamento = 2048; // 2048 passos por volta (ajustável conforme calibração mecânica)
+// ===================== ALIMENTADOR (MOTOR DE PASSO - AccelStepper 3g/3g) =====
+#define MODO_TESTE_MOTOR true               // true = ao clicar em alimentar no site apenas gira o motor (ignora porções/horários); mude para false após testar
+const int   GRAMS_PER_DOSE        = 3;      // Gramas depositadas a cada acionamento do motor
+const int   MAX_DOSES_PER_FEED    = 10;     // Máximo 30g por acionamento (10 x 3g)
+const long  passosPorAcionamento  = 2048;   // HALF4WIRE: 4096 = 1 volta | 2048 = meia volta (ajustável)
+const float velocidadeMaxPassos   = 1000.0; // Velocidade máx. em passos/seg (~15 RPM em HALF4WIRE; teste até ~1200)
+const float aceleracaoPassos      = 600.0;  // Rampa de aceleração em passos/seg² (evita travar na partida)
 
 // ===================== HORÁRIOS PROGRAMADOS DO ALIMENTADOR (BASEADOS NO RTC) =
 #define MAX_FEED_SCHEDULES 8
@@ -125,7 +128,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 OneWire oneWire(PIN_ONEWIRE);
 DallasTemperature tempSensor(&oneWire);
 RTC_DS3231 rtc;
-Stepper mp(passosPorAcionamento, IN1_PIN, IN3_PIN, IN2_PIN, IN4_PIN);
+AccelStepper mp(AccelStepper::HALF4WIRE, IN1_PIN, IN3_PIN, IN2_PIN, IN4_PIN);
 Preferences prefs;
 WebServer portalServer(80);
 DNSServer dnsServer;
@@ -969,8 +972,20 @@ String getRtcIsoString() {
   return String(buf);
 }
 
-// Aciona o motor de passo do alimentador em múltiplos de 3g por acionamento
+// Aciona o motor de passo do alimentador (ou gira direto em MODO_TESTE_MOTOR)
 void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
+#if MODO_TESTE_MOTOR
+  long totalSteps = passosPorAcionamento;
+  Serial.printf("[TESTE MOTOR] %s -> Girando motor de passo (%ld passos)...\n",
+                triggerReason.c_str(), totalSteps);
+
+  if (!apPortalActive) {
+    lcd.setCursor(0, 0);
+    lcd.print("  TESTE MOTOR   ");
+    lcd.setCursor(0, 1);
+    lcd.print("Girando motor...");
+  }
+#else
   int grams = parsePortionGrams(portionLabel);
   int doses = grams / GRAMS_PER_DOSE;
 
@@ -986,21 +1001,23 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
     lcd.print(line1);
   }
 
-  for (int d = 0; d < doses; d++) {
-    int remaining = passosPorAcionamento;
-    while (remaining > 0) {
-      int chunk = (remaining > 64) ? 64 : remaining;
-      mp.step(chunk);
-      remaining -= chunk;
+  long totalSteps = (long)doses * passosPorAcionamento;
+#endif
+
+  mp.enableOutputs();
+  mp.move(totalSteps);
+
+  unsigned long lastYieldMs = millis();
+  while (mp.distanceToGo() != 0) {
+    mp.run();
+    if (millis() - lastYieldMs >= 10) {
+      lastYieldMs = millis();
       yield();
     }
   }
 
   // Desenergiza as bobinas do motor de passo após o depósito
-  digitalWrite(IN1_PIN, LOW);
-  digitalWrite(IN2_PIN, LOW);
-  digitalWrite(IN3_PIN, LOW);
-  digitalWrite(IN4_PIN, LOW);
+  mp.disableOutputs();
   delay(300);
 
   updateLCD();
@@ -1010,6 +1027,7 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
 void checkFeederByRtcTime() {
   readRtcModule();
 
+#if !MODO_TESTE_MOTOR
   int currentMinuteKey = (rtcDay * 10000) + (rtcHour * 100) + rtcMinute;
   if (rtcSecond <= 3 && currentMinuteKey != lastFedKey) {
     for (int i = 0; i < MAX_FEED_SCHEDULES; i++) {
@@ -1022,6 +1040,7 @@ void checkFeederByRtcTime() {
       }
     }
   }
+#endif
 }
 
 // ============================================================================
@@ -1133,12 +1152,13 @@ void syncStatusWithSupabase() {
       ack.end();
     }
 
-    // 2. Se o usuário clicou em "Alimentar Manualmente" pelo site ("feed_now_command":true)
+    // 2. Se o usuário clicou em "Alimentar" pelo site ("feed_now_command":true)
     if (response.indexOf("\"feed_now_command\":true") >= 0 || response.indexOf("\"feed_now_command\": true") >= 0) {
       String portionStr = extractJsonStringField(response, "feed_now_portion");
       if (portionStr.length() == 0) portionStr = "3g";
 
-      // Limpa o comando antes de girar o motor de passo para evitar re-disparo caso a porção leve vários segundos
+      // Libera a conexão HTTP atual antes de abrir o PATCH (economiza RAM/TLS no ESP32) e evita re-disparo
+      http.end();
       HTTPClient ackFeed;
       ackFeed.setTimeout(2500);
       ackFeed.begin(filterEndpoint);
@@ -1148,7 +1168,8 @@ void syncStatusWithSupabase() {
       ackFeed.PATCH("{\"feed_now_command\":false}");
       ackFeed.end();
 
-      dispenseFoodNow(portionStr, "Comando Manual do Site");
+      dispenseFoodNow(portionStr, "Comando do Site");
+      return;
     }
 
     // 3. Se o site enviou comando para abrir o portal de configuração Wi-Fi
@@ -1286,7 +1307,9 @@ void setup() {
   digitalWrite(IN2_PIN, LOW);
   digitalWrite(IN3_PIN, LOW);
   digitalWrite(IN4_PIN, LOW);
-  mp.setSpeed(10);
+  mp.setMaxSpeed(velocidadeMaxPassos);
+  mp.setAcceleration(aceleracaoPassos);
+  mp.disableOutputs();
 
   Wire.begin(PIN_LCD_SDA, PIN_LCD_SCL);
   lcd.init();
@@ -1361,8 +1384,9 @@ void loop() {
     );
   }
 
-  // 5. Sincronização rápida com Supabase a cada 5 segundos + esvaziamento da fila offline
-  if (now - lastSupabaseMs >= 5000) {
+  // 5. Sincronização rápida com Supabase (2.5s no modo teste do motor, 5s em operação normal)
+  unsigned long supabasePollIntervalMs = MODO_TESTE_MOTOR ? 2500UL : 5000UL;
+  if (now - lastSupabaseMs >= supabasePollIntervalMs) {
     lastSupabaseMs = now;
     if (WiFi.status() == WL_CONNECTED) {
       syncStatusWithSupabase();
@@ -1370,11 +1394,13 @@ void loop() {
     }
   }
 
+#if !MODO_TESTE_MOTOR
   // 6. Sincroniza horários programados do site (feed_schedules) ao conectar e depois a cada 15 segundos
   if (WiFi.status() == WL_CONNECTED && (!schedulesSyncedOnce || now - lastSchedulesSyncMs >= 15000)) {
     lastSchedulesSyncMs = now;
     syncSchedulesFromSupabase();
   }
+#endif
 
   // 7. Histórico a cada 60 segundos (se estiver sem Wi-Fi, salva na Fila Offline automaticamente)
   if (now - lastHistoryLogMs >= 60000) {
