@@ -1067,7 +1067,7 @@ export default function App() {
         className={`min-h-screen flex flex-col justify-between text-slate-100 relative overflow-hidden transition-colors duration-500 ${
           christmasMode
             ? 'bg-[#05110d] selection:bg-rose-600 selection:text-white'
-            : 'bg-[#040B16] selection:bg-[#1A539B] selection:text-white'
+            : 'bg-[#031117] selection:bg-[#0B96B2] selection:text-white'
         }`}
       >
         {/* Flocos de neve quando o Modo Natalino estiver ativo */}
@@ -1093,7 +1093,7 @@ export default function App() {
         {/* Luzes de fundo sutis e animadas */}
         <div
           className={`pointer-events-none absolute -top-28 -left-28 w-96 h-96 rounded-full blur-3xl animate-pulse ${
-            christmasMode ? 'bg-rose-600/20' : 'bg-[#1A539B]/20'
+            christmasMode ? 'bg-rose-600/20' : 'bg-[#0B96B2]/20'
           }`}
         />
         <div
@@ -1108,7 +1108,7 @@ export default function App() {
               className={`border-b border-white/[0.08] p-7 text-center ${
                 christmasMode
                   ? 'bg-gradient-to-b from-rose-950/60 via-emerald-950/30 to-transparent'
-                  : 'bg-gradient-to-b from-[#0C213E]/80 to-transparent'
+                  : 'bg-gradient-to-b from-[#082D3D]/80 to-transparent'
               }`}
             >
               <div className="relative mx-auto w-16 h-16 mb-3.5 animate-float">
@@ -1124,13 +1124,13 @@ export default function App() {
                 )}
                 <div
                   className={`w-16 h-16 rounded-2xl overflow-hidden border shadow-xl flex items-center justify-center ${
-                    christmasMode ? 'border-amber-300/60 bg-rose-700' : 'border-sky-300/40 bg-[#1A539B]'
+                    christmasMode ? 'border-amber-300/60 bg-rose-700' : 'border-[#47DDF5]/60 bg-[#10C3E3] shadow-[#10C3E3]/30'
                   }`}
                 >
                   <img
                     src="/logo-netuno.jpg"
                     alt="Logo Netuno"
-                    className="w-full h-full object-cover scale-105"
+                    className="w-full h-full object-cover"
                   />
                 </div>
               </div>
@@ -1143,7 +1143,7 @@ export default function App() {
             </div>
 
             <form onSubmit={handleDeviceLogin} className="p-6 sm:p-7 space-y-4">
-              <div className="bg-[#06101E]/70 border border-sky-400/20 rounded-2xl p-3.5 text-xs text-sky-200/80 space-y-1">
+              <div className="bg-[#04151D]/70 border border-sky-400/20 rounded-2xl p-3.5 text-xs text-sky-200/80 space-y-1">
                 <div className="font-semibold text-sky-300 flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
                   <span>Vínculo com seu ESP32</span>
@@ -1174,7 +1174,7 @@ export default function App() {
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
                     placeholder="Ex: aquario_joao"
-                    className="w-full bg-[#06101E]/90 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400/70 transition-all"
+                    className="w-full bg-[#04151D]/90 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400/70 transition-all"
                   />
                 </div>
               </div>
@@ -1192,7 +1192,7 @@ export default function App() {
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="Digite sua senha"
-                    className="w-full bg-[#06101E]/90 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-sm font-mono-code text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400/70 transition-all"
+                    className="w-full bg-[#04151D]/90 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-sm font-mono-code text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400/70 transition-all"
                   />
                   <button
                     type="button"
@@ -1211,7 +1211,7 @@ export default function App() {
               <button
                 type="submit"
                 disabled={loginLoading}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2161B2] hover:to-sky-400 active:scale-[0.99] text-white text-sm font-bold border border-sky-300/30 shadow-lg shadow-[#1A539B]/35 transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#0B96B2] to-sky-500 hover:from-[#10C3E3] hover:to-sky-400 active:scale-[0.99] text-white text-sm font-bold border border-sky-300/30 shadow-lg shadow-[#0B96B2]/35 transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4" />
                 {loginLoading ? 'Conectando...' : 'Entrar no Painel'}
@@ -1220,7 +1220,7 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="border-t border-white/[0.06] bg-[#040B16]/80 py-4 px-4 text-center text-xs text-sky-200/50">
+        <footer className="border-t border-white/[0.06] bg-[#031117]/80 py-4 px-4 text-center text-xs text-sky-200/50">
           NETUNO • Monitoramento Inteligente
         </footer>
       </div>
@@ -1230,7 +1230,7 @@ export default function App() {
   return (
     <div
       className={`min-h-screen flex flex-col text-slate-100 transition-colors duration-500 ${
-        christmasMode ? 'selection:bg-rose-600 selection:text-white' : 'selection:bg-[#1A539B] selection:text-white'
+        christmasMode ? 'selection:bg-rose-600 selection:text-white' : 'selection:bg-[#0B96B2] selection:text-white'
       }`}
     >
       {/* Flocos de neve sutis no Modo Natalino */}
@@ -1268,7 +1268,7 @@ export default function App() {
         className={`sticky top-0 z-30 border-b backdrop-blur-2xl transition-all relative ${
           christmasMode
             ? 'border-amber-400/25 bg-[#061510]/90'
-            : 'border-white/[0.08] bg-[#040B16]/85'
+            : 'border-white/[0.08] bg-[#031117]/85'
         }`}
       >
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
@@ -1279,7 +1279,7 @@ export default function App() {
                 className={`absolute -inset-1 rounded-2xl blur transition duration-300 ${
                   christmasMode
                     ? 'bg-gradient-to-tr from-rose-600 via-amber-400 to-emerald-500 opacity-65 group-hover:opacity-90'
-                    : 'bg-gradient-to-tr from-[#1A539B] to-sky-400 opacity-50 group-hover:opacity-80'
+                    : 'bg-gradient-to-tr from-[#0B96B2] via-[#10C3E3] to-[#47DDF5] opacity-55 group-hover:opacity-85'
                 }`}
               ></div>
               {christmasMode && (
@@ -1294,13 +1294,13 @@ export default function App() {
               )}
               <div
                 className={`relative w-10 h-10 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl overflow-hidden border shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105 ${
-                  christmasMode ? 'border-amber-300/60 bg-rose-700' : 'border-white/25 bg-[#1A539B]'
+                  christmasMode ? 'border-amber-300/60 bg-rose-700' : 'border-[#47DDF5]/50 bg-[#10C3E3]'
                 }`}
               >
                 <img
                   src="/logo-netuno.jpg"
                   alt="Logo Netuno"
-                  className="w-full h-full object-cover scale-105"
+                  className="w-full h-full object-cover"
                 />
               </div>
             </div>
@@ -1323,7 +1323,7 @@ export default function App() {
             className={`hidden md:flex items-center p-1 rounded-2xl border shadow-inner ${
               christmasMode
                 ? 'bg-[#091E16]/85 border-amber-400/20'
-                : 'bg-[#09172B]/80 border-white/[0.08]'
+                : 'bg-[#061D27]/80 border-white/[0.08]'
             }`}
           >
             {[
@@ -1343,7 +1343,7 @@ export default function App() {
                     active
                       ? christmasMode
                         ? 'bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/30 border border-amber-300/40 scale-[1.02]'
-                        : 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/40 border border-sky-300/25 scale-[1.02]'
+                        : 'bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] text-white shadow-md shadow-[#0B96B2]/40 border border-sky-300/25 scale-[1.02]'
                       : 'text-sky-200/65 hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
@@ -1377,15 +1377,15 @@ export default function App() {
                   activeTab === 'setup'
                     ? christmasMode
                       ? 'bg-gradient-to-r from-rose-600 to-emerald-600 border-amber-300/50 text-white shadow-md shadow-rose-500/25'
-                      : 'bg-[#1A539B] border-sky-300/40 text-white shadow-md shadow-[#1A539B]/40'
-                    : 'bg-white/[0.04] hover:bg-[#1A539B]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
+                      : 'bg-[#0B96B2] border-sky-300/40 text-white shadow-md shadow-[#0B96B2]/40'
+                    : 'bg-white/[0.04] hover:bg-[#0B96B2]/50 border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white'
                 }`}
                 title="Configurações"
                 aria-label="Configurações"
               >
                 <Settings className="w-3.5 h-3.5 shrink-0" />
               </button>
-              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#071324]/95 border border-white/15 text-[10px] font-semibold text-white px-2 py-0.5 rounded-md shadow-lg z-50">
+              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#061E29]/95 border border-white/15 text-[10px] font-semibold text-white px-2 py-0.5 rounded-md shadow-lg z-50">
                 Configurações
               </span>
             </div>
@@ -1400,7 +1400,7 @@ export default function App() {
               >
                 <LogOut className="w-3.5 h-3.5 shrink-0" />
               </button>
-              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#071324]/95 border border-white/15 text-[10px] font-semibold text-rose-200 px-2 py-0.5 rounded-md shadow-lg z-50">
+              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#061E29]/95 border border-white/15 text-[10px] font-semibold text-rose-200 px-2 py-0.5 rounded-md shadow-lg z-50">
                 Logout
               </span>
             </div>
@@ -1445,7 +1445,7 @@ export default function App() {
           className={`grid grid-cols-2 gap-1.5 md:hidden border-t px-3 py-2 ${
             christmasMode
               ? 'border-amber-400/15 bg-[#05120D]/95'
-              : 'border-white/[0.06] bg-[#06101E]/95'
+              : 'border-white/[0.06] bg-[#04151D]/95'
           }`}
         >
           {[
@@ -1465,7 +1465,7 @@ export default function App() {
                   active
                     ? christmasMode
                       ? 'bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/25 border border-amber-300/35'
-                      : 'bg-gradient-to-r from-[#1A539B] to-[#2364B8] text-white shadow-md shadow-[#1A539B]/30 border border-sky-300/20'
+                      : 'bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] text-white shadow-md shadow-[#0B96B2]/30 border border-sky-300/20'
                     : 'text-sky-200/70 hover:text-white bg-white/[0.02]'
                 }`}
               >
@@ -1479,7 +1479,7 @@ export default function App() {
 
       {/* Notificação flutuante de sinal enviado para o ESP32 */}
       {wifiPortalCommandSent && (
-        <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#071324]/95 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-start gap-3 animate-fade-up">
+        <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#061E29]/95 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-start gap-3 animate-fade-up">
           <Radio className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5 animate-pulse" />
           <div className="space-y-1">
             <div className="font-bold text-white flex items-center gap-2 flex-wrap">
@@ -1628,7 +1628,7 @@ export default function App() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-1.5 bg-[#040B16]/60 border border-white/[0.08] rounded-xl p-1">
+                <div className="flex items-center justify-between gap-1.5 bg-[#031117]/60 border border-white/[0.08] rounded-xl p-1">
                   <button
                     type="button"
                     disabled={feedNowCommand || parsePortionGrams(feedNowPortion) <= MIN_PORTION_GRAMS}
@@ -1716,7 +1716,7 @@ export default function App() {
                   </div>
 
                   {/* Visualização Gráfica do Aquário com Ondas, Bolhas de Oxigênio e Ração */}
-                  <div className="relative h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#040C18] to-[#07162C] border border-sky-400/25 overflow-hidden shadow-inner mb-4 sm:mb-5">
+                  <div className="relative h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner mb-4 sm:mb-5">
                     {/* Reflexo de vidro sutil */}
                     <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.03] to-transparent -skew-x-12 z-20" />
 
@@ -1784,9 +1784,9 @@ export default function App() {
                       className="absolute bottom-0 inset-x-0 transition-all duration-1000 ease-out"
                       style={{ height: `${waterLevelPct !== null ? waterLevelPct : 0}%` }}
                     >
-                      <div className="absolute -top-3 left-0 w-[200%] h-6 bg-[#1A539B]/80 rounded-[40%] animate-wave-slow"></div>
-                      <div className="absolute -top-2 left-0 w-[200%] h-5 bg-sky-400/35 rounded-[45%] animate-wave-fast"></div>
-                      <div className="w-full h-full bg-gradient-to-b from-[#1A539B]/80 via-[#133E75]/85 to-[#092244] relative overflow-hidden">
+                      <div className="absolute -top-3 left-0 w-[200%] h-6 bg-[#10C3E3]/75 rounded-[40%] animate-wave-slow"></div>
+                      <div className="absolute -top-2 left-0 w-[200%] h-5 bg-[#47DDF5]/35 rounded-[45%] animate-wave-fast"></div>
+                      <div className="w-full h-full bg-gradient-to-b from-[#10C3E3]/80 via-[#0B7C99]/85 to-[#063B52] relative overflow-hidden">
                         {/* Raios de luz subaquáticos sutis */}
                         <div className="pointer-events-none absolute inset-0 z-[2] opacity-40">
                           <div className="absolute -top-4 left-[18%] w-16 h-44 bg-gradient-to-b from-sky-300/20 to-transparent -rotate-12 blur-md" />
@@ -1915,12 +1915,12 @@ export default function App() {
 
                             <defs>
                               <linearGradient id="sandGrad" x1="300" y1="14" x2="300" y2="42" gradientUnits="userSpaceOnUse">
-                                <stop stopColor="#1E3A5F" stopOpacity="0.95" />
-                                <stop offset="1" stopColor="#0B1B34" />
+                                <stop stopColor="#0D3E4F" stopOpacity="0.95" />
+                                <stop offset="1" stopColor="#051E29" />
                               </linearGradient>
                               <linearGradient id="sandGradFront" x1="300" y1="20" x2="300" y2="42" gradientUnits="userSpaceOnUse">
-                                <stop stopColor="#264B78" stopOpacity="0.85" />
-                                <stop offset="1" stopColor="#071326" />
+                                <stop stopColor="#135166" stopOpacity="0.85" />
+                                <stop offset="1" stopColor="#04161F" />
                               </linearGradient>
                             </defs>
                           </svg>
@@ -2214,7 +2214,7 @@ export default function App() {
                         {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                       {waterVolumeLiters !== null && (
-                        <span className="text-xs font-medium text-sky-100 bg-[#040B16]/65 backdrop-blur-md px-3.5 py-1 rounded-full mt-1.5 border border-white/15">
+                        <span className="text-xs font-medium text-sky-100 bg-[#031117]/65 backdrop-blur-md px-3.5 py-1 rounded-full mt-1.5 border border-white/15">
                           Volume: {waterVolumeLiters} L
                         </span>
                       )}
@@ -2224,13 +2224,13 @@ export default function App() {
 
                 {/* Métricas do Aquário */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-[#040B16]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
+                  <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
                     <span className="text-[11px] text-sky-200/65 block">Nível Atual</span>
                     <span className="text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
                       {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                     </span>
                   </div>
-                  <div className="bg-[#040B16]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
+                  <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
                     <span className="text-[11px] text-sky-200/65 block">Volume Atual</span>
                     <span className="text-sm sm:text-base font-bold text-white font-mono-code mt-0.5 block">
                       {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
@@ -2268,7 +2268,7 @@ export default function App() {
                   </div>
 
                   {/* Moldura do Display LCD */}
-                  <div className="rounded-2xl bg-[#040A14] border border-white/10 p-2.5 sm:p-3.5 shadow-inner">
+                  <div className="rounded-2xl bg-[#031016] border border-white/10 p-2.5 sm:p-3.5 shadow-inner">
                     <div className="rounded-xl bg-gradient-to-b from-[#0C352A] to-[#07241C] border border-emerald-400/35 px-3 sm:px-5 py-3 sm:py-4 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)] overflow-x-auto">
                       <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre transition-all duration-300">
                         {lcdLine0}
@@ -2306,7 +2306,7 @@ export default function App() {
                     </div>
 
                     {/* Mostrador Principal de Temperatura + Barra Térmica Animada */}
-                    <div className="bg-[#040B16]/60 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div className="bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
                       <div className="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between gap-3">
                         <div>
                           <span className="text-xs text-sky-200/65 block">
@@ -2336,7 +2336,7 @@ export default function App() {
 
                       {/* Barra visual da faixa térmica */}
                       <div className="space-y-1">
-                        <div className="h-2 w-full rounded-full bg-[#09182E] overflow-hidden p-0.5 border border-white/5">
+                        <div className="h-2 w-full rounded-full bg-[#07222F] overflow-hidden p-0.5 border border-white/5">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-rose-400 transition-all duration-700"
                             style={{
@@ -2372,7 +2372,7 @@ export default function App() {
                 </div>
 
                 {history.length === 0 ? (
-                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#040B16]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
+                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#031117]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
                     Nenhum registro de histórico disponível ainda.
                   </div>
                 ) : (
@@ -2385,13 +2385,13 @@ export default function App() {
                             <span className="text-[10px] sm:text-[11px] font-mono-code text-sky-200/80 group-hover:text-white transition-colors">
                               {point.level}%
                             </span>
-                            <div className="w-full max-w-[42px] h-28 sm:h-32 bg-[#040B16]/70 rounded-t-xl p-0.5 sm:p-1 flex items-end border border-white/[0.07] group-hover:border-sky-400/35 transition-colors">
+                            <div className="w-full max-w-[42px] h-28 sm:h-32 bg-[#031117]/70 rounded-t-xl p-0.5 sm:p-1 flex items-end border border-white/[0.07] group-hover:border-sky-400/35 transition-colors">
                               <div
                                 style={{ height: `${point.level}%` }}
                                 className={`w-full rounded-t-lg transition-all duration-700 ease-out ${
                                   isLast
-                                    ? 'bg-gradient-to-t from-[#1A539B] to-sky-400 shadow-lg shadow-sky-400/25'
-                                    : 'bg-gradient-to-t from-[#12396B]/80 to-[#1A539B] group-hover:to-sky-400/80'
+                                    ? 'bg-gradient-to-t from-[#0B96B2] to-sky-400 shadow-lg shadow-sky-400/25'
+                                    : 'bg-gradient-to-t from-[#07576E]/80 to-[#0B96B2] group-hover:to-sky-400/80'
                                 }`}
                               />
                             </div>
@@ -2433,7 +2433,7 @@ export default function App() {
                   </div>
 
                   {logs.length === 0 ? (
-                    <div className="h-44 flex items-center justify-center rounded-2xl bg-[#040B16]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
+                    <div className="h-44 flex items-center justify-center rounded-2xl bg-[#031117]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
                       Nenhuma leitura registrada ainda.
                     </div>
                   ) : (
@@ -2441,7 +2441,7 @@ export default function App() {
                       {logs.slice(0, 5).map((log) => (
                         <div
                           key={log.id}
-                          className="bg-[#040B16]/60 hover:bg-[#08172E]/70 border border-white/[0.07] hover:border-sky-400/25 rounded-2xl p-3 flex items-start gap-3 transition-all duration-200"
+                          className="bg-[#031117]/60 hover:bg-[#092938]/70 border border-white/[0.07] hover:border-sky-400/25 rounded-2xl p-3 flex items-start gap-3 transition-all duration-200"
                         >
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-sky-500/15 text-sky-300 border border-sky-400/25">
                             <Waves className="w-4 h-4" />
@@ -2470,10 +2470,10 @@ export default function App() {
         {activeTab === 'setup' && (
           <div className="clean-card rounded-2xl sm:rounded-3xl overflow-hidden animate-fade-up">
             {/* Cabeçalho Limpo + Abas Horizontais */}
-            <div className="bg-[#050C17]/75 border-b border-white/[0.06] px-4 py-4 sm:px-6 sm:py-5 flex flex-col gap-4">
+            <div className="bg-[#051923]/75 border-b border-white/[0.06] px-4 py-4 sm:px-6 sm:py-5 flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A539B] to-sky-500 border border-sky-300/30 flex items-center justify-center text-white shadow-md shadow-sky-500/20 shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0B96B2] to-sky-500 border border-sky-300/30 flex items-center justify-center text-white shadow-md shadow-sky-500/20 shrink-0">
                     <Settings className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
@@ -2489,7 +2489,7 @@ export default function App() {
                 <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => setActiveTab('dashboard')}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-[#1A539B]/35 text-xs font-semibold text-sky-200 hover:text-white border border-white/[0.08] hover:border-sky-400/40 transition-all duration-300 active:scale-[0.98]"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-[#0B96B2]/35 text-xs font-semibold text-sky-200 hover:text-white border border-white/[0.08] hover:border-sky-400/40 transition-all duration-300 active:scale-[0.98]"
                   >
                     <ArrowLeft className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                     <span>Voltar ao Painel</span>
@@ -2512,7 +2512,7 @@ export default function App() {
               </div>
 
               {/* Sub-abas limpas de Configuração */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-[#040912]/80 border border-white/[0.06]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-[#031016]/80 border border-white/[0.06]">
                 {wizardSteps.map((item) => {
                   const Icon = item.icon;
                   const active = wizardStep === item.step;
@@ -2523,7 +2523,7 @@ export default function App() {
                       onClick={() => setWizardStep(item.step)}
                       className={`p-2 sm:p-2.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-300 ${
                         active
-                          ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 text-white shadow-md shadow-sky-500/20 scale-[1.01]'
+                          ? 'bg-gradient-to-r from-[#0B96B2] to-sky-600 text-white shadow-md shadow-sky-500/20 scale-[1.01]'
                           : 'text-sky-200/70 hover:bg-white/[0.04] hover:text-white'
                       }`}
                     >
@@ -2562,7 +2562,7 @@ export default function App() {
               {wizardStep === 1 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-fade-up">
                   {/* Acesso do ESP32 */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                       Credenciais de Acesso do ESP32
@@ -2577,7 +2577,7 @@ export default function App() {
                           type="text"
                           readOnly
                           value={activeDeviceUsername}
-                          className="w-full bg-[#091628]/80 border border-white/[0.08] rounded-xl px-3.5 py-2 text-sm font-mono-code text-emerald-300 cursor-not-allowed"
+                          className="w-full bg-[#07212D]/80 border border-white/[0.08] rounded-xl px-3.5 py-2 text-sm font-mono-code text-emerald-300 cursor-not-allowed"
                         />
                       </div>
 
@@ -2594,7 +2594,7 @@ export default function App() {
                               setDraftConfig({ ...draftConfig, devicePassword: e.target.value })
                             }
                             placeholder="Senha deste ESP32"
-                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl pl-3.5 pr-10 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
+                            className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl pl-3.5 pr-10 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                           />
                           <button
                             type="button"
@@ -2617,7 +2617,7 @@ export default function App() {
                           className={`w-full py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                             wifiPortalCommandSent
                               ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-md shadow-emerald-500/20'
-                              : 'bg-white/[0.05] hover:bg-[#1A539B]/50 border-white/[0.1] hover:border-sky-400/50 text-sky-100 hover:text-white'
+                              : 'bg-white/[0.05] hover:bg-[#0B96B2]/50 border-white/[0.1] hover:border-sky-400/50 text-sky-100 hover:text-white'
                           }`}
                         >
                           <Wifi className={`w-4 h-4 shrink-0 ${wifiPortalCommandSent ? 'text-emerald-300 animate-pulse' : 'text-sky-400'}`} />
@@ -2635,7 +2635,7 @@ export default function App() {
                   </div>
 
                   {/* Dimensões e Litragem */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-bold text-white flex items-center gap-2">
                         <Droplets className="w-4 h-4 text-sky-400 shrink-0" />
@@ -2658,7 +2658,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, aquariumName: e.target.value })
                           }
-                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-sky-400 transition-colors"
+                          className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
@@ -2674,7 +2674,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, lengthCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
+                          className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
@@ -2690,7 +2690,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, widthCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
+                          className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
@@ -2706,7 +2706,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, heightCm: Number(e.target.value) })
                           }
-                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
+                          className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
 
@@ -2725,7 +2725,7 @@ export default function App() {
                               sensorOffsetCm: Math.max(2, Number(e.target.value)),
                             })
                           }
-                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
+                          className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                         />
                       </div>
                     </div>
@@ -2737,7 +2737,7 @@ export default function App() {
               {wizardStep === 2 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
                   {/* Limites de Nível */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <Waves className="w-4 h-4 text-sky-400" />
                       Alertas de Nível da Água
@@ -2813,7 +2813,7 @@ export default function App() {
                   </div>
 
                   {/* Temperatura Ideal */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <Thermometer className="w-4 h-4 text-emerald-400" />
                       Faixa de Temperatura Ideal
@@ -2841,8 +2841,8 @@ export default function App() {
                             }
                             className={`p-2.5 rounded-xl border text-center transition-all duration-300 ${
                               selected
-                                ? 'bg-gradient-to-br from-[#1A539B] to-sky-600 border-sky-300/60 text-white shadow-md shadow-sky-500/20'
-                                : 'bg-[#091628] border-white/[0.08] text-sky-200 hover:bg-white/[0.05]'
+                                ? 'bg-gradient-to-br from-[#0B96B2] to-sky-600 border-sky-300/60 text-white shadow-md shadow-sky-500/20'
+                                : 'bg-[#07212D] border-white/[0.08] text-sky-200 hover:bg-white/[0.05]'
                             }`}
                           >
                             <div className="text-xs font-bold">{preset.label}</div>
@@ -2868,7 +2868,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, tempMinC: Number(e.target.value) })
                           }
-                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                       </div>
 
@@ -2885,7 +2885,7 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, tempMaxC: Number(e.target.value) })
                           }
-                          className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-bold font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                       </div>
                     </div>
@@ -2896,7 +2896,7 @@ export default function App() {
               {/* ABA 3: DISPLAY LCD */}
               {wizardStep === 3 && (
                 <div className="space-y-5 animate-fade-up">
-                  <div className="rounded-2xl bg-[#040A14] border border-white/[0.08] p-3 sm:p-4 shadow-inner">
+                  <div className="rounded-2xl bg-[#031016] border border-white/[0.08] p-3 sm:p-4 shadow-inner">
                     <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between gap-2">
                       <span>Prévia do Display LCD (16x2)</span>
                       {draftConfig.lcdCarousel && (
@@ -2923,7 +2923,7 @@ export default function App() {
                         onChange={(e) =>
                           setDraftConfig({ ...draftConfig, lcdLine1Mode: e.target.value })
                         }
-                        className="w-full bg-[#050C17] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
+                        className="w-full bg-[#051923] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
                       >
                         <option value="water_pct">Nível da Água (%)</option>
                         <option value="volume_liters">Volume Atual (Litros)</option>
@@ -2941,7 +2941,7 @@ export default function App() {
                         onChange={(e) =>
                           setDraftConfig({ ...draftConfig, lcdLine2Mode: e.target.value })
                         }
-                        className="w-full bg-[#050C17] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
+                        className="w-full bg-[#051923] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-400"
                       >
                         <option value="temp_c">Temperatura (°C)</option>
                         <option value="rtc_time">Horário Atual (Internet / RTC)</option>
@@ -2962,13 +2962,13 @@ export default function App() {
                           onChange={(e) =>
                             setDraftConfig({ ...draftConfig, lcdCustomText: e.target.value })
                           }
-                          className="w-full bg-[#050C17] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code uppercase text-white focus:outline-none focus:border-sky-400"
+                          className="w-full bg-[#051923] border border-white/[0.1] rounded-xl px-3.5 py-2 text-sm font-mono-code uppercase text-white focus:outline-none focus:border-sky-400"
                           placeholder="NETUNO AQUARIO"
                         />
                       </div>
                     )}
 
-                    <div className="sm:col-span-2 bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 flex items-center justify-between gap-3">
+                    <div className="sm:col-span-2 bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <span className="text-sm font-bold text-white block">
                           Alternar Telas Automaticamente (Carrossel)
@@ -3005,7 +3005,7 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-fade-up">
                   <div className="space-y-4 sm:space-y-6">
                     {/* Relógio da Internet & Sincronização do RTC */}
-                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
+                    <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
                           <Clock className="w-4 h-4 text-sky-400 shrink-0" />
@@ -3016,7 +3016,7 @@ export default function App() {
                         </span>
                       </div>
 
-                      <div className="bg-[#091628]/80 border border-white/[0.08] rounded-xl p-3 space-y-1.5 text-xs">
+                      <div className="bg-[#07212D]/80 border border-white/[0.08] rounded-xl p-3 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sky-200/75">Horário atual (Internet):</span>
                           <span className="font-mono-code font-bold text-white">
@@ -3051,7 +3051,7 @@ export default function App() {
                     </div>
 
                     {/* Bomba de Oxigênio */}
-                    <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
+                    <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
                           <Wind className="w-4 h-4 text-sky-400 shrink-0" />
@@ -3079,7 +3079,7 @@ export default function App() {
                             onChange={(e) =>
                               setDraftConfig({ ...draftConfig, pumpMode: e.target.value })
                             }
-                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-sky-400"
+                            className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-sky-400"
                           >
                             <option value="auto">Automático</option>
                             <option value="manual">Manual</option>
@@ -3101,7 +3101,7 @@ export default function App() {
                                 pumpCycleOnMin: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                            className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                           />
                         </div>
 
@@ -3120,7 +3120,7 @@ export default function App() {
                                 pumpSafetyCutoffPct: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                            className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                           />
                         </div>
                       </div>
@@ -3128,7 +3128,7 @@ export default function App() {
                   </div>
 
                   {/* Alimentador Automático */}
-                  <div className="bg-[#050C17]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <Utensils className="w-4 h-4 text-sky-400 shrink-0" />
@@ -3141,7 +3141,7 @@ export default function App() {
                         className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-300 active:scale-[0.98] ${
                           feedNowCommand
                             ? 'bg-amber-400 text-slate-950 animate-pulse'
-                            : 'bg-gradient-to-r from-[#1A539B] to-sky-500 text-white shadow-md shadow-sky-500/20'
+                            : 'bg-gradient-to-r from-[#0B96B2] to-sky-500 text-white shadow-md shadow-sky-500/20'
                         }`}
                       >
                         <Utensils className="w-3.5 h-3.5" />
@@ -3150,7 +3150,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-2.5">
-                      <div className="flex items-center justify-between gap-2 bg-[#091628] border border-white/[0.08] rounded-xl p-2">
+                      <div className="flex items-center justify-between gap-2 bg-[#07212D] border border-white/[0.08] rounded-xl p-2">
                         <button
                           type="button"
                           disabled={parsePortionGrams(draftConfig.defaultPortion) <= MIN_PORTION_GRAMS}
@@ -3200,8 +3200,8 @@ export default function App() {
                               }
                               className={`py-1.5 px-1 rounded-xl text-[11px] sm:text-xs font-semibold border transition-all duration-300 ${
                                 active
-                                  ? 'bg-gradient-to-r from-[#1A539B] to-sky-600 border-sky-400/50 text-white shadow-sm'
-                                  : 'bg-[#091628] border-white/[0.08] text-sky-200/70 hover:bg-white/[0.05]'
+                                  ? 'bg-gradient-to-r from-[#0B96B2] to-sky-600 border-sky-400/50 text-white shadow-sm'
+                                  : 'bg-[#07212D] border-white/[0.08] text-sky-200/70 hover:bg-white/[0.05]'
                               }`}
                             >
                               {portion}
@@ -3219,7 +3219,7 @@ export default function App() {
                       {schedules.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-[#091628]/80 border border-white/[0.08] rounded-xl p-2.5 flex items-center justify-between transition-colors hover:border-white/[0.15]"
+                          className="bg-[#07212D]/80 border border-white/[0.08] rounded-xl p-2.5 flex items-center justify-between transition-colors hover:border-white/[0.15]"
                         >
                           <div>
                             <span className="text-sm font-extrabold font-mono-code text-white">
@@ -3261,12 +3261,12 @@ export default function App() {
                           type="time"
                           value={newScheduleTime}
                           onChange={(e) => setNewScheduleTime(e.target.value)}
-                          className="w-full min-w-0 sm:w-auto bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          className="w-full min-w-0 sm:w-auto bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
                         />
                         <select
                           value={newSchedulePortion}
                           onChange={(e) => setNewSchedulePortion(e.target.value)}
-                          className="w-full min-w-0 bg-[#091628] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white sm:flex-1 focus:outline-none focus:border-sky-400"
+                          className="w-full min-w-0 bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white sm:flex-1 focus:outline-none focus:border-sky-400"
                         >
                           {PORTION_OPTIONS_GRAMS.map((grams) => (
                             <option key={grams} value={`${grams}g`}>
@@ -3276,7 +3276,7 @@ export default function App() {
                         </select>
                         <button
                           type="submit"
-                          className="col-span-2 sm:col-span-1 justify-center bg-gradient-to-r from-[#1A539B] to-sky-500 hover:from-[#2364B8] hover:to-sky-400 text-white text-xs font-bold px-3.5 py-2.5 sm:py-2 rounded-xl flex items-center gap-1 transition-all duration-300 active:scale-[0.98]"
+                          className="col-span-2 sm:col-span-1 justify-center bg-gradient-to-r from-[#0B96B2] to-sky-500 hover:from-[#10C3E3] hover:to-sky-400 text-white text-xs font-bold px-3.5 py-2.5 sm:py-2 rounded-xl flex items-center gap-1 transition-all duration-300 active:scale-[0.98]"
                         >
                           <Plus className="w-3.5 h-3.5" /> Adicionar
                         </button>
@@ -3314,7 +3314,7 @@ export default function App() {
             </div>
 
             {logs.length === 0 ? (
-              <div className="py-12 text-center text-sm text-sky-200/60 bg-[#050C17]/60 rounded-2xl border border-white/[0.06]">
+              <div className="py-12 text-center text-sm text-sky-200/60 bg-[#051923]/60 rounded-2xl border border-white/[0.06]">
                 Nenhum registro encontrado no histórico.
               </div>
             ) : (
@@ -3323,7 +3323,7 @@ export default function App() {
                   <div
                     key={log.id}
                     style={{ animationDelay: `${Math.min(idx * 40, 300)}ms` }}
-                    className="bg-[#050C17]/75 border border-white/[0.07] hover:border-sky-400/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-300 hover:-translate-y-0.5 animate-fade-up"
+                    className="bg-[#051923]/75 border border-white/[0.07] hover:border-sky-400/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-300 hover:-translate-y-0.5 animate-fade-up"
                   >
                     <div className="flex items-center gap-3.5">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 text-sky-300 border border-sky-400/25">
@@ -3347,7 +3347,7 @@ export default function App() {
       {/* RODAPÉ */}
       <footer
         className={`border-t backdrop-blur-xl py-5 px-4 sm:px-6 lg:px-8 mt-8 transition-colors ${
-          christmasMode ? 'border-amber-400/20 bg-[#05120D]/85' : 'border-white/[0.06] bg-[#040A14]/80'
+          christmasMode ? 'border-amber-400/20 bg-[#05120D]/85' : 'border-white/[0.06] bg-[#031016]/80'
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2.5 text-xs text-sky-200/60">

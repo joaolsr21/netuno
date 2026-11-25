@@ -8,13 +8,13 @@ export default {
     extend: {
       colors: {
         netuno: {
-          deep: '#06101E',
-          abyss: '#0B1D35',
-          card: '#0F2747',
-          cobalt: '#1A539B',
-          bright: '#2B6CB0',
-          cyan: '#38BDF8',
-          foam: '#E2E8F0',
+          deep: '#031117',
+          abyss: '#061D27',
+          card: '#092836',
+          teal: '#0B88A6',
+          aqua: '#10C3E3',
+          bright: '#47DDF5',
+          foam: '#E0F7FA',
         }
       },
       fontFamily: {

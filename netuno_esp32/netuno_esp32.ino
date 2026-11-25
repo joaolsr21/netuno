@@ -47,7 +47,6 @@ const char* SUPABASE_KEY = "sb_publishable_3C-PPYFJNBrzQ1msagDQAQ_1EQm7GUa";
 #define IN4_PIN               27    // Motor de Passo - IN4
 
 // ===================== ALIMENTADOR (MOTOR DE PASSO - AccelStepper 3g/3g) =====
-#define MODO_TESTE_MOTOR true               // true = ao clicar em alimentar no site apenas gira o motor (ignora porções/horários); mude para false após testar
 const int   GRAMS_PER_DOSE        = 3;      // Gramas depositadas a cada acionamento do motor
 const int   MAX_DOSES_PER_FEED    = 10;     // Máximo 30g por acionamento (10 x 3g)
 const long  passosPorAcionamento  = 2048;   // HALF4WIRE: 4096 = 1 volta | 2048 = meia volta (ajustável)
@@ -317,19 +316,19 @@ void handlePortalRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
   html += "<title>Netuno - Configurar ESP32</title>";
-  html += "<style>body{font-family:sans-serif;background:#06101E;color:#fff;padding:18px;margin:0}";
-  html += ".card{max-width:460px;margin:0 auto;background:#0B1D35;border:1px solid #1A539B;border-radius:16px;padding:20px}";
-  html += "h2{margin-top:0;color:#38bdf8}h4{margin:16px 0 8px;color:#7dd3fc;border-bottom:1px solid #1e3a8a;padding-bottom:4px}";
-  html += "label{display:block;font-size:12px;color:#bae6fd;margin:10px 0 4px}";
-  html += "input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #1A539B;background:#06101E;color:#fff}";
-  html += "button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:10px;background:#10b981;color:#052e16;font-weight:bold;cursor:pointer;font-size:14px}";
-  html += ".net{font-size:12px;padding:6px 10px;background:#06101E;border-radius:8px;margin-bottom:6px;border:1px solid #1e3a8a}</style></head><body>";
+  html += "<style>body{font-family:sans-serif;background:#031117;color:#fff;padding:18px;margin:0}";
+  html += ".card{max-width:460px;margin:0 auto;background:#07212D;border:1px solid #10C3E3;border-radius:16px;padding:20px}";
+  html += "h2{margin-top:0;color:#47DDF5}h4{margin:16px 0 8px;color:#67E8F9;border-bottom:1px solid #0E7490;padding-bottom:4px}";
+  html += "label{display:block;font-size:12px;color:#CFFAFE;margin:10px 0 4px}";
+  html += "input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #0E9EB8;background:#031117;color:#fff}";
+  html += "button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:10px;background:#10C3E3;color:#031117;font-weight:bold;cursor:pointer;font-size:14px}";
+  html += ".net{font-size:12px;padding:6px 10px;background:#031117;border-radius:8px;margin-bottom:6px;border:1px solid #0E7490}</style></head><body>";
   html += "<div class='card'><h2>Netuno • Setup Inicial do ESP32</h2>";
-  html += "<p style='font-size:12px;color:#93c5fd;margin-top:4px'>ID Físico (MAC): <strong>" + WiFi.macAddress() + "</strong></p>";
+  html += "<p style='font-size:12px;color:#A5F3FC;margin-top:4px'>ID Físico (MAC): <strong>" + WiFi.macAddress() + "</strong></p>";
 
   html += "<form method='POST' action='/save'>";
   html += "<h4>1. Cadastrar Acesso deste ESP32 no Site</h4>";
-  html += "<p style='font-size:12px;color:#93c5fd;margin:4px 0 8px'>Defina o Usuário e Senha que você usará no site para acessar este ESP32 em específico:</p>";
+  html += "<p style='font-size:12px;color:#A5F3FC;margin:4px 0 8px'>Defina o Usuário e Senha que você usará no site para acessar este ESP32 em específico:</p>";
   html += "<label>Usuário do ESP32 (Acesso no Site):</label>";
   html += "<input name='dev_user' value='" + deviceUsername + "' placeholder='Ex: aquario_joao' required>";
   html += "<label>Senha do ESP32 (Acesso no Site):</label>";
@@ -373,9 +372,9 @@ void handlePortalSave() {
   portalServer.send(
     200,
     "text/html",
-    "<html><body style='background:#06101E;color:#34d399;font-family:sans-serif;text-align:center;padding:40px'>"
+    "<html><body style='background:#031117;color:#47DDF5;font-family:sans-serif;text-align:center;padding:40px'>"
     "<h2>Configuracao Salva com Sucesso!</h2>"
-    "<p style='color:#bae6fd'>Usuario vinculado a este ESP32: <strong>" + deviceUsername + "</strong></p>"
+    "<p style='color:#CFFAFE'>Usuario vinculado a este ESP32: <strong>" + deviceUsername + "</strong></p>"
     "<p>Use este mesmo usuario e senha para acessar seu aquario no site Netuno.</p>"
     "<p>Conectando ao Wi-Fi...</p></body></html>"
   );
@@ -972,20 +971,8 @@ String getRtcIsoString() {
   return String(buf);
 }
 
-// Aciona o motor de passo do alimentador (ou gira direto em MODO_TESTE_MOTOR)
+// Aciona o motor de passo do alimentador em múltiplos de 3g por acionamento
 void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
-#if MODO_TESTE_MOTOR
-  long totalSteps = passosPorAcionamento;
-  Serial.printf("[TESTE MOTOR] %s -> Girando motor de passo (%ld passos)...\n",
-                triggerReason.c_str(), totalSteps);
-
-  if (!apPortalActive) {
-    lcd.setCursor(0, 0);
-    lcd.print("  TESTE MOTOR   ");
-    lcd.setCursor(0, 1);
-    lcd.print("Girando motor...");
-  }
-#else
   int grams = parsePortionGrams(portionLabel);
   int doses = grams / GRAMS_PER_DOSE;
 
@@ -1002,8 +989,6 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
   }
 
   long totalSteps = (long)doses * passosPorAcionamento;
-#endif
-
   mp.enableOutputs();
   mp.move(totalSteps);
 
@@ -1027,7 +1012,6 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
 void checkFeederByRtcTime() {
   readRtcModule();
 
-#if !MODO_TESTE_MOTOR
   int currentMinuteKey = (rtcDay * 10000) + (rtcHour * 100) + rtcMinute;
   if (rtcSecond <= 3 && currentMinuteKey != lastFedKey) {
     for (int i = 0; i < MAX_FEED_SCHEDULES; i++) {
@@ -1040,7 +1024,6 @@ void checkFeederByRtcTime() {
       }
     }
   }
-#endif
 }
 
 // ============================================================================
@@ -1152,13 +1135,12 @@ void syncStatusWithSupabase() {
       ack.end();
     }
 
-    // 2. Se o usuário clicou em "Alimentar" pelo site ("feed_now_command":true)
+    // 2. Se o usuário clicou em "Alimentar Manualmente" pelo site ("feed_now_command":true)
     if (response.indexOf("\"feed_now_command\":true") >= 0 || response.indexOf("\"feed_now_command\": true") >= 0) {
       String portionStr = extractJsonStringField(response, "feed_now_portion");
       if (portionStr.length() == 0) portionStr = "3g";
 
-      // Libera a conexão HTTP atual antes de abrir o PATCH (economiza RAM/TLS no ESP32) e evita re-disparo
-      http.end();
+      // Limpa o comando antes de girar o motor de passo para evitar re-disparo caso a porção leve vários segundos
       HTTPClient ackFeed;
       ackFeed.setTimeout(2500);
       ackFeed.begin(filterEndpoint);
@@ -1168,8 +1150,7 @@ void syncStatusWithSupabase() {
       ackFeed.PATCH("{\"feed_now_command\":false}");
       ackFeed.end();
 
-      dispenseFoodNow(portionStr, "Comando do Site");
-      return;
+      dispenseFoodNow(portionStr, "Comando Manual do Site");
     }
 
     // 3. Se o site enviou comando para abrir o portal de configuração Wi-Fi
@@ -1384,9 +1365,8 @@ void loop() {
     );
   }
 
-  // 5. Sincronização rápida com Supabase (2.5s no modo teste do motor, 5s em operação normal)
-  unsigned long supabasePollIntervalMs = MODO_TESTE_MOTOR ? 2500UL : 5000UL;
-  if (now - lastSupabaseMs >= supabasePollIntervalMs) {
+  // 5. Sincronização rápida com Supabase a cada 5 segundos + esvaziamento da fila offline
+  if (now - lastSupabaseMs >= 5000) {
     lastSupabaseMs = now;
     if (WiFi.status() == WL_CONNECTED) {
       syncStatusWithSupabase();
@@ -1394,13 +1374,11 @@ void loop() {
     }
   }
 
-#if !MODO_TESTE_MOTOR
   // 6. Sincroniza horários programados do site (feed_schedules) ao conectar e depois a cada 15 segundos
   if (WiFi.status() == WL_CONNECTED && (!schedulesSyncedOnce || now - lastSchedulesSyncMs >= 15000)) {
     lastSchedulesSyncMs = now;
     syncSchedulesFromSupabase();
   }
-#endif
 
   // 7. Histórico a cada 60 segundos (se estiver sem Wi-Fi, salva na Fila Offline automaticamente)
   if (now - lastHistoryLogMs >= 60000) {
