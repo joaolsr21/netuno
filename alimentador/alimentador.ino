@@ -43,12 +43,27 @@ bool        girarAoIniciar            = false;  // true = faz 1 giro automático
 bool        modoLoopAutomatico        = false;  // true = repete o giro sozinho a cada pausa
 unsigned long pausaEntreGirosMs       = 3000;   // Tempo de pausa entre giros no modo automático (ms)
 
+// --- Tremidinha ao final do giro (para soltar ração grudada) ---
+bool        ativarTremidaFinal        = true;   // true = dá uma tremidinha ao terminar cada giro
+long        tremidaPassos             = 80;     // Amplitude de cada sacudida (~7° em HALF4WIRE; teste 50..150)
+int         tremidaRepeticoes         = 4;      // Quantidade de idas e voltas da tremidinha
+float       tremidaVelocidade         = 1000.0; // Velocidade da tremidinha (passos/s)
+float       tremidaAceleracao         = 3000.0; // Aceleração alta = tranco seco que solta melhor a ração
+
 // ===================== INSTÂNCIA DO MOTOR (AccelStepper) ====================
 // Atenção: no 28BYJ-48 + ULN2003 a sequência correta no AccelStepper é IN1, IN3, IN2, IN4
 AccelStepper mp(AccelStepper::HALF4WIRE, IN1_PIN, IN3_PIN, IN2_PIN, IN4_PIN);
 
 // ===================== CONTROLE INTERNO =====================================
-bool          motorEmMovimento = false;
+enum EstadoMotor {
+  ESTADO_PARADO,
+  ESTADO_GIRANDO,
+  ESTADO_TREMIDINHA
+};
+
+EstadoMotor   estadoMotor      = ESTADO_PARADO;
+int           etapasTremidaRestantes = 0; // Cada repetição = 2 etapas (ida + volta, saldo final = 0 passos)
+int           sinalTremida     = 1;
 unsigned long inicioMovMs      = 0;
 unsigned long ultimoFimMovMs   = 0;
 String        entradaSerial    = "";
@@ -66,12 +81,30 @@ void aplicarConfigMotor() {
   mp.setAcceleration(aceleracaoPassos);
 }
 
+void iniciarTremidinha() {
+  if (tremidaPassos <= 0 || tremidaRepeticoes <= 0) {
+    estadoMotor = ESTADO_PARADO;
+    if (desligarBobinasAoParar) desligarBobinas();
+    return;
+  }
+  mp.enableOutputs();
+  mp.setMaxSpeed(tremidaVelocidade);
+  mp.setAcceleration(tremidaAceleracao);
+  etapasTremidaRestantes = tremidaRepeticoes * 2;
+  sinalTremida = 1;
+  estadoMotor = ESTADO_TREMIDINHA;
+  mp.move(sinalTremida * tremidaPassos);
+  sinalTremida = -sinalTremida;
+  etapasTremidaRestantes--;
+  Serial.printf("   ~ [TREMIDINHA] %dx (+/-%ld passos)...\n", tremidaRepeticoes, tremidaPassos);
+}
+
 void iniciarMovimento(long passos, const char* descricao) {
   long passosFinais = inverterDirecao ? -passos : passos;
   aplicarConfigMotor();
   mp.enableOutputs();
   mp.move(passosFinais);
-  motorEmMovimento = true;
+  estadoMotor = ESTADO_GIRANDO;
   inicioMovMs = millis();
 
   float graus = (360.0f * (float)abs(passos)) / (float)PASSOS_POR_VOLTA;
@@ -87,6 +120,9 @@ void mostrarConfigAtual() {
   Serial.printf("  velocidadeMaxPassos  = %.1f passos/s\n", velocidadeMaxPassos);
   Serial.printf("  aceleracaoPassos     = %.1f passos/s^2\n", aceleracaoPassos);
   Serial.printf("  inverterDirecao      = %s\n", inverterDirecao ? "SIM (-)" : "NAO (+)");
+  Serial.printf("  tremidinhaFinal      = %s (%dx de +/-%ld passos | vel %.0f | acel %.0f)\n",
+                ativarTremidaFinal ? "LIGADA" : "DESLIGADA",
+                tremidaRepeticoes, tremidaPassos, tremidaVelocidade, tremidaAceleracao);
   Serial.printf("  modoLoopAutomatico   = %s (pausa: %lu ms)\n",
                 modoLoopAutomatico ? "LIGADO" : "DESLIGADO", pausaEntreGirosMs);
   Serial.printf("  desligarBobinas      = %s\n", desligarBobinasAoParar ? "SIM" : "NAO");
@@ -100,10 +136,14 @@ void mostrarMenu() {
   Serial.println("  v          -> 1 volta completa (360 graus)");
   Serial.println("  m          -> Meia volta (180 graus)");
   Serial.println("  q          -> 1/4 de volta (90 graus)");
-  Serial.println("  a <graus>  -> Girar angulo exato (ex: a 45 ou a -90)");
-  Serial.println("  p <passos> -> Alterar passosPorAcionamento (ex: p 1024)");
+  Serial.println("  a <graus>  -> Girar angulo exato (ex: a 30 ou a -90)");
+  Serial.println("  p <passos> -> Alterar passosPorAcionamento (ex: p 341)");
   Serial.println("  s <vel>    -> Alterar velocidadeMaxPassos  (ex: s 900)");
   Serial.println("  c <acel>   -> Alterar aceleracaoPassos     (ex: c 500)");
+  Serial.println("  w          -> Testar SO a tremidinha agora");
+  Serial.println("  b          -> Ligar/Desligar tremidinha ao final do giro");
+  Serial.println("  k <passos> -> Amplitude da tremidinha      (ex: k 100)");
+  Serial.println("  n <reps>   -> Repeticoes da tremidinha     (ex: n 5)");
   Serial.println("  d <ms>     -> Alterar pausa do loop auto   (ex: d 2000)");
   Serial.println("  i          -> Inverter direcao padrao");
   Serial.println("  t          -> Ligar/Desligar modo loop automatico");
@@ -218,10 +258,43 @@ void processarComando(String cmd) {
       Serial.printf("[OK] modoLoopAutomatico agora esta: %s\n", modoLoopAutomatico ? "LIGADO" : "DESLIGADO");
       break;
 
+    case 'w':
+      inicioMovMs = millis();
+      iniciarTremidinha();
+      break;
+
+    case 'b':
+      ativarTremidaFinal = !ativarTremidaFinal;
+      Serial.printf("[OK] tremidinhaFinal agora esta: %s\n", ativarTremidaFinal ? "LIGADA" : "DESLIGADA");
+      break;
+
+    case 'k': {
+      long amp = argStr.toInt();
+      if (amp < 10 || amp > 500) {
+        Serial.println("[ERRO] Amplitude recomendada entre 10 e 500 passos. Ex: k 80");
+        break;
+      }
+      tremidaPassos = amp;
+      Serial.printf("[OK] tremidaPassos alterado para %ld passos\n", tremidaPassos);
+      break;
+    }
+
+    case 'n': {
+      int reps = argStr.toInt();
+      if (reps < 1 || reps > 20) {
+        Serial.println("[ERRO] Repeticoes recomendadas entre 1 e 20. Ex: n 4");
+        break;
+      }
+      tremidaRepeticoes = reps;
+      Serial.printf("[OK] tremidaRepeticoes alterado para %d\n", tremidaRepeticoes);
+      break;
+    }
+
     case 'x':
       mp.stop();
       mp.setCurrentPosition(mp.currentPosition());
-      motorEmMovimento = false;
+      estadoMotor = ESTADO_PARADO;
+      etapasTremidaRestantes = 0;
       modoLoopAutomatico = false;
       desligarBobinas();
       Serial.println("[PARADO] Motor interrompido e bobinas desligadas.");
@@ -277,20 +350,46 @@ void loop() {
   lerSerial();
 
   // Executa o movimento do motor de passo (precisa rodar o mais rápido possível)
-  if (motorEmMovimento) {
+  if (estadoMotor == ESTADO_GIRANDO) {
     mp.run();
 
     if (mp.distanceToGo() == 0) {
-      unsigned long duracaoMs = millis() - inicioMovMs;
-      motorEmMovimento = false;
-      ultimoFimMovMs = millis();
+      if (ativarTremidaFinal && tremidaPassos > 0 && tremidaRepeticoes > 0) {
+        iniciarTremidinha();
+      } else {
+        unsigned long duracaoMs = millis() - inicioMovMs;
+        estadoMotor = ESTADO_PARADO;
+        ultimoFimMovMs = millis();
 
-      if (desligarBobinasAoParar) {
-        desligarBobinas();
+        if (desligarBobinasAoParar) {
+          desligarBobinas();
+        }
+
+        Serial.printf("<< [CONCLUIDO] Tempo: %lu ms (%.2f s) | Posicao atual: %ld passos\n",
+                      duracaoMs, duracaoMs / 1000.0f, mp.currentPosition());
       }
+    }
+  } else if (estadoMotor == ESTADO_TREMIDINHA) {
+    mp.run();
 
-      Serial.printf("<< [CONCLUIDO] Tempo: %lu ms (%.2f s) | Posicao atual: %ld passos\n",
-                    duracaoMs, duracaoMs / 1000.0f, mp.currentPosition());
+    if (mp.distanceToGo() == 0) {
+      if (etapasTremidaRestantes > 0) {
+        mp.move(sinalTremida * tremidaPassos);
+        sinalTremida = -sinalTremida;
+        etapasTremidaRestantes--;
+      } else {
+        unsigned long duracaoMs = millis() - inicioMovMs;
+        estadoMotor = ESTADO_PARADO;
+        ultimoFimMovMs = millis();
+        aplicarConfigMotor();
+
+        if (desligarBobinasAoParar) {
+          desligarBobinas();
+        }
+
+        Serial.printf("<< [CONCLUIDO + TREMIDINHA] Tempo total: %lu ms (%.2f s) | Posicao atual: %ld passos\n",
+                      duracaoMs, duracaoMs / 1000.0f, mp.currentPosition());
+      }
     }
   } else if (modoLoopAutomatico && (millis() - ultimoFimMovMs >= pausaEntreGirosMs)) {
     iniciarMovimento(passosPorAcionamento, "Loop automatico");
