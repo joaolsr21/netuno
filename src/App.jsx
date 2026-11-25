@@ -289,7 +289,9 @@ export default function App() {
   const hasSensorData = waterLevelPct !== null;
 
   const waterColumnCm =
-    distanceCm !== null
+    waterLevelPct !== null && Number(waterLevelPct) <= 0
+      ? '0.0'
+      : distanceCm !== null && Number(distanceCm) > 0
       ? Math.max(0, Math.min(MAX_COLUMN_CM, TANK_HEIGHT_CM - Number(distanceCm))).toFixed(1)
       : waterLevelPct !== null
       ? ((Number(waterLevelPct) / 100) * MAX_COLUMN_CM).toFixed(1)
@@ -1781,11 +1783,15 @@ export default function App() {
 
                     {/* Água animada */}
                     <div
-                      className="absolute bottom-0 inset-x-0 transition-all duration-1000 ease-out"
+                      className="absolute bottom-0 inset-x-0 z-[5] transition-all duration-1000 ease-out"
                       style={{ height: `${waterLevelPct !== null ? waterLevelPct : 0}%` }}
                     >
-                      <div className="absolute -top-3 left-0 w-[200%] h-6 bg-[#10C3E3]/75 rounded-[40%] animate-wave-slow"></div>
-                      <div className="absolute -top-2 left-0 w-[200%] h-5 bg-[#47DDF5]/35 rounded-[45%] animate-wave-fast"></div>
+                      {waterLevelPct > 0 && (
+                        <>
+                          <div className="absolute -top-3 left-0 w-[200%] h-6 bg-[#10C3E3]/75 rounded-[40%] animate-wave-slow"></div>
+                          <div className="absolute -top-2 left-0 w-[200%] h-5 bg-[#47DDF5]/35 rounded-[45%] animate-wave-fast"></div>
+                        </>
+                      )}
                       <div className="w-full h-full bg-gradient-to-b from-[#10C3E3]/80 via-[#0B7C99]/85 to-[#063B52] relative overflow-hidden">
                         {/* Raios de luz subaquáticos sutis */}
                         <div className="pointer-events-none absolute inset-0 z-[2] opacity-40">
@@ -1794,137 +1800,47 @@ export default function App() {
                           <div className="absolute -top-4 right-[20%] w-14 h-40 bg-gradient-to-b from-sky-300/15 to-transparent rotate-12 blur-md" />
                         </div>
 
-                        {/* Decorações do fundo do aquário: areia, pedrinhas, concha, estrela-do-mar, coral e algas */}
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[4]">
-                          {/* Algas marinhas à esquerda-centro (longe da bombinha) */}
-                          <div className="absolute bottom-2 left-[19%] sm:left-[21%] animate-seaweed opacity-85">
-                            <svg width="34" height="66" viewBox="0 0 34 66" fill="none">
-                              <path
-                                d="M12 65C9 52 16 42 11 28C7 17 13 8 15 2C18 11 14 19 17 29C21 41 14 52 16 65H12Z"
-                                fill="url(#seaweedGradLeft1)"
-                              />
-                              <path
-                                d="M21 65C24 54 18 44 23 32C26 24 23 15 25 10C29 18 26 26 27 35C28 45 23 54 25 65H21Z"
-                                fill="url(#seaweedGradLeft2)"
-                              />
-                              <defs>
-                                <linearGradient id="seaweedGradLeft1" x1="13" y1="2" x2="13" y2="65" gradientUnits="userSpaceOnUse">
-                                  <stop stopColor="#34D399" stopOpacity="0.9" />
-                                  <stop offset="1" stopColor="#065F46" stopOpacity="0.95" />
-                                </linearGradient>
-                                <linearGradient id="seaweedGradLeft2" x1="24" y1="10" x2="24" y2="65" gradientUnits="userSpaceOnUse">
-                                  <stop stopColor="#2DD4BF" stopOpacity="0.85" />
-                                  <stop offset="1" stopColor="#0F766E" stopOpacity="0.95" />
-                                </linearGradient>
-                              </defs>
-                            </svg>
+                        {/* Coluna intensa e brilhante de bolhas saindo do bico da bomba (cortada na superfície da água) */}
+                        {pumpRelayOn && waterLevelPct > 5 && (
+                          <div className="absolute bottom-6 left-[62px] w-24 h-52 pointer-events-none z-[12]">
+                            <span
+                              style={{ '--duration': '1.8s', '--delay': '0s', '--sway': '8px', left: '0px' }}
+                              className="bubble absolute bottom-0 w-3 h-3 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '2.2s', '--delay': '0.2s', '--sway': '16px', left: '4px' }}
+                              className="bubble absolute bottom-0 w-2 h-2 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '1.6s', '--delay': '0.45s', '--sway': '-5px', left: '1px' }}
+                              className="bubble absolute bottom-0 w-3.5 h-3.5 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '2.4s', '--delay': '0.7s', '--sway': '20px', left: '6px' }}
+                              className="bubble absolute bottom-0 w-2.5 h-2.5 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '1.9s', '--delay': '0.95s', '--sway': '12px', left: '2px' }}
+                              className="bubble absolute bottom-0 w-3 h-3 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '2.1s', '--delay': '1.2s', '--sway': '3px', left: '0px' }}
+                              className="bubble absolute bottom-0 w-2 h-2 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '1.75s', '--delay': '1.45s', '--sway': '14px', left: '4px' }}
+                              className="bubble absolute bottom-0 w-3.5 h-3.5 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '2.3s', '--delay': '1.7s', '--sway': '22px', left: '7px' }}
+                              className="bubble absolute bottom-0 w-2.5 h-2.5 rounded-full"
+                            />
+                            <span
+                              style={{ '--duration': '1.95s', '--delay': '1.95s', '--sway': '9px', left: '3px' }}
+                              className="bubble absolute bottom-0 w-3 h-3 rounded-full"
+                            />
                           </div>
-
-                          {/* Algas maiores + coral rosado à direita (sem encostar na régua lateral) */}
-                          <div className="absolute bottom-2 right-11 sm:right-14 flex items-end gap-1.5 opacity-90">
-                            {/* Coral ramificado */}
-                            <svg width="42" height="44" viewBox="0 0 42 44" fill="none" className="drop-shadow-[0_2px_6px_rgba(244,114,182,0.25)]">
-                              <path
-                                d="M21 42V25M21 25C16 22 12 17 11 10M21 25C25 21 29 17 31 11M16 20C16 15 18 11 17 6M26 19C26 14 24 10 25 5M13 15C9 15 7 13 5 11M29 16C33 15 35 13 37 10"
-                                stroke="url(#coralGrad)"
-                                strokeWidth="4.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <defs>
-                                <linearGradient id="coralGrad" x1="21" y1="5" x2="21" y2="42" gradientUnits="userSpaceOnUse">
-                                  <stop stopColor="#FB7185" />
-                                  <stop offset="0.6" stopColor="#F43F5E" />
-                                  <stop offset="1" stopColor="#9F1239" />
-                                </linearGradient>
-                              </defs>
-                            </svg>
-
-                            {/* Tufo de algas altas à direita */}
-                            <div className="animate-seaweed-alt">
-                              <svg width="42" height="82" viewBox="0 0 42 82" fill="none">
-                                <path
-                                  d="M12 81C8 65 17 51 11 35C7 22 14 11 16 2C20 13 14 23 18 36C23 50 14 65 17 81H12Z"
-                                  fill="url(#seaweedGradRight1)"
-                                />
-                                <path
-                                  d="M23 81C28 66 19 52 25 36C29 25 23 15 26 7C31 17 28 28 30 39C32 52 25 66 28 81H23Z"
-                                  fill="url(#seaweedGradRight2)"
-                                />
-                                <path
-                                  d="M32 81C35 70 31 59 35 48C37 41 35 34 37 29C40 36 37 43 38 51C39 61 34 71 36 81H32Z"
-                                  fill="#10B981"
-                                  fillOpacity="0.65"
-                                />
-                                <defs>
-                                  <linearGradient id="seaweedGradRight1" x1="14" y1="2" x2="14" y2="81" gradientUnits="userSpaceOnUse">
-                                    <stop stopColor="#6EE7B7" stopOpacity="0.9" />
-                                    <stop offset="1" stopColor="#047857" stopOpacity="0.95" />
-                                  </linearGradient>
-                                  <linearGradient id="seaweedGradRight2" x1="27" y1="7" x2="27" y2="81" gradientUnits="userSpaceOnUse">
-                                    <stop stopColor="#34D399" stopOpacity="0.85" />
-                                    <stop offset="1" stopColor="#065F46" stopOpacity="0.95" />
-                                  </linearGradient>
-                                </defs>
-                              </svg>
-                            </div>
-                          </div>
-
-                          {/* Pedrinhas lisas, concha e estrela-do-mar no substrato */}
-                          <svg
-                            viewBox="0 0 600 42"
-                            preserveAspectRatio="none"
-                            className="w-full h-7 sm:h-8 block"
-                          >
-                            {/* Leito de areia ondulado no fundo do aquário */}
-                            <path
-                              d="M0 24C80 15 160 28 250 20C340 12 430 27 520 19C555 16 582 18 600 22V42H0V24Z"
-                              fill="url(#sandGrad)"
-                            />
-                            <path
-                              d="M0 30C95 23 190 34 295 27C395 20 490 33 600 26V42H0V30Z"
-                              fill="url(#sandGradFront)"
-                            />
-
-                            {/* Conjunto de pedrinhas arredondadas à esquerda-centro */}
-                            <ellipse cx="122" cy="27" rx="16" ry="7" fill="#334155" />
-                            <ellipse cx="122" cy="25.5" rx="13" ry="4.5" fill="#475569" opacity="0.65" />
-                            <ellipse cx="142" cy="29" rx="11" ry="5.5" fill="#1E293B" />
-                            <ellipse cx="106" cy="30" rx="9" ry="4.5" fill="#475569" />
-
-                            {/* Pedrinha central discreta */}
-                            <ellipse cx="305" cy="31" rx="14" ry="5" fill="#1E293B" opacity="0.85" />
-                            <ellipse cx="322" cy="33" rx="8" ry="3.5" fill="#334155" opacity="0.85" />
-
-                            {/* Concha com pérola e pedrinhas próximas ao coral à direita */}
-                            <ellipse cx="458" cy="29" rx="15" ry="6.5" fill="#334155" />
-                            <ellipse cx="478" cy="31" rx="10" ry="5" fill="#1E293B" />
-                            <path
-                              d="M424 31C424 24 434 20 439 27C441 30 438 33 431 33C426 33 424 32 424 31Z"
-                              fill="#FDE68A"
-                              fillOpacity="0.85"
-                            />
-                            <circle cx="432" cy="28" r="2.2" fill="#FFFBEB" />
-
-                            {/* Pequena estrela-do-mar sobre a areia */}
-                            <path
-                              d="M525 25L527.2 28.8L531.5 29.4L528.3 32.3L529.1 36.5L525 34.4L520.9 36.5L521.7 32.3L518.5 29.4L522.8 28.8Z"
-                              fill="#FB923C"
-                              fillOpacity="0.9"
-                            />
-
-                            <defs>
-                              <linearGradient id="sandGrad" x1="300" y1="14" x2="300" y2="42" gradientUnits="userSpaceOnUse">
-                                <stop stopColor="#0D3E4F" stopOpacity="0.95" />
-                                <stop offset="1" stopColor="#051E29" />
-                              </linearGradient>
-                              <linearGradient id="sandGradFront" x1="300" y1="20" x2="300" y2="42" gradientUnits="userSpaceOnUse">
-                                <stop stopColor="#135166" stopOpacity="0.85" />
-                                <stop offset="1" stopColor="#04161F" />
-                              </linearGradient>
-                            </defs>
-                          </svg>
-                        </div>
+                        )}
 
                         {/* Dois peixinhos nadando suavemente pela água (e subindo para comer quando a ração cai!) */}
                         {waterLevelPct > 20 && (
@@ -2059,153 +1975,367 @@ export default function App() {
                             </div>
                           </div>
                         )}
+                      </div>
+                    </div>
 
-                        {/* Árvore de Natal permanente e clicável no fundo do aquário (easter egg do Modo Natalino) */}
-                        <button
-                          type="button"
-                          onClick={() => setChristmasMode((prev) => !prev)}
-                          aria-label={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
-                          className={`absolute bottom-2.5 right-[118px] sm:right-[140px] z-30 pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none ${
-                            christmasMode ? 'opacity-100' : 'opacity-80 hover:opacity-100'
-                          }`}
-                        >
-                          <svg
-                            width="34"
-                            height="50"
-                            viewBox="0 0 36 54"
-                            fill="none"
-                            className={
-                              christmasMode
-                                ? 'drop-shadow-[0_2px_10px_rgba(251,191,36,0.45)]'
-                                : 'drop-shadow-[0_2px_6px_rgba(6,78,59,0.5)]'
-                            }
-                          >
-                            <rect x="15.5" y="45" width="5" height="7" rx="1" fill="#78350F" />
-                            <path d="M18 10L6 27H30L18 10Z" fill={christmasMode ? '#10B981' : '#065F46'} />
-                            <path d="M18 19L4 36H32L18 19Z" fill={christmasMode ? '#059669' : '#064E3B'} />
-                            <path d="M18 28L2 46H34L18 28Z" fill={christmasMode ? '#047857' : '#022C22'} />
-                            {/* Estrela no topo */}
+                    {/* Decorações fixas do fundo do aquário (permanecem visíveis mesmo com 0% de água) */}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[8]">
+                      {/* Algas marinhas à esquerda-centro (longe da bombinha) */}
+                      <div
+                        className={`absolute bottom-2 left-[19%] sm:left-[21%] opacity-85 ${
+                          waterLevelPct > 15 ? 'animate-seaweed' : ''
+                        }`}
+                      >
+                        <svg width="34" height="66" viewBox="0 0 34 66" fill="none">
+                          <path
+                            d="M12 65C9 52 16 42 11 28C7 17 13 8 15 2C18 11 14 19 17 29C21 41 14 52 16 65H12Z"
+                            fill="url(#seaweedGradLeft1)"
+                          />
+                          <path
+                            d="M21 65C24 54 18 44 23 32C26 24 23 15 25 10C29 18 26 26 27 35C28 45 23 54 25 65H21Z"
+                            fill="url(#seaweedGradLeft2)"
+                          />
+                          <defs>
+                            <linearGradient id="seaweedGradLeft1" x1="13" y1="2" x2="13" y2="65" gradientUnits="userSpaceOnUse">
+                              <stop stopColor="#34D399" stopOpacity="0.9" />
+                              <stop offset="1" stopColor="#065F46" stopOpacity="0.95" />
+                            </linearGradient>
+                            <linearGradient id="seaweedGradLeft2" x1="24" y1="10" x2="24" y2="65" gradientUnits="userSpaceOnUse">
+                              <stop stopColor="#2DD4BF" stopOpacity="0.85" />
+                              <stop offset="1" stopColor="#0F766E" stopOpacity="0.95" />
+                            </linearGradient>
+                          </defs>
+                        </svg>
+                      </div>
+
+                      {/* Algas maiores + coral rosado à direita (sem encostar na régua lateral) */}
+                      <div className="absolute bottom-2 right-11 sm:right-14 flex items-end gap-1.5 opacity-90">
+                        {/* Coral ramificado */}
+                        <svg width="42" height="44" viewBox="0 0 42 44" fill="none" className="drop-shadow-[0_2px_6px_rgba(244,114,182,0.25)]">
+                          <path
+                            d="M21 42V25M21 25C16 22 12 17 11 10M21 25C25 21 29 17 31 11M16 20C16 15 18 11 17 6M26 19C26 14 24 10 25 5M13 15C9 15 7 13 5 11M29 16C33 15 35 13 37 10"
+                            stroke="url(#coralGrad)"
+                            strokeWidth="4.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <defs>
+                            <linearGradient id="coralGrad" x1="21" y1="5" x2="21" y2="42" gradientUnits="userSpaceOnUse">
+                              <stop stopColor="#FB7185" />
+                              <stop offset="0.6" stopColor="#F43F5E" />
+                              <stop offset="1" stopColor="#9F1239" />
+                            </linearGradient>
+                          </defs>
+                        </svg>
+
+                        {/* Tufo de algas altas à direita */}
+                        <div className={waterLevelPct > 15 ? 'animate-seaweed-alt' : ''}>
+                          <svg width="42" height="82" viewBox="0 0 42 82" fill="none">
                             <path
-                              d="M18 2L19.6 6.2L24 6.5L20.6 9.3L21.7 13.5L18 11.2L14.3 13.5L15.4 9.3L12 6.5L16.4 6.2Z"
-                              fill={christmasMode ? '#FBBF24' : '#94A3B8'}
-                              fillOpacity={christmasMode ? 1 : 0.75}
+                              d="M12 81C8 65 17 51 11 35C7 22 14 11 16 2C20 13 14 23 18 36C23 50 14 65 17 81H12Z"
+                              fill="url(#seaweedGradRight1)"
                             />
-                            {/* Bolinhas decorativas */}
-                            <circle cx="14" cy="24" r="1.8" fill={christmasMode ? '#EF4444' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.65} />
-                            <circle cx="22" cy="25" r="1.8" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.6} />
-                            <circle cx="11" cy="34" r="1.9" fill={christmasMode ? '#38BDF8' : '#FB7185'} fillOpacity={christmasMode ? 1 : 0.65} />
-                            <circle cx="19" cy="33" r="1.9" fill={christmasMode ? '#EF4444' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
-                            <circle cx="25" cy="35" r="1.8" fill={christmasMode ? '#FBBF24' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.6} />
-                            <circle cx="13" cy="43" r="2" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.65} />
-                            <circle cx="23" cy="42" r="2" fill={christmasMode ? '#FB7185' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
+                            <path
+                              d="M23 81C28 66 19 52 25 36C29 25 23 15 26 7C31 17 28 28 30 39C32 52 25 66 28 81H23Z"
+                              fill="url(#seaweedGradRight2)"
+                            />
+                            <path
+                              d="M32 81C35 70 31 59 35 48C37 41 35 34 37 29C40 36 37 43 38 51C39 61 34 71 36 81H32Z"
+                              fill="#10B981"
+                              fillOpacity="0.65"
+                            />
+                            <defs>
+                              <linearGradient id="seaweedGradRight1" x1="14" y1="2" x2="14" y2="81" gradientUnits="userSpaceOnUse">
+                                <stop stopColor="#6EE7B7" stopOpacity="0.9" />
+                                <stop offset="1" stopColor="#047857" stopOpacity="0.95" />
+                              </linearGradient>
+                              <linearGradient id="seaweedGradRight2" x1="27" y1="7" x2="27" y2="81" gradientUnits="userSpaceOnUse">
+                                <stop stopColor="#34D399" stopOpacity="0.85" />
+                                <stop offset="1" stopColor="#065F46" stopOpacity="0.95" />
+                              </linearGradient>
+                            </defs>
                           </svg>
-                        </button>
-
-                        {/* Bombinha submersa clicável no canto inferior esquerdo (ativa/desativa a bomba ao clicar) */}
-                        <div className="absolute bottom-2.5 left-3.5 z-30 pointer-events-none flex items-end">
-                          {/* Ventosas de fixação no vidro esquerdo */}
-                          <div className="flex flex-col gap-1.5 mr-0.5 mb-1">
-                            <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
-                            <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
-                          </div>
-
-                          {/* Corpo da bombinha submersa como botão */}
-                          <button
-                            type="button"
-                            onClick={handleTogglePump}
-                            aria-label={pumpRelayOn ? 'Desligar Bomba' : 'Ligar Bomba'}
-                            className={`pointer-events-auto cursor-pointer relative flex items-center transition-transform duration-200 hover:scale-105 active:scale-95 focus:outline-none ${pumpRelayOn ? 'animate-pump-hum' : ''}`}
-                          >
-                            {/* Conector superior onde encaixa a mangueirinha de ar */}
-                            <div
-                              className={`absolute -top-2 left-2.5 w-2 h-2.5 rounded-t-sm border transition-all duration-300 ${
-                                pumpRelayOn
-                                  ? 'bg-sky-300 border-white/60 shadow-[0_0_6px_rgba(125,211,252,0.8)]'
-                                  : 'bg-slate-600 border-white/25'
-                              }`}
-                            />
-
-                            <div
-                              className={`w-9 h-7 rounded-lg bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950 border flex flex-col items-center justify-between p-1 transition-all duration-300 ${
-                                pumpRelayOn
-                                  ? 'border-sky-300/50 shadow-[0_0_16px_rgba(56,189,248,0.4)]'
-                                  : 'border-slate-500/40 opacity-85'
-                              }`}
-                            >
-                              {/* Grades de sucção */}
-                              <div className="w-full flex justify-between items-center px-0.5">
-                                <div className="space-y-0.5">
-                                  <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
-                                  <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
-                                  <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
-                                </div>
-                                {/* LED indicador de status da bomba */}
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                                    pumpRelayOn
-                                      ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse'
-                                      : 'bg-slate-500/70'
-                                  }`}
-                                />
-                              </div>
-                              <span className="text-[6px] font-mono-code tracking-tighter text-sky-200/80 uppercase leading-none">
-                                O₂
-                              </span>
-                            </div>
-
-                            {/* Bico difusor lateral de onde saem as bolhas */}
-                            <div
-                              className={`relative -top-1.5 -ml-0.5 w-3.5 h-2.5 rounded-r-md border transition-all duration-300 ${
-                                pumpRelayOn
-                                  ? 'bg-gradient-to-r from-sky-400 to-cyan-200 border-white/70 shadow-[0_0_14px_rgba(125,211,252,0.9)]'
-                                  : 'bg-gradient-to-r from-slate-600 to-slate-500 border-white/25'
-                              }`}
-                            >
-                              {/* Coluna intensa e brilhante de bolhas saindo do bico apenas quando a bomba está ligada */}
-                              {pumpRelayOn && waterLevelPct > 5 && (
-                                <div className="absolute -top-1.5 left-2 w-24 h-52 pointer-events-none">
-                                  <span
-                                    style={{ '--duration': '1.8s', '--delay': '0s', '--sway': '8px', left: '0px' }}
-                                    className="bubble absolute bottom-0 w-3 h-3 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '2.2s', '--delay': '0.2s', '--sway': '16px', left: '4px' }}
-                                    className="bubble absolute bottom-0 w-2 h-2 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '1.6s', '--delay': '0.45s', '--sway': '-5px', left: '1px' }}
-                                    className="bubble absolute bottom-0 w-3.5 h-3.5 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '2.4s', '--delay': '0.7s', '--sway': '20px', left: '6px' }}
-                                    className="bubble absolute bottom-0 w-2.5 h-2.5 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '1.9s', '--delay': '0.95s', '--sway': '12px', left: '2px' }}
-                                    className="bubble absolute bottom-0 w-3 h-3 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '2.1s', '--delay': '1.2s', '--sway': '3px', left: '0px' }}
-                                    className="bubble absolute bottom-0 w-2 h-2 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '1.75s', '--delay': '1.45s', '--sway': '14px', left: '4px' }}
-                                    className="bubble absolute bottom-0 w-3.5 h-3.5 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '2.3s', '--delay': '1.7s', '--sway': '22px', left: '7px' }}
-                                    className="bubble absolute bottom-0 w-2.5 h-2.5 rounded-full"
-                                  />
-                                  <span
-                                    style={{ '--duration': '1.95s', '--delay': '1.95s', '--sway': '9px', left: '3px' }}
-                                    className="bubble absolute bottom-0 w-3 h-3 rounded-full"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </button>
                         </div>
                       </div>
+
+                      {/* Pedrinhas lisas, concha e estrela-do-mar no substrato */}
+                      <svg
+                        viewBox="0 0 600 42"
+                        preserveAspectRatio="none"
+                        className="w-full h-7 sm:h-8 block"
+                      >
+                        {/* Leito de areia ondulado no fundo do aquário */}
+                        <path
+                          d="M0 24C80 15 160 28 250 20C340 12 430 27 520 19C555 16 582 18 600 22V42H0V24Z"
+                          fill="url(#sandGrad)"
+                        />
+                        <path
+                          d="M0 30C95 23 190 34 295 27C395 20 490 33 600 26V42H0V30Z"
+                          fill="url(#sandGradFront)"
+                        />
+
+                        {/* Conjunto de pedrinhas arredondadas à esquerda-centro */}
+                        <ellipse cx="122" cy="27" rx="16" ry="7" fill="#334155" />
+                        <ellipse cx="122" cy="25.5" rx="13" ry="4.5" fill="#475569" opacity="0.65" />
+                        <ellipse cx="142" cy="29" rx="11" ry="5.5" fill="#1E293B" />
+                        <ellipse cx="106" cy="30" rx="9" ry="4.5" fill="#475569" />
+
+                        {/* Pedrinha central discreta */}
+                        <ellipse cx="305" cy="31" rx="14" ry="5" fill="#1E293B" opacity="0.85" />
+                        <ellipse cx="322" cy="33" rx="8" ry="3.5" fill="#334155" opacity="0.85" />
+
+                        {/* Concha com pérola e pedrinhas próximas ao coral à direita */}
+                        <ellipse cx="458" cy="29" rx="15" ry="6.5" fill="#334155" />
+                        <ellipse cx="478" cy="31" rx="10" ry="5" fill="#1E293B" />
+                        <path
+                          d="M424 31C424 24 434 20 439 27C441 30 438 33 431 33C426 33 424 32 424 31Z"
+                          fill="#FDE68A"
+                          fillOpacity="0.85"
+                        />
+                        <circle cx="432" cy="28" r="2.2" fill="#FFFBEB" />
+
+                        {/* Pequena estrela-do-mar sobre a areia */}
+                        <path
+                          d="M525 25L527.2 28.8L531.5 29.4L528.3 32.3L529.1 36.5L525 34.4L520.9 36.5L521.7 32.3L518.5 29.4L522.8 28.8Z"
+                          fill="#FB923C"
+                          fillOpacity="0.9"
+                        />
+
+                        <defs>
+                          <linearGradient id="sandGrad" x1="300" y1="14" x2="300" y2="42" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#0D3E4F" stopOpacity="0.95" />
+                            <stop offset="1" stopColor="#051E29" />
+                          </linearGradient>
+                          <linearGradient id="sandGradFront" x1="300" y1="20" x2="300" y2="42" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#135166" stopOpacity="0.85" />
+                            <stop offset="1" stopColor="#04161F" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </div>
+
+                    {/* Peixinhos pulando / se debatendo na areia quando o aquário fica sem água (<= 20%) */}
+                    {waterLevelPct !== null && waterLevelPct <= 20 && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-[15]">
+                        {/* Peixinho 1 (Laranja/Dourado) pulando sem água */}
+                        <div className="absolute bottom-0 left-[29%] sm:left-[32%]">
+                          <span
+                            style={{ '--dx': '-8px' }}
+                            className="animate-flop-splash absolute -top-1 left-2 w-1.5 h-1.5 rounded-full bg-[#47DDF5]/90"
+                          />
+                          <span
+                            style={{ '--dx': '10px' }}
+                            className="animate-flop-splash absolute -top-2 left-5 w-1 h-1 rounded-full bg-sky-200/90"
+                          />
+                          <div className="animate-fish-flop-1">
+                            <svg
+                              width="34"
+                              height="20"
+                              viewBox="0 0 34 20"
+                              fill="none"
+                              className="drop-shadow-[0_3px_6px_rgba(251,146,60,0.45)]"
+                            >
+                              <path
+                                d="M7 10L1 4V16L7 10Z"
+                                fill="#FB923C"
+                                className="animate-fish-tail-fast"
+                              />
+                              <path d="M15 4C17 1 21 1 22 4.5" fill="#F97316" />
+                              <ellipse cx="19" cy="10" rx="11" ry="6" fill="url(#fishDryGrad1)" />
+                              <path
+                                d="M16 4.5C17.5 8 17.5 12 16 15.5"
+                                stroke="#FFF7ED"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeOpacity="0.65"
+                              />
+                              <path
+                                d="M21 4.5C22.2 8 22.2 12 21 15.5"
+                                stroke="#FFF7ED"
+                                strokeWidth="1.3"
+                                strokeLinecap="round"
+                                strokeOpacity="0.5"
+                              />
+                              {/* Olho arregalado + boquinha aberta sem água */}
+                              <circle cx="25.5" cy="8.2" r="2" fill="#FFFFFF" />
+                              <circle cx="25.8" cy="8.2" r="1.1" fill="#0F172A" />
+                              <circle cx="29.1" cy="10.8" r="1.4" fill="#7C2D12" />
+                              {christmasMode && (
+                                <g transform="translate(13, -1)">
+                                  <path d="M2 5C4 0.5 9 -0.5 12 2.5C10 4 9.5 5 9.5 5.5Z" fill="#DC2626" />
+                                  <rect x="1.5" y="4.5" width="9" height="2" rx="1" fill="#F8FAFC" />
+                                  <circle cx="12.2" cy="2.6" r="1.3" fill="#F8FAFC" />
+                                </g>
+                              )}
+                              <defs>
+                                <linearGradient id="fishDryGrad1" x1="8" y1="4" x2="30" y2="16" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="#FDBA74" />
+                                  <stop offset="0.5" stopColor="#FB923C" />
+                                  <stop offset="1" stopColor="#EA580C" />
+                                </linearGradient>
+                              </defs>
+                            </svg>
+                          </div>
+                        </div>
+
+                        {/* Peixinho 2 (Azul Neon / Ciano) pulando sem água */}
+                        <div className="absolute bottom-0 left-[54%] sm:left-[56%]">
+                          <span
+                            style={{ '--dx': '9px' }}
+                            className="animate-flop-splash-alt absolute -top-1 left-3 w-1.5 h-1.5 rounded-full bg-[#47DDF5]/90"
+                          />
+                          <span
+                            style={{ '--dx': '-7px' }}
+                            className="animate-flop-splash-alt absolute -top-2 left-1 w-1 h-1 rounded-full bg-sky-200/90"
+                          />
+                          <div className="animate-fish-flop-2">
+                            <svg
+                              width="30"
+                              height="18"
+                              viewBox="0 0 34 20"
+                              fill="none"
+                              className="drop-shadow-[0_3px_6px_rgba(56,189,248,0.5)]"
+                            >
+                              <path
+                                d="M7 10L1 4.5V15.5L7 10Z"
+                                fill="#38BDF8"
+                                className="animate-fish-tail-fast"
+                              />
+                              <path d="M15 4.5C17 1.5 20.5 1.5 22 4.8" fill="#0284C7" />
+                              <ellipse cx="19" cy="10" rx="10.5" ry="5.5" fill="url(#fishDryGrad2)" />
+                              <path
+                                d="M11 9.5H25"
+                                stroke="#E0F2FE"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeOpacity="0.8"
+                              />
+                              {/* Olho arregalado + boquinha aberta sem água */}
+                              <circle cx="25.5" cy="8.2" r="1.9" fill="#FFFFFF" />
+                              <circle cx="25.8" cy="8.2" r="1" fill="#0F172A" />
+                              <circle cx="28.8" cy="10.8" r="1.3" fill="#082F49" />
+                              {christmasMode && (
+                                <g transform="translate(13, -0.5)">
+                                  <path d="M2 5C4 0.5 9 -0.5 12 2.5C10 4 9.5 5 9.5 5.5Z" fill="#DC2626" />
+                                  <rect x="1.5" y="4.5" width="9" height="2" rx="1" fill="#F8FAFC" />
+                                  <circle cx="12.2" cy="2.6" r="1.3" fill="#F8FAFC" />
+                                </g>
+                              )}
+                              <defs>
+                                <linearGradient id="fishDryGrad2" x1="8" y1="4" x2="30" y2="16" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="#67E8F9" />
+                                  <stop offset="0.55" stopColor="#38BDF8" />
+                                  <stop offset="1" stopColor="#0284C7" />
+                                </linearGradient>
+                              </defs>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Árvore de Natal permanente e clicável no fundo do aquário (sempre visível mesmo a 0%) */}
+                    <button
+                      type="button"
+                      onClick={() => setChristmasMode((prev) => !prev)}
+                      aria-label={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
+                      className={`absolute bottom-2.5 right-[118px] sm:right-[140px] z-30 pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none ${
+                        christmasMode ? 'opacity-100' : 'opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      <svg
+                        width="34"
+                        height="50"
+                        viewBox="0 0 36 54"
+                        fill="none"
+                        className={
+                          christmasMode
+                            ? 'drop-shadow-[0_2px_10px_rgba(251,191,36,0.45)]'
+                            : 'drop-shadow-[0_2px_6px_rgba(6,78,59,0.5)]'
+                        }
+                      >
+                        <rect x="15.5" y="45" width="5" height="7" rx="1" fill="#78350F" />
+                        <path d="M18 10L6 27H30L18 10Z" fill={christmasMode ? '#10B981' : '#065F46'} />
+                        <path d="M18 19L4 36H32L18 19Z" fill={christmasMode ? '#059669' : '#064E3B'} />
+                        <path d="M18 28L2 46H34L18 28Z" fill={christmasMode ? '#047857' : '#022C22'} />
+                        {/* Estrela no topo */}
+                        <path
+                          d="M18 2L19.6 6.2L24 6.5L20.6 9.3L21.7 13.5L18 11.2L14.3 13.5L15.4 9.3L12 6.5L16.4 6.2Z"
+                          fill={christmasMode ? '#FBBF24' : '#94A3B8'}
+                          fillOpacity={christmasMode ? 1 : 0.75}
+                        />
+                        {/* Bolinhas decorativas */}
+                        <circle cx="14" cy="24" r="1.8" fill={christmasMode ? '#EF4444' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.65} />
+                        <circle cx="22" cy="25" r="1.8" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.6} />
+                        <circle cx="11" cy="34" r="1.9" fill={christmasMode ? '#38BDF8' : '#FB7185'} fillOpacity={christmasMode ? 1 : 0.65} />
+                        <circle cx="19" cy="33" r="1.9" fill={christmasMode ? '#EF4444' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
+                        <circle cx="25" cy="35" r="1.8" fill={christmasMode ? '#FBBF24' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.6} />
+                        <circle cx="13" cy="43" r="2" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.65} />
+                        <circle cx="23" cy="42" r="2" fill={christmasMode ? '#FB7185' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
+                      </svg>
+                    </button>
+
+                    {/* Bombinha submersa clicável no canto inferior esquerdo (sempre visível mesmo a 0%) */}
+                    <div className="absolute bottom-2.5 left-3.5 z-30 pointer-events-none flex items-end">
+                      {/* Ventosas de fixação no vidro esquerdo */}
+                      <div className="flex flex-col gap-1.5 mr-0.5 mb-1">
+                        <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
+                        <span className="w-1 h-2 rounded-l-full bg-slate-300/70" />
+                      </div>
+
+                      {/* Corpo da bombinha submersa como botão */}
+                      <button
+                        type="button"
+                        onClick={handleTogglePump}
+                        aria-label={pumpRelayOn ? 'Desligar Bomba' : 'Ligar Bomba'}
+                        className={`pointer-events-auto cursor-pointer relative flex items-center transition-transform duration-200 hover:scale-105 active:scale-95 focus:outline-none ${pumpRelayOn ? 'animate-pump-hum' : ''}`}
+                      >
+                        {/* Conector superior onde encaixa a mangueirinha de ar */}
+                        <div
+                          className={`absolute -top-2 left-2.5 w-2 h-2.5 rounded-t-sm border transition-all duration-300 ${
+                            pumpRelayOn
+                              ? 'bg-sky-300 border-white/60 shadow-[0_0_6px_rgba(125,211,252,0.8)]'
+                              : 'bg-slate-600 border-white/25'
+                          }`}
+                        />
+
+                        <div
+                          className={`w-9 h-7 rounded-lg bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950 border flex flex-col items-center justify-between p-1 transition-all duration-300 ${
+                            pumpRelayOn
+                              ? 'border-sky-300/50 shadow-[0_0_16px_rgba(56,189,248,0.4)]'
+                              : 'border-slate-500/40 opacity-85'
+                          }`}
+                        >
+                          {/* Grades de sucção */}
+                          <div className="w-full flex justify-between items-center px-0.5">
+                            <div className="space-y-0.5">
+                              <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
+                              <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
+                              <span className={`block w-3 h-[1.5px] rounded-full ${pumpRelayOn ? 'bg-sky-300/60' : 'bg-slate-400/40'}`} />
+                            </div>
+                            {/* LED indicador de status da bomba */}
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                                pumpRelayOn
+                                  ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse'
+                                  : 'bg-slate-500/70'
+                              }`}
+                            />
+                          </div>
+                          <span className="text-[6px] font-mono-code tracking-tighter text-sky-200/80 uppercase leading-none">
+                            O₂
+                          </span>
+                        </div>
+
+                        {/* Bico difusor lateral de onde saem as bolhas */}
+                        <div
+                          className={`relative -top-1.5 -ml-0.5 w-3.5 h-2.5 rounded-r-md border transition-all duration-300 ${
+                            pumpRelayOn
+                              ? 'bg-gradient-to-r from-sky-400 to-cyan-200 border-white/70 shadow-[0_0_14px_rgba(125,211,252,0.9)]'
+                              : 'bg-gradient-to-r from-slate-600 to-slate-500 border-white/25'
+                          }`}
+                        />
+                      </button>
                     </div>
 
                     {/* Indicador Central */}
