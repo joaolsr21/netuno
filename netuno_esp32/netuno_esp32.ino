@@ -46,12 +46,28 @@ const char* SUPABASE_KEY = "sb_publishable_3C-PPYFJNBrzQ1msagDQAQ_1EQm7GUa";
 #define IN3_PIN               14    // Motor de Passo - IN3
 #define IN4_PIN               27    // Motor de Passo - IN4
 
-// ===================== ALIMENTADOR (MOTOR DE PASSO - AccelStepper 3g/3g) =====
-const int   GRAMS_PER_DOSE        = 3;      // Gramas depositadas a cada acionamento do motor
-const int   MAX_DOSES_PER_FEED    = 10;     // Máximo 30g por acionamento (10 x 3g)
-const long  passosPorAcionamento  = 2048;   // HALF4WIRE: 4096 = 1 volta | 2048 = meia volta (ajustável)
-const float velocidadeMaxPassos   = 1000.0; // Velocidade máx. em passos/seg (~15 RPM em HALF4WIRE; teste até ~1200)
-const float aceleracaoPassos      = 600.0;  // Rampa de aceleração em passos/seg² (evita travar na partida)
+// ===================== ALIMENTADOR (12 COMPARTIMENTOS + BARREIRAS - 3g) =====
+const int   TOTAL_FEEDER_COMPARTMENTS  = 12;     // 12 compartimentos no carrossel (total: 36g)
+const int   GRAMS_PER_DOSE             = 3;      // Gramas por compartimento
+const int   MAX_DOSES_PER_FEED         = 12;     // Máximo 36g por acionamento (12 x 3g)
+const int   FEEDER_LOW_ALERT_COMPS     = 4;      // Aviso de ração baixa (<= 4 comps = 12g)
+const int   FEEDER_CRITICAL_ALERT_COMPS = 2;     // Alerta crítico (<= 2 comps = 6g)
+
+// Calibração validada no alimentador.ino (HALF4WIRE: 4096 passos = 360°)
+const long  PASSOS_ALIMENTACAO         = 341;    // 30°   -> Compartimento atual até o próximo
+const long  PASSOS_BARREIRA            = 170;    // 14.9° -> Barreira <-> Compartimento (meia etapa)
+const float velocidadeMaxPassos        = 1000.0; // Velocidade máx. em passos/seg
+const float aceleracaoPassos           = 600.0;  // Rampa de aceleração em passos/seg²
+const bool  FEEDER_INVERT_DIR          = false;  // Troque para true se quiser inverter o sentido
+const bool  FEEDER_SHAKE_ENABLED       = true;   // Tremidinha ao final da dose para soltar a ração
+const long  FEEDER_SHAKE_STEPS         = 40;     // Amplitude calibrada (k 40)
+const int   FEEDER_SHAKE_REPS          = 4;      // Quantidade de idas e voltas da tremidinha
+const float FEEDER_SHAKE_SPEED         = 1000.0; // Velocidade da tremidinha (passos/s)
+const float FEEDER_SHAKE_ACCEL         = 3000.0; // Aceleração alta = tranco seco
+
+// Estado físico atual do carrossel (salvo em Flash NVS; inicia alinhado na BARREIRA e cheio 12/12)
+int  feederCompartmentsLeft            = TOTAL_FEEDER_COMPARTMENTS;
+bool feederOnBarrier                   = true;   // true = barreira tampando o furo (pronto p/ reabastecer)
 
 // ===================== HORÁRIOS PROGRAMADOS DO ALIMENTADOR (BASEADOS NO RTC) =
 #define MAX_FEED_SCHEDULES 8
@@ -175,8 +191,46 @@ unsigned long lastHistoryLogMs    = 0;
 unsigned long lastWifiAttemptMs   = 0;
 unsigned long connectStartMs      = 0;
 unsigned long apPortalStartMs     = 0;
-int           lcdScreen           = 0; // 0 = Nível/Temp | 1 = Data/Hora e Próx. Alimentação
+int           lcdScreen           = 0; // 0 = Nível/Temp | 1 = Data/Hora e Próx. | 2 = Ração Restante
 bool          schedulesSyncedOnce = false;
+bool          feederColsSupported = true; // Fallback automático se colunas novas ainda não existirem no banco
+
+// Persistência do estado do alimentador na memória Flash NVS
+void loadFeederStateFromNVS() {
+  prefs.begin("netuno_feed", true);
+  bool initialized = prefs.getBool("init", false);
+  if (initialized) {
+    feederCompartmentsLeft = constrain(prefs.getInt("comps", TOTAL_FEEDER_COMPARTMENTS), 0, TOTAL_FEEDER_COMPARTMENTS);
+    feederOnBarrier        = prefs.getBool("barrier", true);
+  } else {
+    // Primeiro boot: assume motor alinhado na barreira e 12/12 compartimentos cheios (36g)
+    feederCompartmentsLeft = TOTAL_FEEDER_COMPARTMENTS;
+    feederOnBarrier        = true;
+  }
+  prefs.end();
+
+  if (!initialized) {
+    prefs.begin("netuno_feed", false);
+    prefs.putBool("init", true);
+    prefs.putInt("comps", feederCompartmentsLeft);
+    prefs.putBool("barrier", feederOnBarrier);
+    prefs.end();
+  }
+
+  Serial.printf("[ALIMENTADOR/NVS] Estoque: %d/%d (%dg) | Posicao no furo: %s\n",
+                feederCompartmentsLeft,
+                TOTAL_FEEDER_COMPARTMENTS,
+                feederCompartmentsLeft * GRAMS_PER_DOSE,
+                feederOnBarrier ? "BARREIRA (tampado)" : "COMPARTIMENTO");
+}
+
+void saveFeederStateToNVS() {
+  prefs.begin("netuno_feed", false);
+  prefs.putBool("init", true);
+  prefs.putInt("comps", feederCompartmentsLeft);
+  prefs.putBool("barrier", feederOnBarrier);
+  prefs.end();
+}
 
 // ============================================================================
 // 1. PERSISTÊNCIA NA MEMÓRIA FLASH (NVS) — SALVA ATÉ 5 REDES WI-FI
@@ -748,7 +802,7 @@ void updateLCD() {
   if (lcdScreen == 0) {
     snprintf(line0, sizeof(line0), "Nivel Agua: %3d%%", waterLevelPct);
     snprintf(line1, sizeof(line1), "Temp: %5.1f %cC  ", temperatureC, (char)223);
-  } else {
+  } else if (lcdScreen == 1) {
     snprintf(line0, sizeof(line0), "%02d/%02d  %02d:%02d:%02d ",
              rtcDay, rtcMonth, rtcHour, rtcMinute, rtcSecond);
     int nextIdx = findNextScheduleIndex();
@@ -758,6 +812,20 @@ void updateLCD() {
                feedSchedules[nextIdx].hour, feedSchedules[nextIdx].minute, nextGrams);
     } else {
       snprintf(line1, sizeof(line1), "Prox: --:--     ");
+    }
+  } else {
+    int gramsLeft = feederCompartmentsLeft * GRAMS_PER_DOSE;
+    snprintf(line0, sizeof(line0), "Racao:%2dg %2d/12 ", gramsLeft, feederCompartmentsLeft);
+    if (feederCompartmentsLeft <= 0) {
+      snprintf(line1, sizeof(line1), "VAZIO! Reabast. ");
+    } else if (feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS) {
+      snprintf(line1, sizeof(line1), "CRITICO! Pouca  ");
+    } else if (feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS) {
+      snprintf(line1, sizeof(line1), "AVISO: Racao Bx ");
+    } else if (feederOnBarrier) {
+      snprintf(line1, sizeof(line1), "Barreira: OK    ");
+    } else {
+      snprintf(line1, sizeof(line1), "Estoque: OK     ");
     }
   }
 
@@ -971,26 +1039,20 @@ String getRtcIsoString() {
   return String(buf);
 }
 
-// Aciona o motor de passo do alimentador em múltiplos de 3g por acionamento
-void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
-  int grams = parsePortionGrams(portionLabel);
-  int doses = grams / GRAMS_PER_DOSE;
+void disableStepperCoils() {
+  mp.disableOutputs();
+  digitalWrite(IN1_PIN, LOW);
+  digitalWrite(IN2_PIN, LOW);
+  digitalWrite(IN3_PIN, LOW);
+  digitalWrite(IN4_PIN, LOW);
+}
 
-  Serial.printf("[ALIMENTADOR] %s -> Depositando %dg (%d acionamento(s) de %dg) no horário RTC %02d:%02d:%02d\n",
-                triggerReason.c_str(), grams, doses, GRAMS_PER_DOSE, rtcHour, rtcMinute, rtcSecond);
-
-  if (!apPortalActive) {
-    char line1[17];
-    snprintf(line1, sizeof(line1), "Porcao:%2dg (%dx) ", grams, doses);
-    lcd.setCursor(0, 0);
-    lcd.print("  ALIMENTANDO   ");
-    lcd.setCursor(0, 1);
-    lcd.print(line1);
-  }
-
-  long totalSteps = (long)doses * passosPorAcionamento;
+void runStepperSteps(long steps, float maxSpd, float accel) {
+  long finalSteps = FEEDER_INVERT_DIR ? -steps : steps;
+  mp.setMaxSpeed(maxSpd);
+  mp.setAcceleration(accel);
   mp.enableOutputs();
-  mp.move(totalSteps);
+  mp.move(finalSteps);
 
   unsigned long lastYieldMs = millis();
   while (mp.distanceToGo() != 0) {
@@ -1000,11 +1062,200 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
       yield();
     }
   }
+}
+
+void runFeederShake() {
+  if (!FEEDER_SHAKE_ENABLED || FEEDER_SHAKE_STEPS <= 0 || FEEDER_SHAKE_REPS <= 0) return;
+
+  mp.setMaxSpeed(FEEDER_SHAKE_SPEED);
+  mp.setAcceleration(FEEDER_SHAKE_ACCEL);
+  mp.enableOutputs();
+
+  for (int i = 0; i < FEEDER_SHAKE_REPS; i++) {
+    runStepperSteps(FEEDER_SHAKE_STEPS, FEEDER_SHAKE_SPEED, FEEDER_SHAKE_ACCEL);
+    runStepperSteps(-FEEDER_SHAKE_STEPS, FEEDER_SHAKE_SPEED, FEEDER_SHAKE_ACCEL);
+  }
+
+  mp.setMaxSpeed(velocidadeMaxPassos);
+  mp.setAcceleration(aceleracaoPassos);
+}
+
+// Registra evento do alimentador na tabela telemetry_logs (quando online)
+void sendFeederEventLog(const String& message) {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  http.setTimeout(3500);
+  String endpoint = String(SUPABASE_URL) + "/rest/v1/telemetry_logs";
+  http.begin(endpoint);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+
+  String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
+  String payload = "{\"device_username\":\"" + activeUser + "\","
+                   "\"event_type\":\"feeder\","
+                   "\"message\":\"" + message + "\","
+                   "\"source\":\"Alimentador ESP32\"}";
+
+  http.POST(payload);
+  http.end();
+}
+
+// Atualiza rapidamente o estoque e posição da barreira no Supabase após uma ação do motor
+void patchFeederStateToSupabase() {
+  if (WiFi.status() != WL_CONNECTED || !feederColsSupported) return;
+
+  String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
+  activeUser.trim();
+  String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?device_username=eq." + urlEncodeValue(activeUser);
+
+  HTTPClient http;
+  http.setTimeout(3000);
+  http.begin(filterEndpoint);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+
+  String body = "{\"feeder_compartments_left\":" + String(feederCompartmentsLeft) +
+                ",\"feeder_on_barrier\":" + String(feederOnBarrier ? "true" : "false") + "}";
+  http.PATCH(body);
+  http.end();
+}
+
+// Posiciona a barreira tampando o furo para reabastecimento seguro (sem tremidinha)
+void alignFeederToBarrier() {
+  if (feederOnBarrier) {
+    Serial.println("[ALIMENTADOR] Barreira ja esta tampando o furo (pronto para reabastecer).");
+    return;
+  }
+
+  Serial.println("[ALIMENTADOR] Alinhando BARREIRA no furo (170 passos) para reabastecimento...");
+  if (!apPortalActive) {
+    lcd.setCursor(0, 0);
+    lcd.print("MODO REABASTECER");
+    lcd.setCursor(0, 1);
+    lcd.print("Fechando furo...");
+  }
+
+  runStepperSteps(PASSOS_BARREIRA, velocidadeMaxPassos, aceleracaoPassos);
+  disableStepperCoils();
+
+  feederOnBarrier = true;
+  saveFeederStateToNVS();
+  patchFeederStateToSupabase();
+
+  if (!apPortalActive) {
+    lcd.setCursor(0, 0);
+    lcd.print("BARREIRA NO FURO");
+    lcd.setCursor(0, 1);
+    lcd.print("Pode reabastecer");
+    delay(800);
+  }
+
+  updateLCD();
+  sendFeederEventLog("Modo Reabastecer ativado: barreira posicionada tampando o furo.");
+}
+
+// Confirma reabastecimento completo (12/12 compartimentos = 36g)
+void confirmFeederRefill() {
+  if (!feederOnBarrier) {
+    alignFeederToBarrier();
+  }
+
+  feederCompartmentsLeft = TOTAL_FEEDER_COMPARTMENTS;
+  feederOnBarrier = true;
+  saveFeederStateToNVS();
+  patchFeederStateToSupabase();
+
+  Serial.printf("[ALIMENTADOR] Reabastecimento confirmado: %d/%d compartimentos (%dg).\n",
+                feederCompartmentsLeft, TOTAL_FEEDER_COMPARTMENTS,
+                feederCompartmentsLeft * GRAMS_PER_DOSE);
+
+  if (!apPortalActive) {
+    lcd.setCursor(0, 0);
+    lcd.print("REABASTECIDO!   ");
+    lcd.setCursor(0, 1);
+    lcd.print("Racao: 36g 12/12");
+    delay(1000);
+  }
+
+  updateLCD();
+  sendFeederEventLog("Alimentador reabastecido: 12/12 compartimentos (36g).");
+}
+
+// Aciona o motor de passo do alimentador (12 compartimentos x 3g + barreiras + tremidinha)
+void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
+  int gramsRequested = parsePortionGrams(portionLabel);
+  int dosesRequested = gramsRequested / GRAMS_PER_DOSE;
+
+  if (feederCompartmentsLeft <= 0) {
+    Serial.println("[ALIMENTADOR] BLOQUEADO: Reservatorio VAZIO (0/12 = 0g)! Reabasteca primeiro.");
+    if (!apPortalActive) {
+      lcd.setCursor(0, 0);
+      lcd.print("RACAO ACABOU!   ");
+      lcd.setCursor(0, 1);
+      lcd.print("Reabastecer 0/12");
+      delay(1200);
+    }
+    updateLCD();
+    sendFeederEventLog("Alimentacao bloqueada: reservatorio vazio (0/12 compartimentos).");
+    return;
+  }
+
+  int dosesToRun = min(dosesRequested, feederCompartmentsLeft);
+  int gramsToRun = dosesToRun * GRAMS_PER_DOSE;
+
+  Serial.printf("[ALIMENTADOR] %s -> Depositando %dg (%d compartimento(s) de %dg) | RTC %02d:%02d:%02d\n",
+                triggerReason.c_str(), gramsToRun, dosesToRun, GRAMS_PER_DOSE, rtcHour, rtcMinute, rtcSecond);
+
+  if (!apPortalActive) {
+    char line1[17];
+    snprintf(line1, sizeof(line1), "Porcao:%2dg (%dx) ", gramsToRun, dosesToRun);
+    lcd.setCursor(0, 0);
+    lcd.print("  ALIMENTANDO   ");
+    lcd.setCursor(0, 1);
+    lcd.print(line1);
+  }
+
+  for (int d = 0; d < dosesToRun; d++) {
+    // Saindo da BARREIRA -> meia etapa (170 passos) até o 1º compartimento.
+    // Já estando em um COMPARTIMENTO -> etapa completa (341 passos) até o próximo.
+    long steps = feederOnBarrier ? PASSOS_BARREIRA : PASSOS_ALIMENTACAO;
+    runStepperSteps(steps, velocidadeMaxPassos, aceleracaoPassos);
+    runFeederShake();
+
+    feederOnBarrier = false;
+    if (feederCompartmentsLeft > 0) {
+      feederCompartmentsLeft--;
+    }
+    saveFeederStateToNVS();
+
+    if (d + 1 < dosesToRun) {
+      delay(350);
+    }
+  }
 
   // Desenergiza as bobinas do motor de passo após o depósito
-  mp.disableOutputs();
-  delay(300);
+  disableStepperCoils();
+  delay(200);
 
+  int gramsLeft = feederCompartmentsLeft * GRAMS_PER_DOSE;
+  Serial.printf("[ALIMENTADOR] Concluido! Restam %d/%d compartimentos (%dg).\n",
+                feederCompartmentsLeft, TOTAL_FEEDER_COMPARTMENTS, gramsLeft);
+
+  String logMsg = triggerReason + ": " + String(gramsToRun) + "g dispensados • Restam " +
+                  String(feederCompartmentsLeft) + "/12 (" + String(gramsLeft) + "g)";
+  if (feederCompartmentsLeft <= 0) {
+    logMsg += " [VAZIO - REABASTECER]";
+  } else if (feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS) {
+    logMsg += " [CRITICO - QUASE ACABANDO]";
+  } else if (feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS) {
+    logMsg += " [ESTOQUE BAIXO]";
+  }
+
+  patchFeederStateToSupabase();
+  sendFeederEventLog(logMsg);
   updateLCD();
 }
 
@@ -1085,22 +1336,32 @@ void syncStatusWithSupabase() {
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
   http.addHeader("Prefer", "resolution=merge-duplicates,return=representation");
 
-  String payload = "{\"device_id\":\"" + WiFi.macAddress() + "\","
-                   "\"device_username\":\"" + activeUser + "\","
-                   "\"device_password\":\"" + devicePassword + "\","
-                   "\"water_level_pct\":" + String(waterLevelPct) + ","
-                   "\"distance_cm\":" + String(distanceCm, 1) + ","
-                   "\"temperature_c\":" + String(temperatureC, 1) + ","
-                   "\"rtc_datetime\":\"" + getRtcIsoString() + "\","
-                   "\"wifi_rssi\":" + String(WiFi.RSSI()) + "}";
+  String basePayload = "{\"device_id\":\"" + WiFi.macAddress() + "\","
+                       "\"device_username\":\"" + activeUser + "\","
+                       "\"device_password\":\"" + devicePassword + "\","
+                       "\"water_level_pct\":" + String(waterLevelPct) + ","
+                       "\"distance_cm\":" + String(distanceCm, 1) + ","
+                       "\"temperature_c\":" + String(temperatureC, 1) + ","
+                       "\"rtc_datetime\":\"" + getRtcIsoString() + "\","
+                       "\"wifi_rssi\":" + String(WiFi.RSSI());
+
+  String payload = feederColsSupported
+                     ? (basePayload +
+                        ",\"feeder_compartments_left\":" + String(feederCompartmentsLeft) +
+                        ",\"feeder_on_barrier\":" + String(feederOnBarrier ? "true" : "false") + "}")
+                     : (basePayload + "}");
 
   int httpCode = http.POST(payload);
 
-  // Fallback automático: caso o índice UNIQUE ainda não tenha sido criado no banco,
-  // faz PATCH direto na linha do usuário (ou id=1) para nunca dar erro 400
+  // Fallback automático: caso colunas novas ainda não existam ou falte índice UNIQUE no banco
   if (httpCode == 400) {
     String errBody = http.getString();
-    Serial.printf("[SUPABASE] Aviso HTTP 400 no POST: %s -> Usando PATCH direto...\n", errBody.c_str());
+    Serial.printf("[SUPABASE] Aviso HTTP 400 no POST: %s -> Usando fallback...\n", errBody.c_str());
+    if (errBody.indexOf("feeder_") >= 0 && feederColsSupported) {
+      feederColsSupported = false;
+      payload = basePayload + "}";
+      Serial.println("[SUPABASE] Execute supabase/schema.sql para habilitar colunas do alimentador no banco.");
+    }
     http.end();
 
     http.begin(filterEndpoint);
@@ -1140,7 +1401,7 @@ void syncStatusWithSupabase() {
       String portionStr = extractJsonStringField(response, "feed_now_portion");
       if (portionStr.length() == 0) portionStr = "3g";
 
-      // Limpa o comando antes de girar o motor de passo para evitar re-disparo caso a porção leve vários segundos
+      // Limpa o comando antes de girar o motor de passo para evitar re-disparo
       HTTPClient ackFeed;
       ackFeed.setTimeout(2500);
       ackFeed.begin(filterEndpoint);
@@ -1151,6 +1412,34 @@ void syncStatusWithSupabase() {
       ackFeed.end();
 
       dispenseFoodNow(portionStr, "Comando Manual do Site");
+    }
+
+    // 2b. Se o usuário clicou em "Posicionar Barreira (Reabastecer)" pelo site
+    if (response.indexOf("\"feeder_refill_command\":true") >= 0 || response.indexOf("\"feeder_refill_command\": true") >= 0) {
+      HTTPClient ackRefill;
+      ackRefill.setTimeout(2500);
+      ackRefill.begin(filterEndpoint);
+      ackRefill.addHeader("Content-Type", "application/json");
+      ackRefill.addHeader("apikey", SUPABASE_KEY);
+      ackRefill.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+      ackRefill.PATCH("{\"feeder_refill_command\":false}");
+      ackRefill.end();
+
+      alignFeederToBarrier();
+    }
+
+    // 2c. Se o usuário clicou em "Confirmar Reabastecimento (12/12)" pelo site
+    if (response.indexOf("\"feeder_confirm_refill_command\":true") >= 0 || response.indexOf("\"feeder_confirm_refill_command\": true") >= 0) {
+      HTTPClient ackConfirm;
+      ackConfirm.setTimeout(2500);
+      ackConfirm.begin(filterEndpoint);
+      ackConfirm.addHeader("Content-Type", "application/json");
+      ackConfirm.addHeader("apikey", SUPABASE_KEY);
+      ackConfirm.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+      ackConfirm.PATCH("{\"feeder_confirm_refill_command\":false}");
+      ackConfirm.end();
+
+      confirmFeederRefill();
     }
 
     // 3. Se o site enviou comando para abrir o portal de configuração Wi-Fi
@@ -1313,9 +1602,10 @@ void setup() {
   tempSensor.begin();
   tempSensor.setWaitForConversion(false); // Leitura não-bloqueante do sensor de temperatura
 
-  // Registra eventos assíncronos de rede e carrega as redes Wi-Fi salvas na memória Flash
+  // Registra eventos assíncronos de rede e carrega as redes Wi-Fi + estado do alimentador na memória Flash
   WiFi.onEvent(onWiFiEvent);
   loadSavedNetworksFromNVS();
+  loadFeederStateFromNVS();
 
   // Faz a primeira leitura imediata dos sensores antes mesmo do Wi-Fi conectar
   readWaterLevel();
@@ -1336,10 +1626,10 @@ void loop() {
   // 2. Lê o horário do Módulo RTC continuamente e aciona o alimentador nos horários programados (mesmo sem Wi-Fi!)
   checkFeederByRtcTime();
 
-  // 3. Alterna entre Tela 0 (Nível/Temp) e Tela 1 (Data/Hora + Próx. Alimentação) a cada 3 segundos
+  // 3. Alterna entre Tela 0 (Nível/Temp), Tela 1 (Data/Hora + Próx.) e Tela 2 (Ração Restante) a cada 3 segundos
   if (now - lastLcdToggleMs >= 3000) {
     lastLcdToggleMs = now;
-    lcdScreen = (lcdScreen == 0) ? 1 : 0;
+    lcdScreen = (lcdScreen + 1) % 3;
     updateLCD();
   }
 
@@ -1351,7 +1641,7 @@ void loop() {
     updateLCD();
 
     Serial.printf(
-      "[NETUNO] RTC: %02d:%02d:%02d | Agua: %d%% (%.2f L, %.1f cm) | Temp: %.1f C | Bomba: %s | WiFi: %s (%s)\n",
+      "[NETUNO] RTC: %02d:%02d:%02d | Agua: %d%% (%.2f L, %.1f cm) | Temp: %.1f C | Racao: %dg (%d/12 %s) | Bomba: %s | WiFi: %s (%s)\n",
       rtcHour,
       rtcMinute,
       rtcSecond,
@@ -1359,6 +1649,9 @@ void loop() {
       waterVolumeL,
       rawDistanceCm,
       temperatureC,
+      feederCompartmentsLeft * GRAMS_PER_DOSE,
+      feederCompartmentsLeft,
+      feederOnBarrier ? "BARREIRA" : "COMP",
       pumpRelayOn ? "ON" : "OFF",
       (WiFi.status() == WL_CONNECTED) ? "ONLINE" : "OFFLINE",
       connectedSsid.length() > 0 ? connectedSsid.c_str() : "Sem rede"

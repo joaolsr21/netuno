@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS public.aquarium_status (
   pump_cycle_minutes INT NOT NULL DEFAULT 45,
   feed_now_command BOOLEAN NOT NULL DEFAULT false,
   feed_now_portion TEXT NOT NULL DEFAULT '3g',
+  feeder_compartments_left INT NOT NULL DEFAULT 12,
+  feeder_on_barrier BOOLEAN NOT NULL DEFAULT true,
+  feeder_refill_command BOOLEAN NOT NULL DEFAULT false,
+  feeder_confirm_refill_command BOOLEAN NOT NULL DEFAULT false,
   rtc_datetime TIMESTAMPTZ DEFAULT NOW(),
   rtc_set_command BOOLEAN NOT NULL DEFAULT false,
   wifi_setup_command BOOLEAN NOT NULL DEFAULT false,
@@ -38,6 +42,10 @@ ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS temperature_c FLOAT 
 ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS rtc_datetime TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS rtc_set_command BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS wifi_setup_command BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS feeder_compartments_left INT NOT NULL DEFAULT 12;
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS feeder_on_barrier BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS feeder_refill_command BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS feeder_confirm_refill_command BOOLEAN NOT NULL DEFAULT false;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_aquarium_status_device_username
   ON public.aquarium_status (device_username);

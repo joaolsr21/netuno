@@ -70,9 +70,13 @@ const CHRISTMAS_LIGHTS = [
 ];
 
 const GRAMS_PER_DOSE = 3;
+const TOTAL_FEEDER_COMPARTMENTS = 12;
+const MAX_FEEDER_GRAMS = TOTAL_FEEDER_COMPARTMENTS * GRAMS_PER_DOSE; // 36g
+const FEEDER_LOW_ALERT_COMPS = 4;      // <= 12g
+const FEEDER_CRITICAL_ALERT_COMPS = 2; // <= 6g
 const MIN_PORTION_GRAMS = 3;
-const MAX_PORTION_GRAMS = 30;
-const PORTION_OPTIONS_GRAMS = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30];
+const MAX_PORTION_GRAMS = MAX_FEEDER_GRAMS;
+const PORTION_OPTIONS_GRAMS = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
 
 const parsePortionGrams = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -193,6 +197,10 @@ export default function App() {
   const [feedNowPortion, setFeedNowPortion] = useState(() =>
     formatPortionGrams(config.defaultPortion || '3g')
   );
+  const [feederCompartmentsLeft, setFeederCompartmentsLeft] = useState(TOTAL_FEEDER_COMPARTMENTS);
+  const [feederOnBarrier, setFeederOnBarrier] = useState(true);
+  const [feederRefillPending, setFeederRefillPending] = useState(false);
+  const [feederConfirmNotice, setFeederConfirmNotice] = useState(false);
   const [schedules, setSchedules] = useState([
     { id: 1, time: '08:00', portion: '3g', label: 'Manhã', enabled: true },
     { id: 2, time: '14:00', portion: '3g', label: 'Tarde', enabled: true },
@@ -367,6 +375,50 @@ export default function App() {
 
   const waterStatus = getWaterStatus(waterLevelPct, activeCfg);
   const tempStatus = getTempStatus(temperatureC, activeCfg);
+
+  const feederGramsLeft = feederCompartmentsLeft * GRAMS_PER_DOSE;
+  const feederPct = Math.round((feederCompartmentsLeft / TOTAL_FEEDER_COMPARTMENTS) * 100);
+  const getFeederStatus = (comps) => {
+    if (comps <= 0) {
+      return {
+        level: 'empty',
+        label: 'VAZIO — Reabastecer!',
+        shortLabel: 'Sem ração',
+        color: 'text-rose-400',
+        bg: 'bg-rose-500/15 border-rose-500/45',
+        accent: '#F43F5E',
+      };
+    }
+    if (comps <= FEEDER_CRITICAL_ALERT_COMPS) {
+      return {
+        level: 'critical',
+        label: 'CRÍTICO — Ração Quase Acabando',
+        shortLabel: 'Crítico',
+        color: 'text-rose-300',
+        bg: 'bg-rose-500/15 border-rose-400/40',
+        accent: '#FB7185',
+      };
+    }
+    if (comps <= FEEDER_LOW_ALERT_COMPS) {
+      return {
+        level: 'low',
+        label: 'ATENÇÃO — Ração Baixa',
+        shortLabel: 'Ração Baixa',
+        color: 'text-amber-300',
+        bg: 'bg-amber-500/15 border-amber-400/40',
+        accent: '#F59E0B',
+      };
+    }
+    return {
+      level: 'ok',
+      label: 'IDEAL — Estoque Cheio',
+      shortLabel: 'Estoque OK',
+      color: 'text-emerald-300',
+      bg: 'bg-emerald-500/15 border-emerald-400/30',
+      accent: '#10C3E3',
+    };
+  };
+  const feederStatus = getFeederStatus(feederCompartmentsLeft);
 
   const activeSchedules = schedules
     .filter((s) => s.enabled)
@@ -544,6 +596,18 @@ export default function App() {
       if (statusData.feed_now_portion) {
         setFeedNowPortion(formatPortionGrams(statusData.feed_now_portion));
       }
+      if (
+        statusData.feeder_compartments_left !== undefined &&
+        statusData.feeder_compartments_left !== null
+      ) {
+        setFeederCompartmentsLeft(
+          Math.max(0, Math.min(TOTAL_FEEDER_COMPARTMENTS, Number(statusData.feeder_compartments_left)))
+        );
+      }
+      if (statusData.feeder_on_barrier !== undefined && statusData.feeder_on_barrier !== null) {
+        setFeederOnBarrier(Boolean(statusData.feeder_on_barrier));
+      }
+      setFeederRefillPending(Boolean(statusData.feeder_refill_command));
 
       const espEverSent =
         Number(statusData.distance_cm) > 0 ||
@@ -674,6 +738,20 @@ export default function App() {
           }
           if (s.feed_now_portion) {
             setFeedNowPortion(formatPortionGrams(s.feed_now_portion));
+          }
+          if (
+            s.feeder_compartments_left !== undefined &&
+            s.feeder_compartments_left !== null
+          ) {
+            setFeederCompartmentsLeft(
+              Math.max(0, Math.min(TOTAL_FEEDER_COMPARTMENTS, Number(s.feeder_compartments_left)))
+            );
+          }
+          if (s.feeder_on_barrier !== undefined && s.feeder_on_barrier !== null) {
+            setFeederOnBarrier(Boolean(s.feeder_on_barrier));
+          }
+          if (s.feeder_refill_command === false) {
+            setFeederRefillPending(false);
           }
           if (s.rtc_datetime) {
             setEspRtcIso(s.rtc_datetime);
@@ -858,9 +936,17 @@ export default function App() {
   };
 
   const handleTriggerFeedNow = (portion = feedNowPortion) => {
+    if (feederCompartmentsLeft <= 0) return;
     const normalizedPortion = formatPortionGrams(portion);
+    const dosesRequested = parsePortionGrams(normalizedPortion) / GRAMS_PER_DOSE;
+    const dosesApplied = Math.min(dosesRequested, feederCompartmentsLeft);
+    const nextComps = Math.max(0, feederCompartmentsLeft - dosesApplied);
+
     setFeedNowCommand(true);
     setFeedNowPortion(normalizedPortion);
+    setFeederCompartmentsLeft(nextComps);
+    setFeederOnBarrier(false);
+
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       supabase
         .from('aquarium_status')
@@ -879,6 +965,47 @@ export default function App() {
           .ilike('device_username', activeDeviceUsername)
           .then(() => {}, () => {});
       }, 15000);
+    }
+  };
+
+  // Posiciona a barreira tampando o furo para reabastecimento seguro
+  const handleAlignFeederBarrier = async () => {
+    if (feederOnBarrier || feederRefillPending) return;
+    setFeederRefillPending(true);
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+      await supabase
+        .from('aquarium_status')
+        .update({ feeder_refill_command: true })
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
+
+      setTimeout(() => {
+        setFeederRefillPending(false);
+      }, 12000);
+    } else {
+      setFeederOnBarrier(true);
+      setFeederRefillPending(false);
+    }
+  };
+
+  // Confirma que os 12 compartimentos foram reabastecidos (36g) com a barreira tampando o furo
+  const handleConfirmFeederRefill = async () => {
+    setFeederCompartmentsLeft(TOTAL_FEEDER_COMPARTMENTS);
+    setFeederOnBarrier(true);
+    setFeederRefillPending(false);
+    setFeederConfirmNotice(true);
+    setTimeout(() => setFeederConfirmNotice(false), 3500);
+
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+      await supabase
+        .from('aquarium_status')
+        .update({
+          feeder_confirm_refill_command: true,
+          feeder_compartments_left: TOTAL_FEEDER_COMPARTMENTS,
+          feeder_on_barrier: true,
+        })
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
     }
   };
 
@@ -1497,6 +1624,61 @@ export default function App() {
 
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
+        {/* ALERTA DE ESTOQUE DE RAÇÃO (quando estiver baixo, crítico ou vazio) */}
+        {activeTab === 'dashboard' && feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS && (
+          <div
+            className={`rounded-2xl p-3.5 sm:p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-up ${
+              feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                ? 'bg-rose-500/15 border-rose-500/45 text-rose-100 shadow-lg shadow-rose-950/30'
+                : 'bg-amber-500/15 border-amber-400/40 text-amber-100'
+            }`}
+          >
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <AlertTriangle
+                className={`w-5 h-5 shrink-0 mt-0.5 sm:mt-0 ${
+                  feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                    ? 'text-rose-400 animate-pulse'
+                    : 'text-amber-300'
+                }`}
+              />
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm font-bold text-white">
+                  {feederCompartmentsLeft <= 0
+                    ? 'Reservatório de Ração Vazio (0g • 0/12 compartimentos)'
+                    : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                    ? `Atenção Crítica: Ração quase acabando (${feederGramsLeft}g • ${feederCompartmentsLeft}/12)`
+                    : `Aviso de Estoque Baixo: restam ${feederGramsLeft}g (${feederCompartmentsLeft}/12 compartimentos)`}
+                </div>
+                <p className="text-[11px] sm:text-xs text-white/75 mt-0.5">
+                  {feederOnBarrier
+                    ? 'A barreira já está tampando o furo. Após colocar a ração nos 12 compartimentos (3g cada), confirme o reabastecimento.'
+                    : 'Ative o Modo Reabastecer para alinhar a barreira tampando o furo antes de colocar nova ração.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {!feederOnBarrier ? (
+                <button
+                  type="button"
+                  onClick={handleAlignFeederBarrier}
+                  disabled={feederRefillPending}
+                  className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {feederRefillPending ? 'Alinhando Barreira...' : 'Posicionar Barreira'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmFeederRefill}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-all active:scale-95"
+                >
+                  Confirmar Reabastecimento (36g)
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* RESUMO RÁPIDO DOS 4 INDICADORES COM MICRO-INTERAÇÕES E ANIMAÇÃO */}
         {activeTab === 'dashboard' && (
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-fade-up">
@@ -1598,22 +1780,33 @@ export default function App() {
               </button>
             </div>
 
-            {/* Card 4: Alimentador com Opção de Alimentar Manualmente (3g em 3g) */}
+            {/* Card 4: Alimentador com Opção de Alimentar Manualmente (3g em 3g) + Estoque */}
             <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-2.5 group">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
-                    Alimentador
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65">
+                      Alimentador
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono-code font-bold px-1.5 py-0.5 rounded-md border ${feederStatus.bg} ${feederStatus.color}`}
+                    >
+                      {feederGramsLeft}g • {feederCompartmentsLeft}/12
+                    </span>
+                  </div>
                   <span className="text-xl sm:text-2xl font-extrabold text-sky-300 mt-1 block tracking-tight">
                     {feedNowCommand
                       ? 'Alimentando...'
+                      : feederCompartmentsLeft <= 0
+                      ? 'Sem Ração'
                       : nextSchedule
                       ? `Próx: ${nextSchedule.time}`
                       : 'Programado'}
                   </span>
-                  <span className="text-[11px] text-emerald-300/90 mt-0.5 block truncate">
-                    {nextSchedule
+                  <span className={`text-[11px] mt-0.5 block truncate ${feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS ? feederStatus.color : 'text-emerald-300/90'}`}>
+                    {feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                      ? feederStatus.label
+                      : nextSchedule
                       ? `Próx. porção: ${formatPortionDetail(nextSchedule.portion)}`
                       : `Padrão: ${formatPortionDetail(feedNowPortion)}`}
                   </span>
@@ -1622,6 +1815,8 @@ export default function App() {
                   className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 ${
                     feedNowCommand
                       ? 'bg-amber-400/20 border-amber-300/50 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
+                      : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                      ? 'bg-rose-500/15 border-rose-400/35 text-rose-300'
                       : 'bg-sky-500/15 border-sky-400/25 text-sky-300'
                   }`}
                 >
@@ -1664,9 +1859,11 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => handleTriggerFeedNow(feedNowPortion)}
-                  disabled={feedNowCommand}
+                  disabled={feedNowCommand || feederCompartmentsLeft <= 0}
                   className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
-                    feedNowCommand
+                    feederCompartmentsLeft <= 0
+                      ? 'bg-rose-500/15 text-rose-300 border border-rose-500/35 cursor-not-allowed'
+                      : feedNowCommand
                       ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
                       : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20 hover:shadow-amber-500/35'
                   }`}
@@ -1674,7 +1871,9 @@ export default function App() {
                 >
                   <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce' : ''}`} />
                   <span>
-                    {feedNowCommand
+                    {feederCompartmentsLeft <= 0
+                      ? 'Ração Esgotada (0g)'
+                      : feedNowCommand
                       ? 'Alimentando Peixes...'
                       : `Alimentar Manualmente (${formatPortionGrams(feedNowPortion)})`}
                   </span>
@@ -2485,6 +2684,350 @@ export default function App() {
               </div>
             </div>
 
+            {/* SEÇÃO ALIMENTAÇÃO & GRÁFICO DE ESTOQUE DO CARROSSEL (12 COMPARTIMENTOS x 3g) */}
+            <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-fade-up delay-150">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0 ${
+                      feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                        ? 'bg-rose-500/15 border-rose-400/35 text-rose-300'
+                        : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
+                    }`}
+                  >
+                    <Utensils className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-white">
+                      Alimentador &amp; Estoque de Ração
+                    </h3>
+                    <p className="text-[11px] sm:text-xs text-sky-200/65">
+                      Carrossel de 12 compartimentos (3g cada • capacidade total {MAX_FEEDER_GRAMS}g) com barreiras intercaladas
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border ${
+                      feederOnBarrier
+                        ? 'bg-sky-500/15 border-sky-400/35 text-sky-200'
+                        : 'bg-white/[0.05] border-white/15 text-sky-200/80'
+                    }`}
+                  >
+                    {feederOnBarrier ? 'Barreira no furo (Tampado)' : 'Compartimento no furo'}
+                  </span>
+                  <span
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border ${feederStatus.bg} ${feederStatus.color}`}
+                  >
+                    {feederStatus.label}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+                {/* ESQUERDA (6 cols): Controles de Alimentação + Modo Reabastecer */}
+                <div className="lg:col-span-6 space-y-4">
+                  {/* Bloco Alimentação Manual */}
+                  <div className="bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-sky-200/75">
+                        Disparo Manual
+                      </span>
+                      <span className="text-[11px] font-mono-code text-sky-300/80">
+                        {nextSchedule
+                          ? `Próximo agendado: ${nextSchedule.time} (${formatPortionGrams(nextSchedule.portion)})`
+                          : 'Sem horário ativo'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[3, 6, 9, 12].map((g) => {
+                        const label = `${g}g`;
+                        const active = formatPortionGrams(feedNowPortion) === label;
+                        const disabledOpt = g > feederGramsLeft && feederGramsLeft > 0;
+                        return (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => setFeedNowPortion(label)}
+                            disabled={feedNowCommand || disabledOpt}
+                            className={`py-2 rounded-xl text-xs font-bold font-mono-code border transition-all ${
+                              active
+                                ? 'bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] border-sky-300/50 text-slate-950 shadow-sm'
+                                : 'bg-[#07212D]/80 border-white/[0.08] text-sky-200 hover:bg-white/[0.08] disabled:opacity-35 disabled:cursor-not-allowed'
+                            }`}
+                          >
+                            {label}
+                            <span className={`block text-[9px] font-normal ${active ? 'text-slate-900/80' : 'text-sky-300/60'}`}>
+                              {g / GRAMS_PER_DOSE} comp.
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerFeedNow(feedNowPortion)}
+                      disabled={feedNowCommand || feederCompartmentsLeft <= 0}
+                      className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                        feederCompartmentsLeft <= 0
+                          ? 'bg-rose-500/15 text-rose-300 border border-rose-500/35 cursor-not-allowed'
+                          : feedNowCommand
+                          ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
+                          : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      }`}
+                    >
+                      <Utensils className={`w-4 h-4 ${feedNowCommand ? 'animate-bounce' : ''}`} />
+                      <span>
+                        {feederCompartmentsLeft <= 0
+                          ? 'Reservatório Vazio — Reabasteça Primeiro'
+                          : feedNowCommand
+                          ? 'Dispensando Ração + Tremidinha...'
+                          : `Alimentar Agora (${formatPortionGrams(feedNowPortion)} • ${parsePortionGrams(feedNowPortion) / GRAMS_PER_DOSE}× 3g)`}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Bloco Modo Reabastecer (Alinhar Barreira + Confirmar 12/12) */}
+                  <div className="bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-sky-200/75 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-sky-400" />
+                        Modo Reabastecer
+                      </span>
+                      <span className="text-[11px] font-mono-code text-sky-300/75">
+                        {feederOnBarrier ? 'Furo tampado ✓' : 'Furo aberto'}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-sky-200/65 leading-relaxed">
+                      Antes de colocar nova ração, posicione a <strong className="text-white">barreira</strong> sobre o furo para evitar que a ração caia direto no aquário. Depois, confirme o reabastecimento para reiniciar os 12 compartimentos (36g).
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handleAlignFeederBarrier}
+                        disabled={feederOnBarrier || feederRefillPending || feedNowCommand}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-[0.98] ${
+                          feederOnBarrier
+                            ? 'bg-emerald-500/15 border-emerald-400/35 text-emerald-300 cursor-default'
+                            : feederRefillPending
+                            ? 'bg-sky-500/20 border-sky-400/40 text-sky-200 animate-pulse cursor-wait'
+                            : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/15 text-white'
+                        }`}
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          {feederOnBarrier
+                            ? 'Barreira no Furo'
+                            : feederRefillPending
+                            ? 'Alinhando Barreira...'
+                            : '1. Alinhar Barreira'}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleConfirmFeederRefill}
+                        disabled={feedNowCommand || feederRefillPending}
+                        className="py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] hover:from-[#10C3E3] hover:to-[#47DDF5] text-slate-950 shadow-md shadow-[#10C3E3]/20 transition-all active:scale-[0.98] disabled:opacity-45"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                        <span>2. Confirmar (12/12 • 36g)</span>
+                      </button>
+                    </div>
+
+                    {feederConfirmNotice && (
+                      <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold animate-scale-in">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        Estoque reiniciado para 12/12 compartimentos (36g) com a barreira no furo!
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* DIREITA (6 cols): Gráfico Visual do Carrossel de 12 Compartimentos + Barra de Nível */}
+                <div className="lg:col-span-6 bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-5">
+                  {/* Gráfico Circular do Carrossel (12 compartimentos + 12 barreiras + indicador do furo) */}
+                  <div className="relative w-44 h-44 sm:w-48 sm:h-48 shrink-0 flex items-center justify-center">
+                    {/* Indicador fixo do furo no topo (12h) */}
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
+                      <span
+                        className={`text-[9px] font-mono-code font-bold uppercase px-1.5 py-0.5 rounded-full border mb-0.5 whitespace-nowrap ${
+                          feederOnBarrier
+                            ? 'bg-emerald-500/20 border-emerald-400/45 text-emerald-300'
+                            : 'bg-sky-500/20 border-sky-400/45 text-sky-200'
+                        }`}
+                      >
+                        Furo
+                      </span>
+                      <div
+                        className={`w-0 h-0 border-l-[5px] border-r-[5px] border-t-[7px] border-l-transparent border-r-transparent ${
+                          feederOnBarrier ? 'border-t-emerald-400' : 'border-t-[#10C3E3]'
+                        }`}
+                      />
+                    </div>
+
+                    <svg viewBox="0 0 200 200" className="w-full h-full mt-3">
+                      {/* Base do tambor do carrossel */}
+                      <circle cx="100" cy="100" r="76" fill="#041822" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
+                      <circle cx="100" cy="100" r="46" fill="#031117" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+
+                      {/* Carrossel giratório: 0° = Barreira no furo (12h), -15° = Compartimento no furo */}
+                      <g
+                        style={{
+                          transform: `rotate(${feederOnBarrier ? 0 : -15}deg)`,
+                          transformOrigin: '100px 100px',
+                          transition: 'transform 700ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        }}
+                      >
+                        {Array.from({ length: TOTAL_FEEDER_COMPARTMENTS }).map((_, idx) => {
+                          const isFilled = idx < feederCompartmentsLeft;
+                          // Cada par (barreira + compartimento) ocupa 30°:
+                          // Barreira centrada em idx*30° (-90° = topo); Compartimento centrado em idx*30° + 15°
+                          const barrierAngle = -90 + idx * 30;
+                          const compAngle = barrierAngle + 15;
+                          const radius = 61;
+                          const circ = 2 * Math.PI * radius; // ~383.27
+                          const compArc = circ * (15.5 / 360);
+                          const barrierArc = circ * (10.5 / 360);
+
+                          const filledColor =
+                            feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                              ? '#FB7185'
+                              : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                              ? '#F59E0B'
+                              : '#10C3E3';
+
+                          return (
+                            <g key={idx}>
+                              {/* Barreira divisória */}
+                              <circle
+                                cx="100"
+                                cy="100"
+                                r={radius}
+                                fill="none"
+                                stroke={idx === 0 && feederOnBarrier ? '#34D399' : '#123847'}
+                                strokeWidth="18"
+                                strokeDasharray={`${barrierArc} ${circ - barrierArc}`}
+                                transform={`rotate(${barrierAngle - 5.25} 100 100)`}
+                                opacity={idx === 0 && feederOnBarrier ? 0.9 : 0.85}
+                              />
+                              {/* Compartimento de ração (3g) */}
+                              <circle
+                                cx="100"
+                                cy="100"
+                                r={radius}
+                                fill="none"
+                                stroke={isFilled ? filledColor : '#07222E'}
+                                strokeWidth="20"
+                                strokeDasharray={`${compArc} ${circ - compArc}`}
+                                transform={`rotate(${compAngle - 7.75} 100 100)`}
+                                className="transition-colors duration-500"
+                              />
+                            </g>
+                          );
+                        })}
+                      </g>
+                    </svg>
+
+                    {/* Leitura central do gráfico */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-3">
+                      <span className="text-2xl sm:text-3xl font-extrabold font-mono-code text-white leading-none">
+                        {feederGramsLeft}g
+                      </span>
+                      <span className="text-[11px] font-mono-code text-sky-200/75 mt-1">
+                        {feederCompartmentsLeft}/{TOTAL_FEEDER_COMPARTMENTS} comps
+                      </span>
+                      <span className={`text-[10px] font-bold mt-0.5 ${feederStatus.color}`}>
+                        {feederPct}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Detalhes e barra de 12 segmentos ao lado do gráfico */}
+                  <div className="flex-1 w-full space-y-3.5">
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-sky-200/75 font-medium">Ração Restante</span>
+                        <span className="font-mono-code font-bold text-white">
+                          {feederGramsLeft}g / {MAX_FEEDER_GRAMS}g
+                        </span>
+                      </div>
+
+                      {/* Barra segmentada com os 12 compartimentos individuais */}
+                      <div className="grid grid-cols-12 gap-1">
+                        {Array.from({ length: TOTAL_FEEDER_COMPARTMENTS }).map((_, idx) => {
+                          const filled = idx < feederCompartmentsLeft;
+                          return (
+                            <div
+                              key={idx}
+                              title={`Compartimento ${idx + 1}: ${filled ? 'Cheio (3g)' : 'Vazio'}`}
+                              className={`h-5 rounded-md border transition-all duration-300 ${
+                                filled
+                                  ? feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                                    ? 'bg-gradient-to-t from-rose-600 to-rose-400 border-rose-300/40 shadow-sm shadow-rose-500/20'
+                                    : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                                    ? 'bg-gradient-to-t from-amber-600 to-amber-400 border-amber-300/40 shadow-sm shadow-amber-500/20'
+                                    : 'bg-gradient-to-t from-[#0B96B2] to-[#10C3E3] border-sky-300/40 shadow-sm shadow-[#10C3E3]/20'
+                                  : 'bg-[#051B25] border-white/[0.07]'
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 text-xs">
+                      <div className="bg-[#051923]/80 border border-white/[0.06] rounded-xl p-2.5">
+                        <span className="text-[10px] text-sky-200/60 block">Doses de 3g</span>
+                        <span className="text-sm font-extrabold font-mono-code text-white">
+                          {feederCompartmentsLeft} restante{feederCompartmentsLeft === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <div className="bg-[#051923]/80 border border-white/[0.06] rounded-xl p-2.5">
+                        <span className="text-[10px] text-sky-200/60 block">Autonomia Est.</span>
+                        <span className="text-sm font-extrabold font-mono-code text-sky-300">
+                          {(() => {
+                            const dailyGrams = activeSchedules.reduce(
+                              (sum, s) => sum + parsePortionGrams(s.portion),
+                              0
+                            );
+                            if (feederGramsLeft <= 0) return '0 dias';
+                            if (dailyGrams <= 0) return `${feederCompartmentsLeft}× 3g`;
+                            const days = feederGramsLeft / dailyGrams;
+                            return days < 1 ? '< 1 dia' : `~${days.toFixed(1)} dia${days >= 2 ? 's' : ''}`;
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Legenda do carrossel */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-sky-200/65 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="w-2.5 h-2.5 rounded-sm"
+                          style={{ backgroundColor: feederStatus.accent }}
+                        />
+                        Com ração (3g)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-[#07222E] border border-white/15" />
+                        Vazio
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400/80" />
+                        Barreira
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* SEÇÃO INFERIOR: GRÁFICO E LOGS */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 animate-fade-up delay-225">
               {/* Gráfico de Nível e Temperatura (7 cols) */}
@@ -3267,16 +3810,51 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => handleTriggerFeedNow(draftConfig.defaultPortion)}
-                        disabled={feedNowCommand}
+                        disabled={feedNowCommand || feederCompartmentsLeft <= 0}
                         className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-300 active:scale-[0.98] ${
-                          feedNowCommand
+                          feederCompartmentsLeft <= 0
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/35 cursor-not-allowed'
+                            : feedNowCommand
                             ? 'bg-amber-400 text-slate-950 animate-pulse'
                             : 'bg-gradient-to-r from-[#0B96B2] to-sky-500 text-white shadow-md shadow-sky-500/20'
                         }`}
                       >
                         <Utensils className="w-3.5 h-3.5" />
-                        {feedNowCommand ? 'Alimentando...' : 'Alimentar Agora'}
+                        {feederCompartmentsLeft <= 0
+                          ? 'Vazio (0g)'
+                          : feedNowCommand
+                          ? 'Alimentando...'
+                          : 'Alimentar Agora'}
                       </button>
+                    </div>
+
+                    {/* Resumo do Estoque e Reabastecimento dentro das Configurações */}
+                    <div className="bg-[#07212D]/85 border border-white/[0.08] rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-sky-200/80 font-medium">
+                          Estoque: <strong className="text-white font-mono-code">{feederGramsLeft}g / {MAX_FEEDER_GRAMS}g</strong> ({feederCompartmentsLeft}/12)
+                        </span>
+                        <span className={`font-semibold ${feederStatus.color}`}>
+                          {feederOnBarrier ? 'Barreira no furo' : 'Em operação'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAlignFeederBarrier}
+                          disabled={feederOnBarrier || feederRefillPending}
+                          className="py-1.5 px-2.5 rounded-lg text-[11px] font-bold bg-white/[0.06] hover:bg-white/[0.12] disabled:opacity-45 text-white border border-white/10 transition-colors"
+                        >
+                          {feederOnBarrier ? 'Barreira Alinhada ✓' : feederRefillPending ? 'Alinhando...' : 'Posicionar Barreira'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmFeederRefill}
+                          className="py-1.5 px-2.5 rounded-lg text-[11px] font-extrabold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/35 transition-colors"
+                        >
+                          Confirmar Reabast. (36g)
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2.5">
