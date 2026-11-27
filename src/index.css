@@ -22,7 +22,7 @@
     transition: background-color 0.35s ease, color 0.35s ease;
   }
 
-  body.light-theme:not(.christmas-theme) {
+  body.light-theme {
     background-color: #11C3E3;
     background-image:
       radial-gradient(circle at 16% 12%, rgba(255, 255, 255, 0.26) 0px, transparent 46%),
@@ -143,7 +143,7 @@
 /* ============================================================================
    MODO CLARO (#11C3E3 fundo + #FFFFFF cards + #000000 contraste + #0A93B2)
    ============================================================================ */
-body.light-theme:not(.christmas-theme) .clean-card {
+body.light-theme .clean-card {
   background: #FFFFFF;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -151,12 +151,12 @@ body.light-theme:not(.christmas-theme) .clean-card {
   box-shadow: 0 12px 30px rgba(0, 52, 66, 0.16);
 }
 
-body.light-theme:not(.christmas-theme) .clean-card:hover {
+body.light-theme .clean-card:hover {
   border-color: #000000;
   box-shadow: 0 18px 38px rgba(0, 40, 52, 0.22);
 }
 
-body.light-theme:not(.christmas-theme) .clean-kpi {
+body.light-theme .clean-kpi {
   background: #FFFFFF;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -164,14 +164,14 @@ body.light-theme:not(.christmas-theme) .clean-kpi {
   box-shadow: 0 10px 24px rgba(0, 52, 66, 0.14);
 }
 
-body.light-theme:not(.christmas-theme) .clean-kpi:hover {
+body.light-theme .clean-kpi:hover {
   transform: translateY(-3px);
   border-color: #000000;
   box-shadow: 0 16px 32px rgba(0, 40, 52, 0.2);
 }
 
 /* Superfícies internas dos cards no Modo Claro (preservando .dark-island) */
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   [class*="bg-[#031117]"],
   [class*="bg-[#04151D]"],
   [class*="bg-[#051923]"],
@@ -183,12 +183,12 @@ body.light-theme:not(.christmas-theme) :where(
   border-color: #D8E4E9 !important;
 }
 
-body.light-theme:not(.christmas-theme) [class*="bg-white/[0.0"]:not(.dark-island):not(.dark-island *) {
+body.light-theme [class*="bg-white/[0.0"]:not(.dark-island):not(.dark-island *) {
   background-color: #EAECEF !important;
   border-color: #D8E4E9 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   [class*="bg-[#061E29]"],
   [class*="bg-[#240912]"]
 ):not(.dark-island):not(.dark-island *) {
@@ -196,7 +196,7 @@ body.light-theme:not(.christmas-theme) :where(
   box-shadow: 0 16px 40px rgba(0, 40, 52, 0.24) !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   [class*="bg-sky-500/15"],
   [class*="bg-[#0B96B2]/20"]
 ):not(.dark-island):not(.dark-island *) {
@@ -204,11 +204,11 @@ body.light-theme:not(.christmas-theme) :where(
   border-color: #11C3E3 !important;
 }
 
-body.light-theme:not(.christmas-theme) [class*="border-white/"]:not(.dark-island):not(.dark-island *) {
+body.light-theme [class*="border-white/"]:not(.dark-island):not(.dark-island *) {
   border-color: #D8E4E9 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea
@@ -218,7 +218,7 @@ body.light-theme:not(.christmas-theme) :where(
   color: #000000 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea
@@ -226,7 +226,7 @@ body.light-theme:not(.christmas-theme) :where(
   color: #5A6B75 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea
@@ -235,17 +235,17 @@ body.light-theme:not(.christmas-theme) :where(
   border-color: #0A93B2 !important;
 }
 
-body.light-theme:not(.christmas-theme) select option {
+body.light-theme select option {
   background-color: #FFFFFF;
   color: #000000;
 }
 
-body.light-theme:not(.christmas-theme) .bg-slate-700:not(.dark-island):not(.dark-island *) {
+body.light-theme .bg-slate-700:not(.dark-island):not(.dark-island *) {
   background-color: #CBD5E1 !important;
 }
 
 /* Botões primários no Modo Claro em preto sólido (#000000) com texto branco */
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   button[class*="from-[#0B96B2]"],
   button[class*="bg-[#0B96B2]"]
 ):not(.dark-island):not(.dark-island *) {
@@ -256,15 +256,15 @@ body.light-theme:not(.christmas-theme) :where(
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16) !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   button[class*="from-[#0B96B2]"],
   button[class*="bg-[#0B96B2]"]
 ):not(.dark-island):not(.dark-island *):hover {
   background-color: #2B3A42 !important;
 }
 
-/* Tipografia adaptada no Modo Claro (excluindo ilhas escuras, botões escuros e banners) */
-body.light-theme:not(.christmas-theme) :where(
+/* Tipografia adaptada no Modo Claro (excluindo ilhas escuras, botões escuros/festivos e banners) */
+body.light-theme :where(
   .text-white,
   [class*="text-white/"],
   .text-slate-100
@@ -272,28 +272,28 @@ body.light-theme:not(.christmas-theme) :where(
   color: #000000 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   .text-sky-100,
   [class*="text-sky-200"]
 ):not(.dark-island):not(.dark-island *):not(.keep-white):not(.keep-white *):not(button[class*="from-[#0B96B2]"]):not(button[class*="from-[#0B96B2]"] *):not(button[class*="bg-[#0B96B2]"]):not(button[class*="bg-[#0B96B2]"] *) {
   color: #2B3A42 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   [class*="text-sky-300"],
   [class*="text-sky-400"]
 ):not(.dark-island):not(.dark-island *):not(.keep-white):not(.keep-white *):not(button[class*="from-[#0B96B2]"]):not(button[class*="from-[#0B96B2]"] *):not(button[class*="bg-[#0B96B2]"]):not(button[class*="bg-[#0B96B2]"] *) {
   color: #0A93B2 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   [class*="text-emerald-200"],
   [class*="text-emerald-300"]
 ):not(.dark-island):not(.dark-island *):not(.keep-white):not(.keep-white *) {
   color: #047857 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   [class*="text-amber-100"],
   [class*="text-amber-200"],
   [class*="text-amber-300"]
@@ -301,7 +301,7 @@ body.light-theme:not(.christmas-theme) :where(
   color: #B45309 !important;
 }
 
-body.light-theme:not(.christmas-theme) :where(
+body.light-theme :where(
   [class*="text-rose-100"],
   [class*="text-rose-200"],
   [class*="text-rose-300"],
@@ -687,8 +687,44 @@ body.light-theme:not(.christmas-theme) :where(
   animation: seaweedSwayAlt 5.6s ease-in-out infinite;
 }
 
-/* Modo Natalino */
-body.christmas-theme {
+/* Bolhas subindo pelo fundo do site inteiro (cenário aquário) */
+@keyframes siteBubbleRise {
+  0% {
+    transform: translate3d(0, 104vh, 0) scale(0.55);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.72;
+  }
+  50% {
+    transform: translate3d(var(--site-sway, 16px), 48vh, 0) scale(0.95);
+    opacity: 0.62;
+  }
+  88% {
+    opacity: 0.48;
+  }
+  100% {
+    transform: translate3d(calc(var(--site-sway, 16px) * -0.5), -12vh, 0) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.site-bubble {
+  animation: siteBubbleRise var(--site-duration, 14s) ease-in-out infinite;
+  animation-delay: var(--site-delay, 0s);
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.85) 0%, rgba(17, 195, 227, 0.35) 55%, rgba(10, 147, 178, 0.14) 100%);
+  border: 1.5px solid rgba(71, 221, 245, 0.45);
+  box-shadow: 0 0 10px rgba(17, 195, 227, 0.22);
+}
+
+body.light-theme .site-bubble {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.96) 0%, rgba(224, 247, 252, 0.58) 55%, rgba(255, 255, 255, 0.18) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.35);
+}
+
+/* Modo Natalino (Escuro e Claro) */
+body.dark-theme.christmas-theme {
   background-color: #05110d;
   background-image:
     radial-gradient(circle at 12% 15%, rgba(190, 18, 60, 0.22) 0px, transparent 46%),
@@ -696,25 +732,46 @@ body.christmas-theme {
     radial-gradient(circle at 50% 90%, rgba(245, 158, 11, 0.12) 0px, transparent 52%);
 }
 
-.christmas-theme .clean-card {
+.dark-theme.christmas-theme .clean-card {
   background: linear-gradient(165deg, rgba(11, 34, 26, 0.76) 0%, rgba(14, 18, 22, 0.84) 100%);
   border-color: rgba(251, 191, 36, 0.2);
   box-shadow: 0 12px 32px -8px rgba(2, 12, 8, 0.72), 0 0 20px -10px rgba(244, 63, 94, 0.16);
 }
 
-.christmas-theme .clean-card:hover {
+.dark-theme.christmas-theme .clean-card:hover {
   border-color: rgba(251, 191, 36, 0.36);
   box-shadow: 0 18px 40px -10px rgba(2, 12, 8, 0.85), 0 0 24px -6px rgba(16, 185, 129, 0.2);
 }
 
-.christmas-theme .clean-kpi {
+.dark-theme.christmas-theme .clean-kpi {
   background: linear-gradient(145deg, rgba(13, 40, 30, 0.72) 0%, rgba(16, 18, 22, 0.82) 100%);
   border-color: rgba(251, 191, 36, 0.15);
 }
 
-.christmas-theme .clean-kpi:hover {
+.dark-theme.christmas-theme .clean-kpi:hover {
   border-color: rgba(248, 113, 113, 0.42);
   box-shadow: 0 14px 28px -8px rgba(10, 18, 14, 0.82);
+}
+
+body.light-theme.christmas-theme {
+  background-color: #11C3E3;
+  background-image:
+    radial-gradient(circle at 14% 12%, rgba(255, 255, 255, 0.34) 0px, transparent 44%),
+    radial-gradient(circle at 86% 18%, rgba(220, 38, 38, 0.14) 0px, transparent 42%),
+    radial-gradient(circle at 50% 92%, rgba(5, 150, 105, 0.18) 0px, transparent 50%);
+}
+
+body.light-theme.christmas-theme .clean-card,
+body.light-theme.christmas-theme .clean-kpi {
+  background: #FFFFFF;
+  border-color: rgba(5, 150, 105, 0.35);
+  box-shadow: 0 12px 30px rgba(0, 52, 66, 0.16);
+}
+
+body.light-theme.christmas-theme .clean-card:hover,
+body.light-theme.christmas-theme .clean-kpi:hover {
+  border-color: #DC2626;
+  box-shadow: 0 16px 34px rgba(185, 28, 28, 0.14);
 }
 
 @keyframes christmasTwinkle {

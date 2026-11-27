@@ -52,6 +52,23 @@ const SNOWFLAKES = [
   { left: '94%', size: 11, duration: '12.2s', delay: '3.1s', drift: '-22px' },
 ];
 
+const SITE_BUBBLES = [
+  { left: '3%', size: 10, duration: '13s', delay: '0s', sway: '14px' },
+  { left: '8%', size: 18, duration: '17s', delay: '2.5s', sway: '-18px' },
+  { left: '14%', size: 12, duration: '14.5s', delay: '5.1s', sway: '20px' },
+  { left: '22%', size: 8, duration: '11.5s', delay: '1.2s', sway: '-12px' },
+  { left: '29%', size: 15, duration: '16s', delay: '4.4s', sway: '16px' },
+  { left: '37%', size: 9, duration: '12.5s', delay: '6.8s', sway: '-16px' },
+  { left: '46%', size: 14, duration: '15.5s', delay: '2.1s', sway: '18px' },
+  { left: '55%', size: 10, duration: '13.5s', delay: '7.4s', sway: '-14px' },
+  { left: '63%', size: 19, duration: '18s', delay: '0.8s', sway: '22px' },
+  { left: '71%', size: 11, duration: '12s', delay: '3.9s', sway: '-20px' },
+  { left: '79%', size: 16, duration: '16.5s', delay: '5.6s', sway: '15px' },
+  { left: '87%', size: 9, duration: '11s', delay: '1.7s', sway: '-12px' },
+  { left: '92%', size: 14, duration: '14s', delay: '4.8s', sway: '18px' },
+  { left: '96%', size: 20, duration: '19s', delay: '3.1s', sway: '-22px' },
+];
+
 const CHRISTMAS_LIGHTS = [
   '#EF4444',
   '#10B981',
@@ -344,9 +361,131 @@ export default function App() {
     }
   }, [themeMode]);
 
-  const isLightMode = themeMode === 'light' && !christmasMode;
+  const isLightMode = themeMode === 'light';
   const toggleThemeMode = () =>
     setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
+
+  const aquariumBackdrop = (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none"
+    >
+      {/* Bolhas subindo suavemente por todo o fundo do site */}
+      {SITE_BUBBLES.map((b, idx) => (
+        <span
+          key={idx}
+          style={{
+            left: b.left,
+            width: `${b.size}px`,
+            height: `${b.size}px`,
+            '--site-duration': b.duration,
+            '--site-delay': b.delay,
+            '--site-sway': b.sway,
+          }}
+          className="site-bubble absolute bottom-0 rounded-full"
+        />
+      ))}
+
+      {/* Plantas aquáticas e coral no canto inferior esquerdo */}
+      <div
+        className={`absolute bottom-5 left-2 sm:left-8 flex items-end gap-2 transition-opacity duration-500 ${
+          isLightMode ? 'opacity-65' : 'opacity-40'
+        }`}
+      >
+        <div className="animate-seaweed">
+          <svg width="56" height="120" viewBox="0 0 56 120" fill="none">
+            <path
+              d="M18 118C12 94 25 74 16 49C9 30 20 14 23 2C28 18 20 33 26 51C32 72 20 94 24 118H18Z"
+              fill={isLightMode ? '#059669' : '#10B981'}
+            />
+            <path
+              d="M34 118C40 96 29 78 37 55C42 40 37 24 41 15C47 29 42 44 44 60C46 79 37 96 40 118H34Z"
+              fill={isLightMode ? '#0D9488' : '#2DD4BF'}
+            />
+          </svg>
+        </div>
+        <svg width="46" height="52" viewBox="0 0 42 44" fill="none" className="hidden sm:block">
+          <path
+            d="M21 42V25M21 25C16 22 12 17 11 10M21 25C25 21 29 17 31 11M16 20C16 15 18 11 17 6M26 19C26 14 24 10 25 5"
+            stroke={isLightMode ? '#E11D48' : '#FB7185'}
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+
+      {/* Plantas aquáticas altas no canto inferior direito */}
+      <div
+        className={`absolute bottom-5 right-2 sm:right-8 flex items-end gap-2 transition-opacity duration-500 ${
+          isLightMode ? 'opacity-65' : 'opacity-40'
+        }`}
+      >
+        <div className="animate-seaweed-alt">
+          <svg width="64" height="132" viewBox="0 0 64 132" fill="none">
+            <path
+              d="M16 130C10 102 24 80 15 54C9 34 20 16 23 3C28 20 20 36 26 56C33 80 20 102 24 130H16Z"
+              fill={isLightMode ? '#047857' : '#34D399'}
+            />
+            <path
+              d="M35 130C42 104 29 82 38 56C44 38 35 22 40 10C47 26 42 44 45 62C48 84 37 104 41 130H35Z"
+              fill={isLightMode ? '#0D9488' : '#10B981'}
+            />
+            <path
+              d="M50 130C54 112 48 94 54 76C57 65 54 52 57 44C61 55 57 68 58 81C60 98 52 114 55 130H50Z"
+              fill={isLightMode ? '#10B981' : '#059669'}
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* Fundo de areia e pedrinhas arredondadas na base inteira da tela */}
+      <svg
+        viewBox="0 0 1440 72"
+        preserveAspectRatio="none"
+        className={`absolute inset-x-0 bottom-0 w-full h-10 sm:h-12 transition-opacity duration-500 ${
+          isLightMode ? 'opacity-80' : 'opacity-70'
+        }`}
+      >
+        <path
+          d="M0 36C180 18 360 44 560 28C760 12 960 42 1180 24C1290 15 1380 20 1440 30V72H0V36Z"
+          fill={isLightMode ? '#0A93B2' : '#07222F'}
+          fillOpacity={isLightMode ? '0.55' : '0.85'}
+        />
+        <path
+          d="M0 46C220 32 420 56 660 40C900 24 1140 54 1440 38V72H0V46Z"
+          fill={isLightMode ? '#066D86' : '#04161F'}
+          fillOpacity={isLightMode ? '0.65' : '0.95'}
+        />
+        {[
+          { cx: 52, cy: 52, rx: 22, ry: 9, l: '#045569', d: '#0F384A' },
+          { cx: 92, cy: 57, rx: 16, ry: 7, l: '#E0F7FC', d: '#1E40AF' },
+          { cx: 148, cy: 55, rx: 20, ry: 8, l: '#0A7E99', d: '#0B2D3D' },
+          { cx: 230, cy: 59, rx: 14, ry: 6, l: '#FFFFFF', d: '#1D4ED8' },
+          { cx: 340, cy: 55, rx: 24, ry: 9, l: '#045569', d: '#0E3A4D' },
+          { cx: 386, cy: 59, rx: 15, ry: 6.5, l: '#E0F7FC', d: '#0284C7' },
+          { cx: 530, cy: 57, rx: 19, ry: 7.5, l: '#0A7E99', d: '#133D52' },
+          { cx: 690, cy: 58, rx: 23, ry: 8.5, l: '#045569', d: '#0F384A' },
+          { cx: 736, cy: 61, rx: 14, ry: 6, l: '#FFFFFF', d: '#1E40AF' },
+          { cx: 910, cy: 56, rx: 21, ry: 8, l: '#0A7E99', d: '#0E3A4D' },
+          { cx: 1060, cy: 59, rx: 17, ry: 7, l: '#E0F7FC', d: '#0284C7' },
+          { cx: 1210, cy: 55, rx: 25, ry: 9, l: '#045569', d: '#133D52' },
+          { cx: 1258, cy: 59, rx: 15, ry: 6.5, l: '#FFFFFF', d: '#1D4ED8' },
+          { cx: 1365, cy: 56, rx: 22, ry: 8.5, l: '#0A7E99', d: '#0F384A' },
+        ].map((p, i) => (
+          <ellipse
+            key={i}
+            cx={p.cx}
+            cy={p.cy}
+            rx={p.rx}
+            ry={p.ry}
+            fill={isLightMode ? p.l : p.d}
+            fillOpacity={isLightMode ? '0.78' : '0.9'}
+          />
+        ))}
+      </svg>
+    </div>
+  );
 
   // Autenticação do ESP32 específico (usuário e senha cadastrados no portal 192.168.4.1 do ESP32)
   const [authDevice, setAuthDevice] = useState(() => {
@@ -1774,14 +1913,16 @@ export default function App() {
   if (!authDevice) {
     return (
       <div
-        className={`min-h-screen flex flex-col justify-between relative overflow-hidden transition-colors duration-500 ${
-          christmasMode
-            ? 'bg-[#05110d] text-slate-100 selection:bg-rose-600 selection:text-white'
-            : isLightMode
+        className={`min-h-[100dvh] lg:h-[100dvh] lg:overflow-hidden flex flex-col justify-between relative overflow-x-hidden transition-colors duration-500 ${
+          isLightMode
             ? 'bg-[#11C3E3] text-[#000000] selection:bg-[#000000] selection:text-white'
+            : christmasMode
+            ? 'bg-[#05110d] text-slate-100 selection:bg-rose-600 selection:text-white'
             : 'bg-[#050C10] text-slate-100 selection:bg-[#11C3E3] selection:text-[#000000]'
         }`}
       >
+        {aquariumBackdrop}
+
         {/* Botão simples de alternar Modo Claro / Escuro no Login */}
         <button
           type="button"
@@ -1806,6 +1947,7 @@ export default function App() {
             </>
           )}
         </button>
+
         {/* Flocos de neve quando o Modo Natalino estiver ativo */}
         {christmasMode && (
           <div className="pointer-events-none fixed inset-0 z-30 overflow-hidden">
@@ -1818,7 +1960,11 @@ export default function App() {
                   '--snow-delay': flake.delay,
                   '--snow-drift': flake.drift,
                 }}
-                className="snowflake-particle absolute -top-6 text-white/75 select-none drop-shadow-[0_0_6px_rgba(255,255,255,0.6)]"
+                className={`snowflake-particle absolute -top-6 select-none ${
+                  isLightMode
+                    ? 'text-white drop-shadow-[0_1px_4px_rgba(0,65,85,0.55)]'
+                    : 'text-white/75 drop-shadow-[0_0_6px_rgba(255,255,255,0.6)]'
+                }`}
               >
                 <Snowflake style={{ width: flake.size, height: flake.size }} />
               </span>
@@ -1841,11 +1987,13 @@ export default function App() {
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative z-10">
           <div className="w-full max-w-md clean-card rounded-3xl overflow-hidden animate-scale-in">
             <div
-              className={`border-b p-7 text-center ${
-                christmasMode
+              className={`border-b p-5 sm:p-6 text-center ${
+                isLightMode
+                  ? christmasMode
+                    ? 'border-[#E6EEF2] bg-gradient-to-b from-rose-50 via-emerald-50/60 to-transparent'
+                    : 'border-[#E6EEF2] bg-gradient-to-b from-[#E0F7FC] to-transparent'
+                  : christmasMode
                   ? 'border-white/[0.08] bg-gradient-to-b from-rose-950/60 via-emerald-950/30 to-transparent'
-                  : isLightMode
-                  ? 'border-[#E6EEF2] bg-gradient-to-b from-[#E0F7FC] to-transparent'
                   : 'border-white/[0.08] bg-gradient-to-b from-[#082D3D]/80 to-transparent'
               }`}
             >
@@ -1959,7 +2107,7 @@ export default function App() {
         </div>
 
         <footer
-          className={`border-t py-4 px-4 text-center text-xs transition-colors ${
+          className={`relative z-10 border-t py-3 px-4 text-center text-xs transition-colors ${
             isLightMode
               ? 'border-[#E6EEF2] bg-white/95 text-[#2B3A42]'
               : 'border-white/[0.06] bg-[#050C10]/85 text-sky-200/50'
@@ -1973,14 +2121,18 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col transition-colors duration-500 ${
-        christmasMode
-          ? 'text-slate-100 selection:bg-rose-600 selection:text-white'
-          : isLightMode
+      className={`min-h-[100dvh] ${
+        activeTab === 'dashboard' ? 'lg:h-[100dvh] lg:overflow-y-auto' : ''
+      } flex flex-col relative transition-colors duration-500 ${
+        isLightMode
           ? 'text-[#000000] selection:bg-[#000000] selection:text-white'
+          : christmasMode
+          ? 'text-slate-100 selection:bg-rose-600 selection:text-white'
           : 'text-slate-100 selection:bg-[#11C3E3] selection:text-[#000000]'
       }`}
     >
+      {aquariumBackdrop}
+
       {/* Flocos de neve sutis no Modo Natalino */}
       {christmasMode && (
         <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
@@ -1993,7 +2145,11 @@ export default function App() {
                 '--snow-delay': flake.delay,
                 '--snow-drift': flake.drift,
               }}
-              className="snowflake-particle absolute -top-6 text-white/70 select-none drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]"
+              className={`snowflake-particle absolute -top-6 select-none ${
+                isLightMode
+                  ? 'text-white drop-shadow-[0_1px_4px_rgba(0,65,85,0.55)]'
+                  : 'text-white/70 drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]'
+              }`}
             >
               <Snowflake style={{ width: flake.size, height: flake.size }} />
             </span>
@@ -2003,8 +2159,8 @@ export default function App() {
 
       {/* ALERTA DE NÍVEL CRÍTICO */}
       {waterLevelPct !== null && waterLevelPct < Number(config.criticalLevelPct) && (
-        <div className="dark-island bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-2 text-center text-xs sm:text-sm font-medium text-white flex items-center justify-center gap-2 animate-pulse">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
+        <div className="dark-island relative z-30 bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-1.5 text-center text-xs font-medium text-white flex items-center justify-center gap-2 animate-pulse shrink-0">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           <span>
             <strong>Alerta de Nível:</strong> O nível da água está crítico ({waterLevelPct}%).
           </span>
@@ -2013,17 +2169,19 @@ export default function App() {
 
       {/* HEADER PRINCIPAL CLEAN & GLASSMORPHIC */}
       <header
-        className={`sticky top-0 z-30 border-b backdrop-blur-2xl transition-all relative ${
-          christmasMode
+        className={`sticky top-0 z-30 border-b backdrop-blur-2xl transition-all relative shrink-0 ${
+          isLightMode
+            ? christmasMode
+              ? 'border-emerald-500/30 bg-white/95 shadow-[0_8px_24px_rgba(0,52,66,0.12)]'
+              : 'border-[#E6EEF2] bg-white/95 shadow-[0_8px_24px_rgba(0,52,66,0.12)]'
+            : christmasMode
             ? 'border-amber-400/25 bg-[#061510]/90'
-            : isLightMode
-            ? 'border-[#E6EEF2] bg-white/95 shadow-[0_8px_24px_rgba(0,52,66,0.12)]'
             : 'border-white/[0.08] bg-[#050C10]/85'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Identidade Visual */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="relative group cursor-pointer shrink-0" onClick={() => setActiveTab('dashboard')}>
               <div
                 className={`absolute -inset-1 rounded-2xl blur transition duration-300 ${
@@ -2035,7 +2193,7 @@ export default function App() {
               {christmasMode && (
                 <svg
                   viewBox="0 0 36 28"
-                  className="absolute -top-3 -right-2 w-6 h-5 sm:w-7 sm:h-6 z-20 rotate-[18deg] drop-shadow-md pointer-events-none"
+                  className="absolute -top-3 -right-2 w-6 h-5 sm:w-6 sm:h-5 z-20 rotate-[18deg] drop-shadow-md pointer-events-none"
                 >
                   <path d="M5 20C9 7 20 2 29 9C24 14 23 18 24 21Z" fill="#DC2626" />
                   <rect x="3" y="18.5" width="22" height="5" rx="2.5" fill="#F8FAFC" />
@@ -2043,7 +2201,7 @@ export default function App() {
                 </svg>
               )}
               <div
-                className={`relative w-10 h-10 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl overflow-hidden border shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105 ${
+                className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden border shadow-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-105 ${
                   christmasMode ? 'border-amber-300/60 bg-rose-700' : 'border-[#47DDF5]/50 bg-[#10C3E3]'
                 }`}
               >
@@ -2055,7 +2213,7 @@ export default function App() {
               </div>
             </div>
             <div className="min-w-0">
-              <h1 className="font-serif text-lg sm:text-2xl font-bold tracking-[0.14em] sm:tracking-[0.18em] text-white truncate">
+              <h1 className="font-serif text-base sm:text-xl font-bold tracking-[0.14em] sm:tracking-[0.18em] text-white truncate">
                 NETUNO
               </h1>
               <p className={`text-[11px] hidden sm:block truncate ${christmasMode ? 'text-amber-200/80' : 'text-sky-300/70'}`}>
@@ -2071,7 +2229,9 @@ export default function App() {
           {/* Navegação Central Minimalista */}
           <nav
             className={`hidden md:flex items-center p-1 rounded-2xl border shadow-inner ${
-              christmasMode
+              isLightMode
+                ? 'bg-[#F4F8FA] border-[#E6EEF2]'
+                : christmasMode
                 ? 'bg-[#091E16]/85 border-amber-400/20'
                 : 'bg-[#061D27]/80 border-white/[0.08]'
             }`}
@@ -2086,10 +2246,10 @@ export default function App() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
                     active
                       ? christmasMode
-                        ? 'bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/30 border border-amber-300/40 scale-[1.02]'
+                        ? 'keep-white bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/30 border border-amber-300/40 scale-[1.02]'
                         : 'bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] text-white shadow-md shadow-[#0B96B2]/40 border border-sky-300/25 scale-[1.02]'
                       : 'text-sky-200/65 hover:text-white hover:bg-white/[0.04]'
                   }`}
@@ -2191,7 +2351,13 @@ export default function App() {
 
         {/* Cordão de luzinhas de Natal na borda do cabeçalho */}
         {christmasMode && (
-          <div className="pointer-events-none flex items-center justify-around px-2 py-0.5 border-t border-white/[0.05] bg-[#040E0B]/80">
+          <div
+            className={`pointer-events-none flex items-center justify-around px-2 py-0.5 border-t ${
+              isLightMode
+                ? 'border-[#E6EEF2] bg-[#F4F8FA]/95'
+                : 'border-white/[0.05] bg-[#040E0B]/80'
+            }`}
+          >
             {CHRISTMAS_LIGHTS.map((color, idx) => (
               <span
                 key={idx}
@@ -2210,10 +2376,10 @@ export default function App() {
         {/* Navegação Mobile Clean */}
         <div
           className={`grid grid-cols-2 gap-1.5 md:hidden border-t px-3 py-2 ${
-            christmasMode
-              ? 'border-amber-400/15 bg-[#05120D]/95'
-              : isLightMode
+            isLightMode
               ? 'border-[#E6EEF2] bg-white/95'
+              : christmasMode
+              ? 'border-amber-400/15 bg-[#05120D]/95'
               : 'border-white/[0.06] bg-[#04151D]/95'
           }`}
         >
@@ -2227,10 +2393,10 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap active:scale-95 ${
+                className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap active:scale-95 ${
                   active
                     ? christmasMode
-                      ? 'bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/25 border border-amber-300/35'
+                      ? 'keep-white bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/25 border border-amber-300/35'
                       : 'bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] text-white shadow-md shadow-[#0B96B2]/30 border border-sky-300/20'
                     : 'text-sky-200/70 hover:text-white bg-white/[0.02]'
                 }`}
@@ -2294,33 +2460,37 @@ export default function App() {
       )}
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
+      <main className="relative z-10 flex-1 min-h-0 flex flex-col max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 space-y-2.5 sm:space-y-3.5">
         {/* ALERTA DE ESTOQUE DE RAÇÃO (quando estiver baixo, crítico ou vazio) */}
         {activeTab === 'dashboard' && feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS && (
           <div
-            className={`rounded-2xl p-3.5 sm:p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-up ${
-              feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+            className={`shrink-0 rounded-2xl px-3.5 py-2 sm:py-2.5 border flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 animate-fade-up ${
+              isLightMode
+                ? feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                  ? 'bg-white border-rose-500/55 shadow-md'
+                  : 'bg-white border-amber-400/55 shadow-md'
+                : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
                 ? 'bg-rose-500/15 border-rose-500/45 text-rose-100 shadow-lg shadow-rose-950/30'
                 : 'bg-amber-500/15 border-amber-400/40 text-amber-100'
             }`}
           >
-            <div className="flex items-start sm:items-center gap-3 min-w-0">
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0">
               <AlertTriangle
-                className={`w-5 h-5 shrink-0 mt-0.5 sm:mt-0 ${
+                className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5 sm:mt-0 ${
                   feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
                     ? 'text-rose-400 animate-pulse'
                     : 'text-amber-300'
                 }`}
               />
               <div className="min-w-0">
-                <div className="text-xs sm:text-sm font-bold text-white">
+                <div className="text-xs sm:text-sm font-bold text-white truncate">
                   {feederCompartmentsLeft <= 0
                     ? 'Acabou a Comida (0g) — Não dá para alimentar! Requer abastecimento'
                     : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
                     ? `Atenção Crítica: A comida está quase acabando! Restam ${feederGramsLeft}g (${feederCompartmentsLeft}/12)`
                     : `Aviso: A comida está acabando! Restam ${feederGramsLeft}g (${feederCompartmentsLeft}/12 compartimentos)`}
                 </div>
-                <p className="text-[11px] sm:text-xs text-white/75 mt-0.5">
+                <p className="text-[11px] text-white/75 mt-0.5 lg:hidden xl:block">
                   {feederCompartmentsLeft <= 0
                     ? 'A alimentação manual e programada foi parada.'
                     : feederOnBarrier
@@ -2334,7 +2504,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleConfirmFeederRefill}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-all active:scale-95"
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-all active:scale-95"
                 >
                   Abastecer Comida (36g)
                 </button>
@@ -2343,7 +2513,7 @@ export default function App() {
                   type="button"
                   onClick={handleAlignFeederBarrier}
                   disabled={feederRefillPending}
-                  className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 transition-all active:scale-95 disabled:opacity-50"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {feederRefillPending ? 'Alinhando Barreira...' : 'Posicionar Barreira'}
                 </button>
@@ -2354,27 +2524,27 @@ export default function App() {
 
         {/* RESUMO RÁPIDO DOS 4 INDICADORES COM MICRO-INTERAÇÕES E ANIMAÇÃO */}
         {activeTab === 'dashboard' && (
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-fade-up">
+          <section className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 animate-fade-up">
             {/* Card 1: Nível da Água */}
-            <div className="clean-kpi rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between gap-2.5 sm:gap-3 group">
+            <div className="clean-kpi rounded-2xl p-3 lg:px-4 lg:py-3 flex flex-col justify-between gap-2 group">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                     Nível d'Água
                   </span>
-                  <span className="text-2xl sm:text-3xl font-extrabold text-white mt-1 block tracking-tight">
+                  <span className="text-xl sm:text-2xl font-extrabold text-white mt-0.5 block tracking-tight">
                     {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                   </span>
                   <span className={`text-[10px] sm:text-[11px] font-medium mt-0.5 block truncate ${waterStatus.color}`}>
                     {waterStatus.label}
                   </span>
                 </div>
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 shrink-0 transition-transform duration-300 group-hover:scale-110">
-                  <Waves className="w-4 h-4 sm:w-5 sm:h-5" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-300 shrink-0 transition-transform duration-300 group-hover:scale-110">
+                  <Waves className="w-4 h-4" />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-between text-[10px] sm:text-[11px] text-sky-200/60 border-t border-white/[0.04]">
+              <div className="pt-1.5 flex items-center justify-between text-[10px] sm:text-[11px] text-sky-200/60 border-t border-white/[0.04]">
                 <span>Volume Útil:</span>
                 <span className="font-mono-code font-bold text-sky-200">
                   {waterVolumeLiters !== null ? `${waterVolumeLiters} L` : '--'}
@@ -2383,25 +2553,25 @@ export default function App() {
             </div>
 
             {/* Card 2: Temperatura */}
-            <div className="clean-kpi rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between gap-2.5 sm:gap-3 group">
+            <div className="clean-kpi rounded-2xl p-3 lg:px-4 lg:py-3 flex flex-col justify-between gap-2 group">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
                     Temperatura
                   </span>
-                  <span className="text-2xl sm:text-3xl font-extrabold text-emerald-300 mt-1 block tracking-tight">
+                  <span className="text-xl sm:text-2xl font-extrabold text-emerald-300 mt-0.5 block tracking-tight">
                     {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
                   </span>
                   <span className="text-[10px] sm:text-[11px] text-sky-200/75 mt-0.5 block truncate">
                     {tempStatus.label}
                   </span>
                 </div>
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300 shrink-0 transition-transform duration-300 group-hover:scale-110">
-                  <Thermometer className="w-4 h-4 sm:w-5 sm:h-5" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300 shrink-0 transition-transform duration-300 group-hover:scale-110">
+                  <Thermometer className="w-4 h-4" />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-between text-[10px] sm:text-[11px] text-sky-200/60 border-t border-white/[0.04]">
+              <div className="pt-1.5 flex items-center justify-between text-[10px] sm:text-[11px] text-sky-200/60 border-t border-white/[0.04]">
                 <span>Faixa Ideal:</span>
                 <span className="font-mono-code font-bold text-emerald-300">
                   {config.tempMinC}°C–{config.tempMaxC}°C
@@ -2410,11 +2580,11 @@ export default function App() {
             </div>
 
             {/* Card 3: Bomba de Oxigênio */}
-            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
+            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-3 lg:px-4 lg:py-3 flex flex-col justify-between gap-2 group">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65">
+                    <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-sky-200/65">
                       Bomba de Oxigênio
                     </span>
                     <button
@@ -2430,7 +2600,7 @@ export default function App() {
                     </button>
                   </div>
                   <span
-                    className={`text-2xl sm:text-3xl font-extrabold mt-1 block tracking-tight transition-colors ${
+                    className={`text-xl sm:text-2xl font-extrabold mt-0.5 block tracking-tight transition-colors ${
                       pumpRelayOn ? 'text-emerald-300' : 'text-amber-300'
                     }`}
                   >
@@ -2445,20 +2615,20 @@ export default function App() {
                   </span>
                 </div>
                 <div
-                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 ${
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 ${
                     pumpRelayOn
                       ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
                       : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
                   }`}
                 >
-                  <Wind className={`w-5 h-5 ${pumpRelayOn ? 'animate-pulse' : ''}`} />
+                  <Wind className={`w-4 h-4 ${pumpRelayOn ? 'animate-pulse' : ''}`} />
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleTogglePump}
-                className={`w-full py-3 sm:py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                className={`w-full py-2 lg:py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                   pumpRelayOn
                     ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 shadow-sm shadow-emerald-500/15'
                     : 'bg-white/[0.06] hover:bg-white/[0.12] text-sky-200 border border-white/10'
@@ -2471,11 +2641,11 @@ export default function App() {
             </div>
 
             {/* Card 4: Alimentador com Opção de Alimentar Manualmente (3g em 3g) + Estoque */}
-            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-2.5 group">
+            <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-3 lg:px-4 lg:py-3 flex flex-col justify-between gap-2 group">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65">
+                    <span className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-sky-200/65">
                       Alimentador
                     </span>
                     <span
@@ -2495,7 +2665,7 @@ export default function App() {
                       Horários ›
                     </button>
                   </div>
-                  <span className="text-xl sm:text-2xl font-extrabold text-sky-300 mt-1 block tracking-tight">
+                  <span className="text-lg sm:text-xl font-extrabold text-sky-300 mt-0.5 block tracking-tight">
                     {feedNowCommand
                       ? 'Alimentando...'
                       : feederCompartmentsLeft <= 0
@@ -2504,9 +2674,9 @@ export default function App() {
                       ? `Próx: ${nextSchedule.time}`
                       : 'Programado'}
                   </span>
-                  <span className={`text-[11px] mt-0.5 block truncate ${feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS ? feederStatus.color : 'text-emerald-300/90'}`}>
+                  <span className={`text-[10px] sm:text-[11px] mt-0.5 block truncate ${feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS ? feederStatus.color : 'text-emerald-300/90'}`}>
                     {feederCompartmentsLeft <= 0
-                      ? 'Não dá para alimentar • Requer abastecimento'
+                      ? 'Requer abastecimento'
                       : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
                       ? feederStatus.label
                       : nextSchedule
@@ -2515,7 +2685,7 @@ export default function App() {
                   </span>
                 </div>
                 <div
-                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 ${
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 ${
                     feedNowCommand
                       ? 'bg-amber-400/20 border-amber-300/50 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
                       : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
@@ -2523,17 +2693,17 @@ export default function App() {
                       : 'bg-sky-500/15 border-sky-400/25 text-sky-300'
                   }`}
                 >
-                  <Utensils className={`w-5 h-5 ${feedNowCommand ? 'animate-bounce text-amber-300' : ''}`} />
+                  <Utensils className={`w-4 h-4 ${feedNowCommand ? 'animate-bounce text-amber-300' : ''}`} />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-1.5 bg-[#031117]/60 border border-white/[0.08] rounded-xl p-1">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-1.5 bg-[#031117]/60 border border-white/[0.08] rounded-xl p-0.5">
                   <button
                     type="button"
                     disabled={feedNowCommand || parsePortionGrams(feedNowPortion) <= MIN_PORTION_GRAMS}
                     onClick={() => setFeedNowPortion((prev) => stepPortionGrams(prev, -1))}
-                    className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors active:scale-95"
+                    className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors active:scale-95"
                     title="Diminuir 3g"
                     aria-label="Diminuir 3g"
                   >
@@ -2551,7 +2721,7 @@ export default function App() {
                     type="button"
                     disabled={feedNowCommand || parsePortionGrams(feedNowPortion) >= MAX_PORTION_GRAMS}
                     onClick={() => setFeedNowPortion((prev) => stepPortionGrams(prev, 1))}
-                    className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors active:scale-95"
+                    className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors active:scale-95"
                     title="Aumentar 3g"
                     aria-label="Aumentar 3g"
                   >
@@ -2563,7 +2733,7 @@ export default function App() {
                   type="button"
                   onClick={() => handleTriggerFeedNow(feedNowPortion)}
                   disabled={feedNowCommand}
-                  className={`w-full py-3 sm:py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                  className={`w-full py-2 lg:py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                     feederCompartmentsLeft <= 0
                       ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/45'
                       : feedNowCommand
@@ -2579,10 +2749,10 @@ export default function App() {
                   <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce' : ''}`} />
                   <span>
                     {feederCompartmentsLeft <= 0
-                      ? 'Sem Comida — Requer Abastecimento'
+                      ? 'Sem Comida — Abastecer'
                       : feedNowCommand
-                      ? 'Alimentando Peixes...'
-                      : `Alimentar Manualmente (${formatPortionGrams(feedNowPortion)})`}
+                      ? 'Alimentando...'
+                      : `Alimentar (${formatPortionGrams(feedNowPortion)})`}
                   </span>
                 </button>
               </div>
@@ -2594,21 +2764,21 @@ export default function App() {
             ABA 1: PAINEL PRINCIPAL CLEAN & ANIMADO
            =================================================================== */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch">
               {/* COLUNA ESQUERDA (6 cols): NÍVEL DA ÁGUA INTERATIVO */}
-              <div className="lg:col-span-6 clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col justify-between animate-fade-up">
-                <div>
-                  <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-5">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
-                        <Waves className="w-5 h-5" />
+              <div className="lg:col-span-6 clean-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between min-h-0 animate-fade-up">
+                <div className="flex-1 min-h-0 flex flex-col">
+                  <div className="flex flex-wrap items-start justify-between gap-2 mb-2.5 sm:mb-3 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
+                        <Waves className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-base font-bold text-white">
+                        <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
                           Nível da Água
                         </h3>
-                        <p className="text-[11px] sm:text-xs text-sky-200/65">
+                        <p className="text-[11px] text-sky-200/65">
                           Capacidade útil: {maxVolumeLiters} L ({TANK_LENGTH_CM} × {TANK_WIDTH_CM} × {TANK_HEIGHT_CM} cm)
                         </p>
                       </div>
@@ -2616,7 +2786,7 @@ export default function App() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span
-                        className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border transition-all ${waterStatus.bg} ${waterStatus.color}`}
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-all ${waterStatus.bg} ${waterStatus.color}`}
                       >
                         {waterStatus.label}
                       </span>
@@ -2624,13 +2794,23 @@ export default function App() {
                   </div>
 
                   {/* Visualização Gráfica do Aquário + Tubo Vertical de Comida ao Lado Direito */}
-                  <div className="flex items-stretch gap-2 sm:gap-3.5 mb-4 sm:mb-5">
-                    <div className="dark-island relative flex-1 min-w-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner">
+                  <div className="flex-1 min-h-0 flex items-stretch gap-2 sm:gap-3 mb-2.5 sm:mb-3">
+                    <div
+                      className={`relative flex-1 min-w-0 h-48 sm:h-56 lg:h-full lg:min-h-[165px] rounded-2xl border overflow-hidden transition-colors duration-300 ${
+                        isLightMode
+                          ? 'bg-gradient-to-b from-[#E8FAFE] via-[#CCF3FC] to-[#A6E9F8] border-[#11C3E3]/60 shadow-[inset_0_2px_14px_rgba(10,147,178,0.14)]'
+                          : 'dark-island bg-gradient-to-b from-[#03121A] to-[#062433] border-sky-400/25 shadow-inner'
+                      }`}
+                    >
                     {/* Reflexo de vidro sutil */}
-                    <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.03] to-transparent -skew-x-12 z-20" />
+                    <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.06] to-transparent -skew-x-12 z-20" />
 
                     {/* Régua lateral minimalista */}
-                    <div className="absolute right-3.5 inset-y-4 z-20 flex flex-col justify-between text-[10px] font-mono-code text-sky-200/45 pointer-events-none">
+                    <div
+                      className={`absolute right-3.5 inset-y-3 z-20 flex flex-col justify-between text-[10px] font-mono-code pointer-events-none ${
+                        isLightMode ? 'text-[#064E63]/75 font-semibold' : 'text-sky-200/45'
+                      }`}
+                    >
                       <span>100%</span>
                       <span>75%</span>
                       <span>50%</span>
@@ -2699,7 +2879,13 @@ export default function App() {
                           <div className="absolute -top-2 left-0 w-[200%] h-5 bg-[#47DDF5]/35 rounded-[45%] animate-wave-fast"></div>
                         </>
                       )}
-                      <div className="w-full h-full bg-gradient-to-b from-[#10C3E3]/80 via-[#0B7C99]/85 to-[#063B52] relative overflow-hidden">
+                      <div
+                        className={`w-full h-full bg-gradient-to-b relative overflow-hidden ${
+                          isLightMode
+                            ? 'from-[#11C3E3]/80 via-[#0DB4DA]/88 to-[#0A93B2]/95'
+                            : 'from-[#10C3E3]/80 via-[#0B7C99]/85 to-[#063B52]'
+                        }`}
+                      >
                         {/* Raios de luz subaquáticos sutis */}
                         <div className="pointer-events-none absolute inset-0 z-[2] opacity-40">
                           <div className="absolute -top-4 left-[18%] w-16 h-44 bg-gradient-to-b from-sky-300/20 to-transparent -rotate-12 blur-md" />
@@ -3064,12 +3250,12 @@ export default function App() {
 
                         <defs>
                           <linearGradient id="sandGrad" x1="300" y1="14" x2="300" y2="42" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#0D3E4F" stopOpacity="0.95" />
-                            <stop offset="1" stopColor="#051E29" />
+                            <stop stopColor={isLightMode ? '#38B2CE' : '#0D3E4F'} stopOpacity="0.95" />
+                            <stop offset="1" stopColor={isLightMode ? '#0E7490' : '#051E29'} />
                           </linearGradient>
                           <linearGradient id="sandGradFront" x1="300" y1="20" x2="300" y2="42" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#135166" stopOpacity="0.85" />
-                            <stop offset="1" stopColor="#04161F" />
+                            <stop stopColor={isLightMode ? '#67D4EC' : '#135166'} stopOpacity="0.88" />
+                            <stop offset="1" stopColor={isLightMode ? '#0A627A' : '#04161F'} />
                           </linearGradient>
                         </defs>
                       </svg>
@@ -3199,11 +3385,25 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setChristmasMode((prev) => !prev)}
+                      title={christmasMode ? 'Desativar Clima Natalino' : 'Ativar Clima Natalino'}
                       aria-label={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
-                      className={`absolute bottom-2 sm:bottom-2.5 right-6 sm:right-8 z-30 pointer-events-auto cursor-pointer scale-90 sm:scale-100 origin-bottom-right transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none ${
-                        christmasMode ? 'opacity-100' : 'opacity-80 hover:opacity-100'
+                      className={`group absolute bottom-2 sm:bottom-2.5 right-6 sm:right-8 z-30 pointer-events-auto cursor-pointer scale-90 sm:scale-100 origin-bottom-right transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none ${
+                        christmasMode
+                          ? 'opacity-100'
+                          : isLightMode
+                          ? 'opacity-95 hover:opacity-100'
+                          : 'opacity-85 hover:opacity-100'
                       }`}
                     >
+                      <span
+                        className={`pointer-events-none absolute -top-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-md ${
+                          isLightMode
+                            ? 'bg-white border border-[#11C3E3] text-[#000000]'
+                            : 'bg-[#000000]/90 border border-white/15 text-white'
+                        }`}
+                      >
+                        {christmasMode ? 'Natal ON 🎄' : 'Clima Natal'}
+                      </span>
                       <svg
                         width="34"
                         height="50"
@@ -3211,28 +3411,30 @@ export default function App() {
                         fill="none"
                         className={
                           christmasMode
-                            ? 'drop-shadow-[0_2px_10px_rgba(251,191,36,0.45)]'
+                            ? 'drop-shadow-[0_2px_10px_rgba(251,191,36,0.55)]'
+                            : isLightMode
+                            ? 'drop-shadow-[0_2px_6px_rgba(255,255,255,0.85)]'
                             : 'drop-shadow-[0_2px_6px_rgba(6,78,59,0.5)]'
                         }
                       >
                         <rect x="15.5" y="45" width="5" height="7" rx="1" fill="#78350F" />
-                        <path d="M18 10L6 27H30L18 10Z" fill={christmasMode ? '#10B981' : '#065F46'} />
-                        <path d="M18 19L4 36H32L18 19Z" fill={christmasMode ? '#059669' : '#064E3B'} />
-                        <path d="M18 28L2 46H34L18 28Z" fill={christmasMode ? '#047857' : '#022C22'} />
+                        <path d="M18 10L6 27H30L18 10Z" fill={christmasMode || isLightMode ? '#10B981' : '#065F46'} />
+                        <path d="M18 19L4 36H32L18 19Z" fill={christmasMode || isLightMode ? '#059669' : '#064E3B'} />
+                        <path d="M18 28L2 46H34L18 28Z" fill={christmasMode || isLightMode ? '#047857' : '#022C22'} />
                         {/* Estrela no topo */}
                         <path
                           d="M18 2L19.6 6.2L24 6.5L20.6 9.3L21.7 13.5L18 11.2L14.3 13.5L15.4 9.3L12 6.5L16.4 6.2Z"
-                          fill={christmasMode ? '#FBBF24' : '#94A3B8'}
-                          fillOpacity={christmasMode ? 1 : 0.75}
+                          fill={christmasMode ? '#FBBF24' : isLightMode ? '#F59E0B' : '#94A3B8'}
+                          fillOpacity={christmasMode || isLightMode ? 1 : 0.75}
                         />
                         {/* Bolinhas decorativas */}
-                        <circle cx="14" cy="24" r="1.8" fill={christmasMode ? '#EF4444' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.65} />
-                        <circle cx="22" cy="25" r="1.8" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.6} />
-                        <circle cx="11" cy="34" r="1.9" fill={christmasMode ? '#38BDF8' : '#FB7185'} fillOpacity={christmasMode ? 1 : 0.65} />
-                        <circle cx="19" cy="33" r="1.9" fill={christmasMode ? '#EF4444' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
-                        <circle cx="25" cy="35" r="1.8" fill={christmasMode ? '#FBBF24' : '#34D399'} fillOpacity={christmasMode ? 1 : 0.6} />
-                        <circle cx="13" cy="43" r="2" fill={christmasMode ? '#FBBF24' : '#38BDF8'} fillOpacity={christmasMode ? 1 : 0.65} />
-                        <circle cx="23" cy="42" r="2" fill={christmasMode ? '#FB7185' : '#FBBF24'} fillOpacity={christmasMode ? 1 : 0.65} />
+                        <circle cx="14" cy="24" r="1.8" fill={christmasMode ? '#EF4444' : '#34D399'} fillOpacity={christmasMode || isLightMode ? 0.95 : 0.65} />
+                        <circle cx="22" cy="25" r="1.8" fill={christmasMode ? '#FBBF24' : '#FFFFFF'} fillOpacity={christmasMode || isLightMode ? 0.95 : 0.6} />
+                        <circle cx="11" cy="34" r="1.9" fill={christmasMode ? '#38BDF8' : '#FB7185'} fillOpacity={christmasMode || isLightMode ? 0.95 : 0.65} />
+                        <circle cx="19" cy="33" r="1.9" fill={christmasMode ? '#EF4444' : '#FBBF24'} fillOpacity={christmasMode || isLightMode ? 0.95 : 0.65} />
+                        <circle cx="25" cy="35" r="1.8" fill={christmasMode ? '#FBBF24' : '#34D399'} fillOpacity={christmasMode || isLightMode ? 0.95 : 0.6} />
+                        <circle cx="13" cy="43" r="2" fill={christmasMode ? '#FBBF24' : '#FFFFFF'} fillOpacity={christmasMode || isLightMode ? 0.95 : 0.65} />
+                        <circle cx="23" cy="42" r="2" fill={christmasMode ? '#FB7185' : '#FBBF24'} fillOpacity={christmasMode || isLightMode ? 0.95 : 0.65} />
                       </svg>
                     </button>
 
@@ -3283,7 +3485,7 @@ export default function App() {
                               }`}
                             />
                           </div>
-                          <span className="text-[6px] font-mono-code tracking-tighter text-sky-200/80 uppercase leading-none">
+                          <span className="keep-white text-[6px] font-mono-code tracking-tighter text-sky-200/80 uppercase leading-none">
                             O₂
                           </span>
                         </div>
@@ -3301,11 +3503,23 @@ export default function App() {
 
                     {/* Indicador Central */}
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none drop-shadow-md">
-                      <span className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+                      <span
+                        className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+                          isLightMode
+                            ? 'text-[#000000] drop-shadow-[0_1px_10px_rgba(255,255,255,0.95)]'
+                            : 'text-white'
+                        }`}
+                      >
                         {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                       {waterVolumeLiters !== null && (
-                        <span className="text-[11px] sm:text-xs font-medium text-sky-100 bg-[#031117]/65 backdrop-blur-md px-3 sm:px-3.5 py-1 rounded-full mt-1.5 border border-white/15">
+                        <span
+                          className={`text-[11px] sm:text-xs font-semibold backdrop-blur-md px-3 py-0.5 rounded-full mt-1 border ${
+                            isLightMode
+                              ? 'bg-white/85 text-[#000000] border-[#11C3E3]/50 shadow-sm'
+                              : 'text-sky-100 bg-[#031117]/65 border-white/15'
+                          }`}
+                        >
                           Volume: {waterVolumeLiters} L
                         </span>
                       )}
@@ -3314,7 +3528,11 @@ export default function App() {
 
                     {/* Tubo Vertical Indicando a Quantidade Disponível de Comida */}
                     <div
-                      className="dark-island w-[76px] sm:w-[96px] shrink-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 p-2 sm:p-2.5 flex flex-col items-center justify-between shadow-inner"
+                      className={`w-[76px] sm:w-[92px] shrink-0 h-48 sm:h-56 lg:h-full lg:min-h-[165px] rounded-2xl border p-2 flex flex-col items-center justify-between transition-colors duration-300 ${
+                        isLightMode
+                          ? 'bg-gradient-to-b from-[#F4F8FA] to-[#E0F7FC] border-[#11C3E3]/50 shadow-inner'
+                          : 'dark-island bg-gradient-to-b from-[#03121A] to-[#062433] border-sky-400/25 shadow-inner'
+                      }`}
                       title={`Comida disponível: ${feederGramsLeft}g (${feederCompartmentsLeft}/${TOTAL_FEEDER_COMPARTMENTS} compartimentos)`}
                     >
                       <div className="text-center leading-tight">
@@ -3329,6 +3547,8 @@ export default function App() {
                               ? 'text-rose-300'
                               : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
                               ? 'text-amber-300'
+                              : isLightMode
+                              ? 'text-amber-700'
                               : 'text-amber-200'
                           }`}
                         >
@@ -3339,17 +3559,38 @@ export default function App() {
                       {/* Corpo cilíndrico translúcido do tubo */}
                       <div className="flex-1 w-full flex flex-col items-center justify-center my-1 min-h-0">
                         {/* Tampa superior */}
-                        <div className="w-10 sm:w-11 h-1.5 rounded-t-md bg-slate-400/35 border border-white/20 shrink-0" />
+                        <div
+                          className={`w-10 sm:w-11 h-1.5 rounded-t-md border shrink-0 ${
+                            isLightMode
+                              ? 'bg-[#0A93B2]/30 border-[#0A93B2]/45'
+                              : 'bg-slate-400/35 border-white/20'
+                          }`}
+                        />
 
                         {/* Vidro do tubo com 12 marcações de dose */}
-                        <div className="relative flex-1 w-9 sm:w-10 rounded-b-xl bg-[#020C12]/90 border border-sky-300/25 overflow-hidden shadow-[inset_0_0_12px_rgba(0,0,0,0.85)]">
+                        <div
+                          className={`relative flex-1 w-9 sm:w-10 rounded-b-xl border overflow-hidden ${
+                            isLightMode
+                              ? 'bg-white/90 border-[#0A93B2]/40 shadow-[inset_0_2px_8px_rgba(10,147,178,0.14)]'
+                              : 'bg-[#020C12]/90 border-sky-300/25 shadow-[inset_0_0_12px_rgba(0,0,0,0.85)]'
+                          }`}
+                        >
                           {/* Reflexo vertical de vidro */}
-                          <div className="pointer-events-none absolute inset-y-1 left-1 w-1 bg-white/15 rounded-full z-20" />
+                          <div
+                            className={`pointer-events-none absolute inset-y-1 left-1 w-1 rounded-full z-20 ${
+                              isLightMode ? 'bg-[#11C3E3]/25' : 'bg-white/15'
+                            }`}
+                          />
 
                           {/* 11 linhas internas dividindo os 12 compartimentos (3g cada) */}
                           <div className="pointer-events-none absolute inset-0 flex flex-col justify-evenly z-10">
                             {Array.from({ length: TOTAL_FEEDER_COMPARTMENTS - 1 }).map((_, idx) => (
-                              <div key={idx} className="w-full border-t border-white/[0.08]" />
+                              <div
+                                key={idx}
+                                className={`w-full border-t ${
+                                  isLightMode ? 'border-[#0A93B2]/20' : 'border-white/[0.08]'
+                                }`}
+                              />
                             ))}
                           </div>
 
@@ -3443,24 +3684,24 @@ export default function App() {
                 </div>
 
                 {/* Métricas do Aquário + Avisos de Comida + Botão de Abastecer */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2.5 sm:p-3.5 text-center">
+                <div className="space-y-2.5 shrink-0">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2 sm:p-2.5 text-center">
                       <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Nível Atual</span>
-                      <span className="text-xs sm:text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
+                      <span className="text-xs sm:text-sm font-bold text-sky-300 font-mono-code mt-0.5 block">
                         {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                     </div>
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2.5 sm:p-3.5 text-center">
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2 sm:p-2.5 text-center">
                       <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Volume Atual</span>
-                      <span className="text-xs sm:text-base font-bold text-white font-mono-code mt-0.5 block">
+                      <span className="text-xs sm:text-sm font-bold text-white font-mono-code mt-0.5 block">
                         {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
                       </span>
                     </div>
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2.5 sm:p-3.5 text-center">
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2 sm:p-2.5 text-center">
                       <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Comida Disp.</span>
                       <span
-                        className={`text-xs sm:text-base font-bold font-mono-code mt-0.5 block ${
+                        className={`text-xs sm:text-sm font-bold font-mono-code mt-0.5 block ${
                           feederCompartmentsLeft <= 0
                             ? 'text-rose-400'
                             : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
@@ -3475,10 +3716,10 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Aviso claro dentro do card quando a comida está acabando ou acabou */}
+                  {/* Aviso claro dentro do card quando a comida está acabando ou acabou (oculto em desktop pois o banner superior já exibe) */}
                   {feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS && (
                     <div
-                      className={`rounded-2xl px-3.5 py-2.5 border text-xs flex items-start gap-2.5 ${
+                      className={`lg:hidden rounded-2xl px-3.5 py-2 border text-xs flex items-start gap-2.5 ${
                         feederCompartmentsLeft <= 0
                           ? 'bg-rose-500/15 border-rose-500/45 text-rose-100'
                           : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
@@ -3513,7 +3754,7 @@ export default function App() {
                     type="button"
                     onClick={handleConfirmFeederRefill}
                     disabled={feedNowCommand}
-                    className={`w-full py-3 sm:py-2.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 ${
+                    className={`w-full py-2.5 lg:py-2 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 ${
                       feederCompartmentsLeft < TOTAL_FEEDER_COMPARTMENTS
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold shadow-md shadow-emerald-500/20'
                         : 'bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/35 text-emerald-200 font-bold'
@@ -3536,17 +3777,17 @@ export default function App() {
               </div>
 
               {/* COLUNA DIREITA (6 cols): DISPLAY LCD + TEMPERATURA */}
-              <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-col gap-4 sm:gap-6">
+              <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-col gap-3 sm:gap-4 min-h-0">
                 {/* CARD: DISPLAY LCD */}
-                <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-fade-up delay-75">
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0">
-                        <Monitor className="w-5 h-5" />
+                <div className="clean-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shrink-0 animate-fade-up delay-75">
+                  <div className="flex items-center justify-between gap-3 mb-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0">
+                        <Monitor className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-base font-bold text-white">Display LCD</h3>
-                        <p className="text-[11px] sm:text-xs text-sky-200/65 truncate">
+                        <h3 className="text-sm sm:text-base font-bold text-white leading-tight">Display LCD</h3>
+                        <p className="text-[11px] text-sky-200/65 truncate">
                           {activeCfg.lcdCarousel ? 'Alternância automática ativa' : 'Espelhamento em tempo real'}
                         </p>
                       </div>
@@ -3564,12 +3805,36 @@ export default function App() {
                   </div>
 
                   {/* Moldura do Display LCD */}
-                  <div className="dark-island rounded-2xl bg-[#031016] border border-white/10 p-2.5 sm:p-3.5 shadow-inner">
-                    <div className="rounded-xl bg-gradient-to-b from-[#0C352A] to-[#07241C] border border-emerald-400/35 px-3 sm:px-5 py-3 sm:py-4 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)] overflow-x-auto">
-                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre transition-all duration-300">
+                  <div
+                    className={`rounded-2xl border p-2 sm:p-2.5 shadow-inner transition-colors duration-300 ${
+                      isLightMode
+                        ? 'bg-[#EAECEF] border-[#D8E4E9]'
+                        : 'dark-island bg-[#031016] border-white/10'
+                    }`}
+                  >
+                    <div
+                      className={`rounded-xl border px-3 sm:px-4 py-2 sm:py-2.5 overflow-x-auto transition-colors duration-300 ${
+                        isLightMode
+                          ? 'bg-gradient-to-b from-[#DDF7FD] to-[#B8ECF9] border-[#0A93B2]/55 shadow-[inset_0_2px_14px_rgba(10,147,178,0.18)]'
+                          : 'bg-gradient-to-b from-[#0C352A] to-[#07241C] border-emerald-400/35 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)]'
+                      }`}
+                    >
+                      <div
+                        className={`font-mono-code text-[13px] min-[390px]:text-base sm:text-lg xl:text-xl font-bold tracking-[0.07em] sm:tracking-[0.14em] whitespace-pre transition-all duration-300 ${
+                          isLightMode
+                            ? 'text-[#042F3D] drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]'
+                            : 'text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)]'
+                        }`}
+                      >
                         {lcdLine0}
                       </div>
-                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre mt-1.5 transition-all duration-300">
+                      <div
+                        className={`font-mono-code text-[13px] min-[390px]:text-base sm:text-lg xl:text-xl font-bold tracking-[0.07em] sm:tracking-[0.14em] whitespace-pre mt-1 transition-all duration-300 ${
+                          isLightMode
+                            ? 'text-[#042F3D] drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]'
+                            : 'text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)]'
+                        }`}
+                      >
                         {lcdLine1}
                       </div>
                     </div>
@@ -3577,42 +3842,42 @@ export default function App() {
                 </div>
 
                 {/* CARD: TEMPERATURA */}
-                <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex-1 flex flex-col justify-between animate-fade-up delay-150">
-                  <div>
-                    <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-4 mb-4 sm:mb-5">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
-                          <Thermometer className="w-5 h-5" />
+                <div className="clean-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex-1 min-h-0 flex flex-col justify-between animate-fade-up delay-150">
+                  <div className="flex-1 flex flex-col justify-between min-h-0">
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2.5 sm:mb-3 shrink-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
+                          <Thermometer className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-base font-bold text-white">
+                          <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
                             Temperatura da Água
                           </h3>
-                          <p className="text-[11px] sm:text-xs text-sky-200/65">
+                          <p className="text-[11px] text-sky-200/65">
                             Monitoramento térmico em tempo real
                           </p>
                         </div>
                       </div>
 
                       <span
-                        className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border shrink-0 transition-all ${tempStatus.bg} ${tempStatus.color}`}
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 transition-all ${tempStatus.bg} ${tempStatus.color}`}
                       >
                         {tempStatus.label}
                       </span>
                     </div>
 
                     {/* Mostrador Principal de Temperatura + Barra Térmica Animada */}
-                    <div className="bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
-                      <div className="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between gap-3">
+                    <div className="flex-1 bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-3 sm:p-4 flex flex-col justify-center space-y-2.5">
+                      <div className="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between gap-2">
                         <div>
                           <span className="text-xs text-sky-200/65 block">
                             Temperatura Atual
                           </span>
-                          <span className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mt-1 block font-mono-code">
+                          <span className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight mt-0.5 block font-mono-code">
                             {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
                           </span>
                         </div>
-                        <div className="min-[380px]:text-right text-xs text-sky-200/70 space-y-1.5">
+                        <div className="min-[380px]:text-right text-xs text-sky-200/70 space-y-1">
                           <div>
                             Faixa Ideal:{' '}
                             <strong className="text-emerald-300 font-mono-code">
@@ -3650,7 +3915,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
           </div>
         )}
 
@@ -4092,18 +4356,42 @@ export default function App() {
               {/* ABA 5: DISPLAY LCD */}
               {wizardStep === 5 && (
                 <div className="max-w-2xl mx-auto space-y-5 animate-fade-up">
-                  <div className="dark-island rounded-2xl bg-[#031016] border border-white/[0.08] p-3 sm:p-4 shadow-inner">
+                  <div
+                    className={`rounded-2xl border p-3 sm:p-4 shadow-inner transition-colors duration-300 ${
+                      isLightMode
+                        ? 'bg-[#EAECEF] border-[#D8E4E9]'
+                        : 'dark-island bg-[#031016] border-white/[0.08]'
+                    }`}
+                  >
                     <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between gap-2">
                       <span>Prévia do Display LCD (16x2)</span>
                       {draftConfig.lcdCarousel && (
                         <span className="text-emerald-300 font-semibold">Carrossel Ativo (4s)</span>
                       )}
                     </div>
-                    <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-3 sm:px-5 py-3 sm:py-3.5 shadow-[0_0_25px_rgba(16,185,129,0.15)] overflow-x-auto">
-                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 whitespace-pre">
+                    <div
+                      className={`rounded-xl border-2 px-3 sm:px-5 py-3 sm:py-3.5 overflow-x-auto transition-colors duration-300 ${
+                        isLightMode
+                          ? 'bg-gradient-to-b from-[#DDF7FD] to-[#B8ECF9] border-[#0A93B2]/55 shadow-[inset_0_2px_14px_rgba(10,147,178,0.18)]'
+                          : 'bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-emerald-400/40 shadow-[0_0_25px_rgba(16,185,129,0.15)]'
+                      }`}
+                    >
+                      <div
+                        className={`font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] whitespace-pre ${
+                          isLightMode
+                            ? 'text-[#042F3D] drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]'
+                            : 'text-emerald-200'
+                        }`}
+                      >
                         {lcdLine0}
                       </div>
-                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 whitespace-pre mt-1">
+                      <div
+                        className={`font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] whitespace-pre mt-1 ${
+                          isLightMode
+                            ? 'text-[#042F3D] drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]'
+                            : 'text-emerald-200'
+                        }`}
+                      >
                         {lcdLine1}
                       </div>
                     </div>
@@ -4780,11 +5068,13 @@ export default function App() {
 
       {/* RODAPÉ */}
       <footer
-        className={`border-t backdrop-blur-xl py-5 px-4 sm:px-6 lg:px-8 mt-8 transition-colors ${
-          christmasMode
+        className={`relative z-10 border-t backdrop-blur-xl py-2.5 px-4 sm:px-6 lg:px-8 mt-auto shrink-0 transition-colors ${
+          isLightMode
+            ? christmasMode
+              ? 'border-emerald-500/30 bg-white/95 shadow-[0_-4px_20px_rgba(0,52,66,0.08)]'
+              : 'border-[#E6EEF2] bg-white/95 shadow-[0_-4px_20px_rgba(0,52,66,0.08)]'
+            : christmasMode
             ? 'border-amber-400/20 bg-[#05120D]/85'
-            : isLightMode
-            ? 'border-[#E6EEF2] bg-white/95 shadow-[0_-4px_20px_rgba(0,52,66,0.08)]'
             : 'border-white/[0.06] bg-[#050C10]/85'
         }`}
       >
