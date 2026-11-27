@@ -1613,17 +1613,13 @@ export default function App() {
             {[
               { id: 'dashboard', label: 'Painel', icon: Gauge },
               { id: 'history', label: 'Histórico', icon: TrendingUp },
-              { id: 'setup', label: 'Configurações', icon: Settings },
             ].map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => {
-                    if (tab.id === 'setup') setDraftConfig(config);
-                    setActiveTab(tab.id);
-                  }}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
                     active
                       ? christmasMode
@@ -1727,7 +1723,7 @@ export default function App() {
 
         {/* Navegação Mobile Clean */}
         <div
-          className={`grid grid-cols-3 gap-1.5 md:hidden border-t px-3 py-2 ${
+          className={`grid grid-cols-2 gap-1.5 md:hidden border-t px-3 py-2 ${
             christmasMode
               ? 'border-amber-400/15 bg-[#05120D]/95'
               : 'border-white/[0.06] bg-[#04151D]/95'
@@ -1736,17 +1732,13 @@ export default function App() {
           {[
             { id: 'dashboard', label: 'Painel', icon: Gauge },
             { id: 'history', label: 'Histórico', icon: TrendingUp },
-            { id: 'setup', label: 'Ajustes', icon: Settings },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => {
-                  if (tab.id === 'setup') setDraftConfig(config);
-                  setActiveTab(tab.id);
-                }}
+                onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap active:scale-95 ${
                   active
                     ? christmasMode
@@ -1842,7 +1834,7 @@ export default function App() {
                 </div>
                 <p className="text-[11px] sm:text-xs text-white/75 mt-0.5">
                   {feederCompartmentsLeft <= 0
-                    ? 'A alimentação manual e programada foi parada. O motor já alinhou a barreira com o furo — coloque nova ração (36g) e clique em Abastecer Comida.'
+                    ? 'A alimentação manual e programada foi parada.'
                     : feederOnBarrier
                     ? 'A barreira já está tampando o furo. Se completar os 12 compartimentos (36g), clique em Abastecer Comida.'
                     : 'Programe o reabastecimento: ao zerar, a barreira fecha o furo automaticamente, ou clique para alinhar antes.'}
@@ -2914,12 +2906,9 @@ export default function App() {
 
                       {/* Rodapé do tubo */}
                       {feederCompartmentsLeft <= 0 ? (
-                        <div className="w-full space-y-0.5 text-center">
+                        <div className="w-full text-center">
                           <span className="block text-[8px] font-extrabold text-rose-400 leading-none uppercase">
                             Acabou!
-                          </span>
-                          <span className="block text-[8px] font-semibold text-emerald-300/90 leading-none">
-                            Barreira OK
                           </span>
                         </div>
                       ) : (
@@ -2975,7 +2964,7 @@ export default function App() {
                         }`}
                       >
                         {feederCompartmentsLeft <= 0
-                          ? '0g • Barreira'
+                          ? '0g'
                           : `${feederGramsLeft}g / ${MAX_FEEDER_GRAMS}g`}
                       </span>
                     </div>
@@ -3002,7 +2991,7 @@ export default function App() {
                       <span className="leading-snug">
                         {feederCompartmentsLeft <= 0 ? (
                           <>
-                            <strong className="text-white">Acabou a comida!</strong> Não dá para alimentar — requer abastecimento. O motor de passo já alinhou a barreira com o furo.
+                            <strong className="text-white">Acabou a comida!</strong> Não dá para alimentar — requer abastecimento.
                           </>
                         ) : (
                           <>
