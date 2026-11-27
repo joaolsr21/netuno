@@ -1334,10 +1334,10 @@ void syncStatusWithSupabase() {
   String upsertEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?on_conflict=device_username";
   String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?" + filterQuery;
 
-  // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC ou reabastecimento (evita sobrescrever comandos pendentes)
+  // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC, alimentação ou reabastecimento (evita sobrescrever comandos pendentes)
   String preSelect = feederColsSupported
-                       ? "rtc_set_command,rtc_datetime,feeder_confirm_refill_command,feeder_refill_command"
-                       : "rtc_set_command,rtc_datetime";
+                       ? "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,feeder_confirm_refill_command,feeder_refill_command"
+                       : "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion";
   http.begin(filterEndpoint + "&select=" + preSelect);
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -1354,6 +1354,19 @@ void syncStatusWithSupabase() {
       ackPre.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
       ackPre.PATCH("{\"rtc_set_command\":false}");
       ackPre.end();
+    }
+    if (preBody.indexOf("\"feed_now_command\":true") >= 0 || preBody.indexOf("\"feed_now_command\": true") >= 0) {
+      String portionStr = extractJsonStringField(preBody, "feed_now_portion");
+      if (portionStr.length() == 0) portionStr = "3g";
+      HTTPClient ackPreFeed;
+      ackPreFeed.setTimeout(2500);
+      ackPreFeed.begin(filterEndpoint);
+      ackPreFeed.addHeader("Content-Type", "application/json");
+      ackPreFeed.addHeader("apikey", SUPABASE_KEY);
+      ackPreFeed.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+      ackPreFeed.PATCH("{\"feed_now_command\":false}");
+      ackPreFeed.end();
+      dispenseFoodNow(portionStr, "Comando Manual do Site");
     }
     if (preBody.indexOf("\"feeder_refill_command\":true") >= 0 || preBody.indexOf("\"feeder_refill_command\": true") >= 0) {
       HTTPClient ackPreRefill;

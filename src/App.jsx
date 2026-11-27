@@ -501,8 +501,20 @@ export default function App() {
     setFeederOnBarrier(nextComps === 0);
     setFeedNowPortion(normalizedPortion);
     setFeedNowCommand(true);
+
+    if (!espOnline && isSupabaseConfigured && supabase && activeDeviceUsername) {
+      supabase
+        .from('aquarium_status')
+        .update({
+          feeder_compartments_left: nextComps,
+          feeder_on_barrier: nextComps === 0,
+        })
+        .ilike('device_username', activeDeviceUsername)
+        .then(() => {}, () => {});
+    }
   }, [
     activeDeviceUsername,
+    espOnline,
     feederCompartmentsLeft,
     rtcCurrentHHMM,
     rtcCurrentSeconds,
@@ -1023,9 +1035,32 @@ export default function App() {
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       supabase
         .from('aquarium_status')
-        .update({ feed_now_command: true, feed_now_portion: normalizedPortion })
+        .update({
+          feed_now_command: true,
+          feed_now_portion: normalizedPortion,
+          feeder_compartments_left: nextComps,
+          feeder_on_barrier: nextComps === 0,
+        })
         .ilike('device_username', activeDeviceUsername)
         .then(() => {}, () => {});
+
+      if (!espOnline) {
+        const gramsFed = dosesApplied * GRAMS_PER_DOSE;
+        const gramsRemaining = nextComps * GRAMS_PER_DOSE;
+        supabase
+          .from('telemetry_logs')
+          .insert([
+            {
+              device_username: activeDeviceUsername,
+              event_type: 'feeder',
+              message: `Alimentação pelo Painel: ${gramsFed}g dispensados • Restam ${nextComps}/12 (${gramsRemaining}g)${
+                nextComps === 0 ? ' [ACABOU - BARREIRA ALINHADA]' : ''
+              }`,
+              source: 'Painel Web',
+            },
+          ])
+          .then(() => {}, () => {});
+      }
 
       if (feedDbCleanupTimerRef.current) {
         clearTimeout(feedDbCleanupTimerRef.current);
@@ -1531,6 +1566,7 @@ export default function App() {
             {[
               { id: 'dashboard', label: 'Painel', icon: Gauge },
               { id: 'history', label: 'Histórico', icon: TrendingUp },
+              { id: 'setup', label: 'Configurações', icon: Settings },
             ].map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -1575,7 +1611,7 @@ export default function App() {
                     setActiveTab('setup');
                   }
                 }}
-                className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
+                className={`inline-flex items-center justify-center p-2 rounded-xl border transition-all duration-200 active:scale-95 ${
                   activeTab === 'setup'
                     ? christmasMode
                       ? 'bg-gradient-to-r from-rose-600 to-emerald-600 border-amber-300/50 text-white shadow-md shadow-rose-500/25'
@@ -1585,7 +1621,7 @@ export default function App() {
                 title="Configurações"
                 aria-label="Configurações"
               >
-                <Settings className="w-3.5 h-3.5 shrink-0" />
+                <Settings className="w-4 h-4 shrink-0" />
               </button>
               <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#061E29]/95 border border-white/15 text-[10px] font-semibold text-white px-2 py-0.5 rounded-md shadow-lg z-50">
                 Configurações
@@ -1596,11 +1632,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleDeviceLogout}
-                className="inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 border border-white/[0.09] hover:border-rose-400/40 text-sky-200/85 hover:text-rose-200 transition-all duration-200 active:scale-95"
+                className="inline-flex items-center justify-center p-2 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 border border-white/[0.09] hover:border-rose-400/40 text-sky-200/85 hover:text-rose-200 transition-all duration-200 active:scale-95"
                 title="Logout"
                 aria-label="Logout"
               >
-                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <LogOut className="w-4 h-4 shrink-0" />
               </button>
               <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#061E29]/95 border border-white/15 text-[10px] font-semibold text-rose-200 px-2 py-0.5 rounded-md shadow-lg z-50">
                 Logout
@@ -1644,7 +1680,7 @@ export default function App() {
 
         {/* Navegação Mobile Clean */}
         <div
-          className={`grid grid-cols-2 gap-1.5 md:hidden border-t px-3 py-2 ${
+          className={`grid grid-cols-3 gap-1.5 md:hidden border-t px-3 py-2 ${
             christmasMode
               ? 'border-amber-400/15 bg-[#05120D]/95'
               : 'border-white/[0.06] bg-[#04151D]/95'
@@ -1653,6 +1689,7 @@ export default function App() {
           {[
             { id: 'dashboard', label: 'Painel', icon: Gauge },
             { id: 'history', label: 'Histórico', icon: TrendingUp },
+            { id: 'setup', label: 'Ajustes', icon: Settings },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -1663,7 +1700,7 @@ export default function App() {
                   if (tab.id === 'setup') setDraftConfig(config);
                   setActiveTab(tab.id);
                 }}
-                className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap active:scale-95 ${
                   active
                     ? christmasMode
                       ? 'bg-gradient-to-r from-rose-600 to-emerald-600 text-white shadow-md shadow-rose-500/25 border border-amber-300/35'
@@ -1697,12 +1734,17 @@ export default function App() {
 
       {/* Notificação flutuante de reabastecimento confirmado */}
       {feederConfirmNotice && (
-        <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#061E29]/95 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-center gap-3 animate-fade-up">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setFeederConfirmNotice(false)}
+          className="cursor-pointer fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#061E29]/95 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-center gap-3 animate-fade-up"
+        >
           <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
           <div>
             <div className="font-bold text-white">Comida Abastecida (36g • 12/12)!</div>
             <p className="text-sky-200/80 text-[11px]">
-              Tubo cheio e motor de passo alinhado na barreira pronto para começar um novo ciclo.
+              Alimentador cheio e motor de passo alinhado na barreira pronto para começar um novo ciclo.
             </p>
           </div>
         </div>
@@ -1710,7 +1752,12 @@ export default function App() {
 
       {/* Notificação flutuante quando tentativa de alimentação é bloqueada por falta de comida */}
       {feederBlockedNotice && (
-        <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#240912]/95 border border-rose-400/55 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-rose-100 flex items-start gap-3 animate-fade-up">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setFeederBlockedNotice('')}
+          className="cursor-pointer fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#240912]/95 border border-rose-400/55 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-rose-100 flex items-start gap-3 animate-fade-up"
+        >
           <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
           <div className="space-y-1">
             <div className="font-bold text-white">Alimentação Bloqueada — Sem Comida!</div>
@@ -1867,7 +1914,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleTogglePump}
-                className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                className={`w-full py-3 sm:py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                   pumpRelayOn
                     ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 shadow-sm shadow-emerald-500/15'
                     : 'bg-white/[0.06] hover:bg-white/[0.12] text-sky-200 border border-white/10'
@@ -1882,7 +1929,7 @@ export default function App() {
             {/* Card 4: Alimentador com Opção de Alimentar Manualmente (3g em 3g) + Estoque */}
             <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-2.5 group">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65">
                       Alimentador
@@ -1892,6 +1939,17 @@ export default function App() {
                     >
                       {feederGramsLeft}g • {feederCompartmentsLeft}/12
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftConfig(config);
+                        setWizardStep(4);
+                        setActiveTab('setup');
+                      }}
+                      className="text-[10px] font-semibold text-sky-300 hover:text-white underline underline-offset-2 ml-auto sm:ml-0"
+                    >
+                      Horários ›
+                    </button>
                   </div>
                   <span className="text-xl sm:text-2xl font-extrabold text-sky-300 mt-1 block tracking-tight">
                     {feedNowCommand
@@ -1931,7 +1989,7 @@ export default function App() {
                     type="button"
                     disabled={feedNowCommand || parsePortionGrams(feedNowPortion) <= MIN_PORTION_GRAMS}
                     onClick={() => setFeedNowPortion((prev) => stepPortionGrams(prev, -1))}
-                    className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors"
+                    className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors active:scale-95"
                     title="Diminuir 3g"
                     aria-label="Diminuir 3g"
                   >
@@ -1949,7 +2007,7 @@ export default function App() {
                     type="button"
                     disabled={feedNowCommand || parsePortionGrams(feedNowPortion) >= MAX_PORTION_GRAMS}
                     onClick={() => setFeedNowPortion((prev) => stepPortionGrams(prev, 1))}
-                    className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors"
+                    className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center text-sky-200 transition-colors active:scale-95"
                     title="Aumentar 3g"
                     aria-label="Aumentar 3g"
                   >
@@ -1961,7 +2019,7 @@ export default function App() {
                   type="button"
                   onClick={() => handleTriggerFeedNow(feedNowPortion)}
                   disabled={feedNowCommand}
-                  className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+                  className={`w-full py-3 sm:py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                     feederCompartmentsLeft <= 0
                       ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/45'
                       : feedNowCommand
@@ -2022,8 +2080,8 @@ export default function App() {
                   </div>
 
                   {/* Visualização Gráfica do Aquário + Tubo Vertical de Comida ao Lado Direito */}
-                  <div className="flex items-stretch gap-2.5 sm:gap-3.5 mb-4 sm:mb-5">
-                    <div className="relative flex-1 min-w-0 h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner">
+                  <div className="flex items-stretch gap-2 sm:gap-3.5 mb-4 sm:mb-5">
+                    <div className="relative flex-1 min-w-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner">
                     {/* Reflexo de vidro sutil */}
                     <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.03] to-transparent -skew-x-12 z-20" />
 
@@ -2313,8 +2371,8 @@ export default function App() {
                         </svg>
                       </div>
 
-                      {/* Algas maiores + coral rosado à direita (sem encostar na régua lateral) */}
-                      <div className="absolute bottom-2 right-11 sm:right-14 flex items-end gap-1.5 opacity-90">
+                      {/* Algas maiores + coral rosado deslocados para liberar o canto direito à Árvore de Natal */}
+                      <div className="absolute bottom-2 right-[62px] sm:right-[82px] flex items-end gap-1.5 opacity-90 scale-75 sm:scale-100 origin-bottom-right">
                         {/* Coral ramificado */}
                         <svg width="42" height="44" viewBox="0 0 42 44" fill="none" className="drop-shadow-[0_2px_6px_rgba(244,114,182,0.25)]">
                           <path
@@ -2455,7 +2513,7 @@ export default function App() {
 
                         {/* Pequena estrela-do-mar sobre as pedrinhas azuis */}
                         <path
-                          d="M525 25L527.2 28.8L531.5 29.4L528.3 32.3L529.1 36.5L525 34.4L520.9 36.5L521.7 32.3L518.5 29.4L522.8 28.8Z"
+                          d="M375 25L377.2 28.8L381.5 29.4L378.3 32.3L379.1 36.5L375 34.4L370.9 36.5L371.7 32.3L368.5 29.4L372.8 28.8Z"
                           fill="#FB923C"
                           fillOpacity="0.95"
                         />
@@ -2593,12 +2651,12 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Árvore de Natal permanente e clicável no fundo do aquário (sempre visível mesmo a 0%) */}
+                    {/* Árvore de Natal permanente e clicável no canto inferior direito do aquário (sempre visível mesmo a 0%) */}
                     <button
                       type="button"
                       onClick={() => setChristmasMode((prev) => !prev)}
                       aria-label={christmasMode ? 'Desativar Modo Natalino' : 'Ativar Modo Natalino'}
-                      className={`absolute bottom-2.5 right-[118px] sm:right-[140px] z-30 pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none ${
+                      className={`absolute bottom-2 sm:bottom-2.5 right-6 sm:right-8 z-30 pointer-events-auto cursor-pointer scale-90 sm:scale-100 origin-bottom-right transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none ${
                         christmasMode ? 'opacity-100' : 'opacity-80 hover:opacity-100'
                       }`}
                     >
@@ -2699,11 +2757,11 @@ export default function App() {
 
                     {/* Indicador Central */}
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none drop-shadow-md">
-                      <span className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
+                      <span className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
                         {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                       {waterVolumeLiters !== null && (
-                        <span className="text-xs font-medium text-sky-100 bg-[#031117]/65 backdrop-blur-md px-3.5 py-1 rounded-full mt-1.5 border border-white/15">
+                        <span className="text-[11px] sm:text-xs font-medium text-sky-100 bg-[#031117]/65 backdrop-blur-md px-3 sm:px-3.5 py-1 rounded-full mt-1.5 border border-white/15">
                           Volume: {waterVolumeLiters} L
                         </span>
                       )}
@@ -2712,7 +2770,7 @@ export default function App() {
 
                     {/* Tubo Vertical Indicando a Quantidade Disponível de Comida */}
                     <div
-                      className="w-[82px] sm:w-[96px] shrink-0 h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 p-2 sm:p-2.5 flex flex-col items-center justify-between shadow-inner"
+                      className="w-[76px] sm:w-[96px] shrink-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 p-2 sm:p-2.5 flex flex-col items-center justify-between shadow-inner"
                       title={`Comida disponível: ${feederGramsLeft}g (${feederCompartmentsLeft}/${TOTAL_FEEDER_COMPARTMENTS} compartimentos)`}
                     >
                       <div className="text-center leading-tight">
@@ -2845,23 +2903,23 @@ export default function App() {
 
                 {/* Métricas do Aquário + Avisos de Comida + Botão de Abastecer */}
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
-                      <span className="text-[11px] text-sky-200/65 block">Nível Atual</span>
-                      <span className="text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2.5 sm:p-3.5 text-center">
+                      <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Nível Atual</span>
+                      <span className="text-xs sm:text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
                         {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                     </div>
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
-                      <span className="text-[11px] text-sky-200/65 block">Volume Atual</span>
-                      <span className="text-sm sm:text-base font-bold text-white font-mono-code mt-0.5 block">
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2.5 sm:p-3.5 text-center">
+                      <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Volume Atual</span>
+                      <span className="text-xs sm:text-base font-bold text-white font-mono-code mt-0.5 block">
                         {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
                       </span>
                     </div>
-                    <div className="col-span-2 sm:col-span-1 bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
-                      <span className="text-[11px] text-sky-200/65 block">Comida Disponível</span>
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2.5 sm:p-3.5 text-center">
+                      <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Comida Disp.</span>
                       <span
-                        className={`text-sm sm:text-base font-bold font-mono-code mt-0.5 block ${
+                        className={`text-xs sm:text-base font-bold font-mono-code mt-0.5 block ${
                           feederCompartmentsLeft <= 0
                             ? 'text-rose-400'
                             : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
@@ -2914,22 +2972,22 @@ export default function App() {
                     type="button"
                     onClick={handleConfirmFeederRefill}
                     disabled={feedNowCommand}
-                    className={`w-full py-2.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 ${
+                    className={`w-full py-3 sm:py-2.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 ${
                       feederCompartmentsLeft < TOTAL_FEEDER_COMPARTMENTS
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold shadow-md shadow-emerald-500/20'
                         : 'bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/35 text-emerald-200 font-bold'
                     }`}
-                    title="Clique após abastecer os 12 compartimentos (36g) para encher o tubo e preparar o motor de passo"
+                    title="Clique após abastecer os 12 compartimentos (36g) para encher o alimentador e preparar o motor de passo"
                   >
                     {feederCompartmentsLeft < TOTAL_FEEDER_COMPARTMENTS ? (
                       <>
                         <RotateCcw className="w-4 h-4 shrink-0" />
-                        <span>Abastecer Comida (Encher Tubo • 36g)</span>
+                        <span>Abastecer Alimentador (36g)</span>
                       </>
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>Tubo Cheio (36g) • Reconfirmar Abastecimento &amp; Preparar Motor</span>
+                        <span>Alimentador Cheio (36g) • Reconfirmar</span>
                       </>
                     )}
                   </button>
@@ -2937,7 +2995,7 @@ export default function App() {
               </div>
 
               {/* COLUNA DIREITA (6 cols): DISPLAY LCD + TEMPERATURA */}
-              <div className="lg:col-span-6 flex flex-col gap-4 sm:gap-6">
+              <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-col gap-4 sm:gap-6">
                 {/* CARD: DISPLAY LCD */}
                 <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-fade-up delay-75">
                   <div className="flex items-center justify-between gap-3 mb-4">
@@ -2967,10 +3025,10 @@ export default function App() {
                   {/* Moldura do Display LCD */}
                   <div className="rounded-2xl bg-[#031016] border border-white/10 p-2.5 sm:p-3.5 shadow-inner">
                     <div className="rounded-xl bg-gradient-to-b from-[#0C352A] to-[#07241C] border border-emerald-400/35 px-3 sm:px-5 py-3 sm:py-4 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)] overflow-x-auto">
-                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre transition-all duration-300">
+                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre transition-all duration-300">
                         {lcdLine0}
                       </div>
-                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre mt-1.5 transition-all duration-300">
+                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre mt-1.5 transition-all duration-300">
                         {lcdLine1}
                       </div>
                     </div>
@@ -3495,10 +3553,10 @@ export default function App() {
                       )}
                     </div>
                     <div className="rounded-xl bg-gradient-to-b from-[#0E3B2E] to-[#092920] border-2 border-emerald-400/40 px-3 sm:px-5 py-3 sm:py-3.5 shadow-[0_0_25px_rgba(16,185,129,0.15)] overflow-x-auto">
-                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 whitespace-pre">
+                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 whitespace-pre">
                         {lcdLine0}
                       </div>
-                      <div className="font-mono-code text-sm min-[400px]:text-base sm:text-2xl font-bold tracking-[0.1em] sm:tracking-[0.18em] text-emerald-200 whitespace-pre mt-1">
+                      <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 whitespace-pre mt-1">
                         {lcdLine1}
                       </div>
                     </div>
@@ -3620,9 +3678,6 @@ export default function App() {
                             {espRtcIso ? formatLogTime(espRtcIso) : 'Aguardando ESP32'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-sky-200/60 pt-1">
-                          O sistema usa automaticamente o horário oficial da internet (NTP -03:00), mantendo o RTC DS3231 sincronizado como backup offline.
-                        </p>
                       </div>
 
                       <button
@@ -3911,6 +3966,49 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* Barra inferior de ações para facilitar uso no celular e tablet */}
+              <div className="pt-4 border-t border-white/[0.06] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={wizardStep <= 1}
+                    onClick={() => setWizardStep((s) => Math.max(1, s - 1))}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] disabled:opacity-35 text-xs font-semibold text-sky-200 border border-white/[0.08] transition-all active:scale-95"
+                  >
+                    <ChevronLeft className="w-4 h-4 shrink-0" />
+                    <span>Etapa Anterior</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={wizardStep >= 4}
+                    onClick={() => setWizardStep((s) => Math.min(4, s + 1))}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] disabled:opacity-35 text-xs font-semibold text-sky-200 border border-white/[0.08] transition-all active:scale-95"
+                  >
+                    <span>Próxima Etapa</span>
+                    <ChevronRight className="w-4 h-4 shrink-0" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('dashboard')}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] hover:bg-[#0B96B2]/35 text-xs font-semibold text-sky-200 hover:text-white border border-white/[0.08] transition-all active:scale-95"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span>Voltar ao Painel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveWizardConfig}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                  >
+                    <Save className="w-4 h-4 shrink-0" />
+                    <span>Salvar Tudo</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
