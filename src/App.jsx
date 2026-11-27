@@ -2844,112 +2844,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* SEÇÃO INFERIOR: GRÁFICO E LOGS */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 animate-fade-up delay-225">
-              {/* Gráfico de Nível e Temperatura (7 cols) */}
-              <div className="lg:col-span-7 clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4 sm:mb-6">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-sky-400" />
-                      Histórico de Leituras
-                    </h3>
-                    <p className="text-[11px] sm:text-xs text-sky-200/65">
-                      Evolução recente do nível e temperatura da água
-                    </p>
-                  </div>
-                </div>
-
-                {history.length === 0 ? (
-                  <div className="h-48 flex items-center justify-center rounded-2xl bg-[#031117]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
-                    Nenhum registro de histórico disponível ainda.
-                  </div>
-                ) : (
-                  <>
-                    <div className="h-44 sm:h-48 flex items-end justify-between gap-1.5 sm:gap-3 pt-6 px-1 sm:px-2 border-b border-white/[0.08]">
-                      {history.map((point, idx) => {
-                        const isLast = idx === history.length - 1;
-                        return (
-                          <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 sm:gap-2 group min-w-0">
-                            <span className="text-[10px] sm:text-[11px] font-mono-code text-sky-200/80 group-hover:text-white transition-colors">
-                              {point.level}%
-                            </span>
-                            <div className="w-full max-w-[42px] h-28 sm:h-32 bg-[#031117]/70 rounded-t-xl p-0.5 sm:p-1 flex items-end border border-white/[0.07] group-hover:border-sky-400/35 transition-colors">
-                              <div
-                                style={{ height: `${point.level}%` }}
-                                className={`w-full rounded-t-lg transition-all duration-700 ease-out ${
-                                  isLast
-                                    ? 'bg-gradient-to-t from-[#0B96B2] to-sky-400 shadow-lg shadow-sky-400/25'
-                                    : 'bg-gradient-to-t from-[#07576E]/80 to-[#0B96B2] group-hover:to-sky-400/80'
-                                }`}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="flex justify-between gap-1 sm:gap-2 px-1 sm:px-2 pt-2.5 text-[9px] sm:text-[11px] font-mono-code text-sky-200/65">
-                      {history.map((point, idx) => (
-                        <div key={idx} className="flex-1 text-center min-w-0 truncate">
-                          <div>{point.time}</div>
-                          {point.temp !== null && (
-                            <div className="text-[9px] sm:text-[10px] text-emerald-300/80">{point.temp}°C</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Últimas Leituras (5 cols) */}
-              <div className="lg:col-span-5 clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <div className="min-w-0">
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-sky-400 shrink-0" />
-                        Últimas Leituras
-                      </h3>
-                      <p className="text-[11px] sm:text-xs text-sky-200/65">Eventos recentes do aquário</p>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('history')}
-                      className="text-xs text-sky-300 hover:text-white flex items-center gap-1 shrink-0 transition-transform hover:translate-x-0.5"
-                    >
-                      Ver todos <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {logs.length === 0 ? (
-                    <div className="h-44 flex items-center justify-center rounded-2xl bg-[#031117]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
-                      Nenhuma leitura registrada ainda.
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                      {logs.slice(0, 5).map((log) => (
-                        <div
-                          key={log.id}
-                          className="bg-[#031117]/60 hover:bg-[#092938]/70 border border-white/[0.07] hover:border-sky-400/25 rounded-2xl p-3 flex items-start gap-3 transition-all duration-200"
-                        >
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-sky-500/15 text-sky-300 border border-sky-400/25">
-                            <Waves className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-white leading-snug break-words">
-                              {log.message}
-                            </p>
-                            <div className="flex items-center justify-end mt-1 text-[10px] text-sky-200/55">
-                              <span className="font-mono-code">{log.time}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -3817,53 +3711,112 @@ export default function App() {
             ABA 3: HISTÓRICO
            =================================================================== */}
         {activeTab === 'history' && (
-          <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 sm:space-y-6 animate-fade-up">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-white/[0.06] pb-4 sm:pb-5">
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 tracking-tight">
-                  <Activity className="w-5 h-5 text-sky-400 shrink-0" />
-                  Histórico de Eventos
-                </h3>
-                <p className="text-xs sm:text-sm text-sky-200/70 mt-1">
-                  Registro completo das leituras do aquário.
-                </p>
+          <div className="space-y-5 sm:space-y-6 animate-fade-up">
+            {/* Gráfico de Nível e Temperatura */}
+            <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 tracking-tight">
+                    <TrendingUp className="w-5 h-5 text-sky-400 shrink-0" />
+                    Histórico de Leituras
+                  </h3>
+                  <p className="text-xs sm:text-sm text-sky-200/70 mt-1">
+                    Evolução recente do nível e temperatura da água
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={fetchSupabaseData}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-white border border-white/[0.1] transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] w-full sm:w-auto"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Atualizar Agora
-              </button>
+
+              {history.length === 0 ? (
+                <div className="h-48 flex items-center justify-center rounded-2xl bg-[#031117]/50 border border-white/[0.06] text-xs text-sky-200/55 text-center px-4">
+                  Nenhum registro de histórico disponível ainda.
+                </div>
+              ) : (
+                <>
+                  <div className="h-44 sm:h-48 flex items-end justify-between gap-1.5 sm:gap-3 pt-6 px-1 sm:px-2 border-b border-white/[0.08]">
+                    {history.map((point, idx) => {
+                      const isLast = idx === history.length - 1;
+                      return (
+                        <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 sm:gap-2 group min-w-0">
+                          <span className="text-[10px] sm:text-[11px] font-mono-code text-sky-200/80 group-hover:text-white transition-colors">
+                            {point.level}%
+                          </span>
+                          <div className="w-full max-w-[56px] h-28 sm:h-32 bg-[#031117]/70 rounded-t-xl p-0.5 sm:p-1 flex items-end border border-white/[0.07] group-hover:border-sky-400/35 transition-colors">
+                            <div
+                              style={{ height: `${point.level}%` }}
+                              className={`w-full rounded-t-lg transition-all duration-700 ease-out ${
+                                isLast
+                                  ? 'bg-gradient-to-t from-[#0B96B2] to-sky-400 shadow-lg shadow-sky-400/25'
+                                  : 'bg-gradient-to-t from-[#07576E]/80 to-[#0B96B2] group-hover:to-sky-400/80'
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between gap-1 sm:gap-2 px-1 sm:px-2 pt-2.5 text-[9px] sm:text-[11px] font-mono-code text-sky-200/65">
+                    {history.map((point, idx) => (
+                      <div key={idx} className="flex-1 text-center min-w-0 truncate">
+                        <div>{point.time}</div>
+                        {point.temp !== null && (
+                          <div className="text-[9px] sm:text-[10px] text-emerald-300/80">{point.temp}°C</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
-            {logs.length === 0 ? (
-              <div className="py-12 text-center text-sm text-sky-200/60 bg-[#051923]/60 rounded-2xl border border-white/[0.06]">
-                Nenhum registro encontrado no histórico.
+            {/* Histórico de Eventos / Últimas Leituras */}
+            <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-white/[0.06] pb-4 sm:pb-5">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 tracking-tight">
+                    <Activity className="w-5 h-5 text-sky-400 shrink-0" />
+                    Últimas Leituras &amp; Histórico de Eventos
+                  </h3>
+                  <p className="text-xs sm:text-sm text-sky-200/70 mt-1">
+                    Registro completo das leituras e eventos recentes do aquário.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchSupabaseData}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-white border border-white/[0.1] transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] w-full sm:w-auto"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Atualizar Agora
+                </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {logs.map((log, idx) => (
-                  <div
-                    key={log.id}
-                    style={{ animationDelay: `${Math.min(idx * 40, 300)}ms` }}
-                    className="bg-[#051923]/75 border border-white/[0.07] hover:border-sky-400/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-300 hover:-translate-y-0.5 animate-fade-up"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 text-sky-300 border border-sky-400/25">
-                        <Waves className="w-5 h-5" />
+
+              {logs.length === 0 ? (
+                <div className="py-12 text-center text-sm text-sky-200/60 bg-[#051923]/60 rounded-2xl border border-white/[0.06]">
+                  Nenhum registro encontrado no histórico.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {logs.map((log, idx) => (
+                    <div
+                      key={log.id}
+                      style={{ animationDelay: `${Math.min(idx * 40, 300)}ms` }}
+                      className="bg-[#051923]/75 border border-white/[0.07] hover:border-sky-400/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-300 hover:-translate-y-0.5 animate-fade-up"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 text-sky-300 border border-sky-400/25">
+                          <Waves className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{log.message}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-white">{log.message}</p>
-                      </div>
+                      <span className="text-xs font-mono-code text-sky-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.08] self-start sm:self-center">
+                        {log.time}
+                      </span>
                     </div>
-                    <span className="text-xs font-mono-code text-sky-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.08] self-start sm:self-center">
-                      {log.time}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
