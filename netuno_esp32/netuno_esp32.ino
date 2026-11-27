@@ -817,7 +817,7 @@ void updateLCD() {
     int gramsLeft = feederCompartmentsLeft * GRAMS_PER_DOSE;
     snprintf(line0, sizeof(line0), "Racao:%2dg %2d/12 ", gramsLeft, feederCompartmentsLeft);
     if (feederCompartmentsLeft <= 0) {
-      snprintf(line1, sizeof(line1), "VAZIO! Reabast. ");
+      snprintf(line1, sizeof(line1), feederOnBarrier ? "Barreira: Reab. " : "VAZIO! Reabast. ");
     } else if (feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS) {
       snprintf(line1, sizeof(line1), "CRITICO! Pouca  ");
     } else if (feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS) {
@@ -1123,19 +1123,29 @@ void patchFeederStateToSupabase() {
   http.end();
 }
 
-// Posiciona a barreira tampando o furo para reabastecimento seguro (sem tremidinha)
-void alignFeederToBarrier() {
+// Posiciona a barreira tampando o furo para reabastecimento seguro ou parada automática ao terminar a comida (sem tremidinha)
+void alignFeederToBarrier(bool autoFromEmpty) {
   if (feederOnBarrier) {
-    Serial.println("[ALIMENTADOR] Barreira ja esta tampando o furo (pronto para reabastecer).");
+    Serial.println("[ALIMENTADOR] Barreira ja esta tampando o furo (alimentacao travada / pronto para reabastecer).");
     return;
   }
 
-  Serial.println("[ALIMENTADOR] Alinhando BARREIRA no furo (170 passos) para reabastecimento...");
-  if (!apPortalActive) {
-    lcd.setCursor(0, 0);
-    lcd.print("MODO REABASTECER");
-    lcd.setCursor(0, 1);
-    lcd.print("Fechando furo...");
+  if (autoFromEmpty) {
+    Serial.println("[ALIMENTADOR] Comida terminou! Alinhando BARREIRA no furo (170 passos) para parar alimentacao...");
+    if (!apPortalActive) {
+      lcd.setCursor(0, 0);
+      lcd.print("RACAO ACABOU!   ");
+      lcd.setCursor(0, 1);
+      lcd.print("Travando furo...");
+    }
+  } else {
+    Serial.println("[ALIMENTADOR] Alinhando BARREIRA no furo (170 passos) para reabastecimento...");
+    if (!apPortalActive) {
+      lcd.setCursor(0, 0);
+      lcd.print("MODO REABASTECER");
+      lcd.setCursor(0, 1);
+      lcd.print("Fechando furo...");
+    }
   }
 
   runStepperSteps(PASSOS_BARREIRA, velocidadeMaxPassos, aceleracaoPassos);
@@ -1147,20 +1157,22 @@ void alignFeederToBarrier() {
 
   if (!apPortalActive) {
     lcd.setCursor(0, 0);
-    lcd.print("BARREIRA NO FURO");
+    lcd.print(autoFromEmpty ? "BARREIRA TRAVADA" : "BARREIRA NO FURO");
     lcd.setCursor(0, 1);
-    lcd.print("Pode reabastecer");
+    lcd.print(autoFromEmpty ? "Aliment. Parada " : "Pode reabastecer");
     delay(800);
   }
 
   updateLCD();
-  sendFeederEventLog("Modo Reabastecer ativado: barreira posicionada tampando o furo.");
+  if (!autoFromEmpty) {
+    sendFeederEventLog("Modo Reabastecer ativado: barreira posicionada tampando o furo.");
+  }
 }
 
 // Confirma reabastecimento completo (12/12 compartimentos = 36g)
 void confirmFeederRefill() {
   if (!feederOnBarrier) {
-    alignFeederToBarrier();
+    alignFeederToBarrier(false);
   }
 
   feederCompartmentsLeft = TOTAL_FEEDER_COMPARTMENTS;
@@ -1190,16 +1202,19 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
   int dosesRequested = gramsRequested / GRAMS_PER_DOSE;
 
   if (feederCompartmentsLeft <= 0) {
-    Serial.println("[ALIMENTADOR] BLOQUEADO: Reservatorio VAZIO (0/12 = 0g)! Reabasteca primeiro.");
+    if (!feederOnBarrier) {
+      alignFeederToBarrier(true);
+    }
+    Serial.println("[ALIMENTADOR] BLOQUEADO: Sem comida (0/12 = 0g)! Motor alinhado na barreira.");
     if (!apPortalActive) {
       lcd.setCursor(0, 0);
-      lcd.print("RACAO ACABOU!   ");
+      lcd.print("SEM COMIDA! 0/12");
       lcd.setCursor(0, 1);
-      lcd.print("Reabastecer 0/12");
+      lcd.print("Barreira Travada");
       delay(1200);
     }
     updateLCD();
-    sendFeederEventLog("Alimentacao bloqueada: reservatorio vazio (0/12 compartimentos).");
+    sendFeederEventLog("Alimentacao bloqueada: sem comida (0/12) e motor travado na barreira.");
     return;
   }
 
@@ -1236,6 +1251,18 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
     }
   }
 
+  if (feederCompartmentsLeft <= 0) {
+    // Comida terminou: aguarda a última dose cair, alinha automaticamente na barreira e para a alimentação
+    delay(450);
+    alignFeederToBarrier(true);
+    Serial.println("[ALIMENTADOR] Comida terminou (0/12 = 0g)! Motor alinhado na BARREIRA e alimentacao parada.");
+    String logMsg = triggerReason + ": " + String(gramsToRun) +
+                    "g dispensados • Comida terminou (0/12 = 0g) -> Motor alinhado na BARREIRA (alimentacao parada).";
+    sendFeederEventLog(logMsg);
+    updateLCD();
+    return;
+  }
+
   // Desenergiza as bobinas do motor de passo após o depósito
   disableStepperCoils();
   delay(200);
@@ -1246,9 +1273,7 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
 
   String logMsg = triggerReason + ": " + String(gramsToRun) + "g dispensados • Restam " +
                   String(feederCompartmentsLeft) + "/12 (" + String(gramsLeft) + "g)";
-  if (feederCompartmentsLeft <= 0) {
-    logMsg += " [VAZIO - REABASTECER]";
-  } else if (feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS) {
+  if (feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS) {
     logMsg += " [CRITICO - QUASE ACABANDO]";
   } else if (feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS) {
     logMsg += " [ESTOQUE BAIXO]";
@@ -1425,7 +1450,7 @@ void syncStatusWithSupabase() {
       ackRefill.PATCH("{\"feeder_refill_command\":false}");
       ackRefill.end();
 
-      alignFeederToBarrier();
+      alignFeederToBarrier(false);
     }
 
     // 2c. Se o usuário clicou em "Confirmar Reabastecimento (12/12)" pelo site

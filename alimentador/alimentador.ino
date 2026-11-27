@@ -66,7 +66,8 @@ enum EstadoMotor {
   ESTADO_PARADO,
   ESTADO_MOVENDO,
   ESTADO_TREMIDINHA,
-  ESTADO_PAUSA_PROX_DOSE
+  ESTADO_PAUSA_PROX_DOSE,
+  ESTADO_PAUSA_AUTO_BARREIRA
 };
 
 enum TipoAcao {
@@ -149,8 +150,13 @@ void imprimirBarraEstoque() {
 void verificarAlertasEstoque() {
   int gramasAtuais = compartimentosRestantes * GRAMAS_POR_COMPARTIMENTO;
   if (compartimentosRestantes <= 0) {
-    Serial.println("  [!!! CRITICO - VAZIO !!!] Acabou a racao (0g)!");
-    Serial.println("  -> Envie 'u' para alinhar a BARREIRA no furo e reabastecer.");
+    if (alinhadoComBarreira) {
+      Serial.println("  [!!! CRITICO - VAZIO !!!] Acabou a racao (0g) — Alimentacao parada com BARREIRA no furo.");
+      Serial.println("  -> Reabasteca os compartimentos e envie 'o' para confirmar.");
+    } else {
+      Serial.println("  [!!! CRITICO - VAZIO !!!] Acabou a racao (0g)!");
+      Serial.println("  -> Envie 'u' para alinhar a BARREIRA no furo e reabastecer.");
+    }
   } else if (compartimentosRestantes <= ALERTA_CRITICO_COMPS) {
     Serial.printf("  [!! ALERTA CRITICO !!] Racao quase acabando: apenas %d compartimento(s) (%dg)!\n",
                   compartimentosRestantes, gramasAtuais);
@@ -231,8 +237,13 @@ void iniciarAlimentacao(int qtdDoses) {
   if (qtdDoses < 1) qtdDoses = 1;
 
   if (compartimentosRestantes <= 0) {
-    Serial.println("\n[BLOQUEADO] Alimentador VAZIO (0/12 compartimentos = 0g)!");
-    Serial.println("-> Envie 'u' para posicionar na BARREIRA, reabasteca e envie 'o' para confirmar.");
+    if (!alinhadoComBarreira) {
+      Serial.println("\n[BLOQUEADO] Sem comida (0/12 = 0g)! Alinhando BARREIRA automaticamente...");
+      moverMotor(passosBarreira, ACAO_POSICIONAR_BARREIRA, "Auto: Sem comida -> Alinhando BARREIRA");
+      return;
+    }
+    Serial.println("\n[BLOQUEADO] Alimentador VAZIO (0/12 = 0g) — Alimentacao parada com BARREIRA no furo!");
+    Serial.println("-> Reabasteca os compartimentos e envie 'o' para confirmar.");
     return;
   }
 
@@ -297,6 +308,16 @@ void finalizarEtapaAtual() {
                   dosesEntreguesNaSessao, GRAMAS_POR_COMPARTIMENTO, duracaoMs,
                   compartimentosRestantes, TOTAL_COMPARTIMENTOS,
                   compartimentosRestantes * GRAMAS_POR_COMPARTIMENTO);
+
+    if (compartimentosRestantes <= 0) {
+      // Comida terminou: aguarda breve pausa e alinha automaticamente com a barreira para parar alimentação
+      dosesPendentes = 0;
+      acaoAtual = ACAO_NENHUMA;
+      estadoMotor = ESTADO_PAUSA_AUTO_BARREIRA;
+      inicioPausaDoseMs = millis();
+      aplicarConfigMotor();
+      return;
+    }
 
     if (dosesPendentes > 0 && compartimentosRestantes > 0) {
       estadoMotor = ESTADO_PAUSA_PROX_DOSE;
@@ -578,6 +599,11 @@ void loop() {
   } else if (estadoMotor == ESTADO_PAUSA_PROX_DOSE) {
     if (millis() - inicioPausaDoseMs >= pausaEntreDosesMs) {
       dispararProximaDose();
+    }
+  } else if (estadoMotor == ESTADO_PAUSA_AUTO_BARREIRA) {
+    if (millis() - inicioPausaDoseMs >= 450) {
+      Serial.println("\n[AUTO] Comida terminou (0/12)! Alinhando BARREIRA no furo e parando alimentacao...");
+      moverMotor(passosBarreira, ACAO_POSICIONAR_BARREIRA, "Auto: Comida terminou -> BARREIRA (parar alimentacao)");
     }
   }
 }

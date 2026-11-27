@@ -459,6 +459,7 @@ export default function App() {
   // Exibe animação breve no site quando o horário programado do módulo RTC atinge um agendamento (o ESP32 executa pelo próprio RTC)
   useEffect(() => {
     if (!activeDeviceUsername) return;
+    if (feederCompartmentsLeft <= 0) return;
     if (rtcCurrentSeconds > 2) return; // Verifica nos primeiros segundos do minuto do RTC
     const match = activeSchedules.find((s) => s.time === rtcCurrentHHMM);
     if (!match) return;
@@ -471,6 +472,7 @@ export default function App() {
     setFeedNowCommand(true);
   }, [
     activeDeviceUsername,
+    feederCompartmentsLeft,
     rtcCurrentHHMM,
     rtcCurrentSeconds,
     rtcDateFormatted,
@@ -945,7 +947,7 @@ export default function App() {
     setFeedNowCommand(true);
     setFeedNowPortion(normalizedPortion);
     setFeederCompartmentsLeft(nextComps);
-    setFeederOnBarrier(false);
+    setFeederOnBarrier(nextComps === 0);
 
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       supabase
@@ -1622,6 +1624,19 @@ export default function App() {
         </div>
       )}
 
+      {/* Notificação flutuante de reabastecimento confirmado */}
+      {feederConfirmNotice && (
+        <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#061E29]/95 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-center gap-3 animate-fade-up">
+          <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
+          <div>
+            <div className="font-bold text-white">Reabastecimento Confirmado!</div>
+            <p className="text-sky-200/80 text-[11px]">
+              Estoque reiniciado para 12/12 compartimentos ({MAX_FEEDER_GRAMS}g) com a barreira tampando o furo.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* ALERTA DE ESTOQUE DE RAÇÃO (quando estiver baixo, crítico ou vazio) */}
@@ -1644,20 +1659,30 @@ export default function App() {
               <div className="min-w-0">
                 <div className="text-xs sm:text-sm font-bold text-white">
                   {feederCompartmentsLeft <= 0
-                    ? 'Reservatório de Ração Vazio (0g • 0/12 compartimentos)'
+                    ? 'Comida Esgotada (0g • 0/12) — Alimentação Parada'
                     : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
                     ? `Atenção Crítica: Ração quase acabando (${feederGramsLeft}g • ${feederCompartmentsLeft}/12)`
                     : `Aviso de Estoque Baixo: restam ${feederGramsLeft}g (${feederCompartmentsLeft}/12 compartimentos)`}
                 </div>
                 <p className="text-[11px] sm:text-xs text-white/75 mt-0.5">
-                  {feederOnBarrier
+                  {feederCompartmentsLeft <= 0
+                    ? 'O motor alinhou automaticamente com a barreira tampando o furo e parou a alimentação. Coloque nova ração (36g) e confirme o reabastecimento.'
+                    : feederOnBarrier
                     ? 'A barreira já está tampando o furo. Após colocar a ração nos 12 compartimentos (3g cada), confirme o reabastecimento.'
                     : 'Ative o Modo Reabastecer para alinhar a barreira tampando o furo antes de colocar nova ração.'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {!feederOnBarrier ? (
+              {feederOnBarrier || feederCompartmentsLeft <= 0 ? (
+                <button
+                  type="button"
+                  onClick={handleConfirmFeederRefill}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-all active:scale-95"
+                >
+                  Confirmar Reabastecimento (36g)
+                </button>
+              ) : (
                 <button
                   type="button"
                   onClick={handleAlignFeederBarrier}
@@ -1665,14 +1690,6 @@ export default function App() {
                   className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {feederRefillPending ? 'Alinhando Barreira...' : 'Posicionar Barreira'}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleConfirmFeederRefill}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-all active:scale-95"
-                >
-                  Confirmar Reabastecimento (36g)
                 </button>
               )}
             </div>
@@ -1798,13 +1815,15 @@ export default function App() {
                     {feedNowCommand
                       ? 'Alimentando...'
                       : feederCompartmentsLeft <= 0
-                      ? 'Sem Ração'
+                      ? 'Sem Comida'
                       : nextSchedule
                       ? `Próx: ${nextSchedule.time}`
                       : 'Programado'}
                   </span>
                   <span className={`text-[11px] mt-0.5 block truncate ${feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS ? feederStatus.color : 'text-emerald-300/90'}`}>
-                    {feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                    {feederCompartmentsLeft <= 0
+                      ? 'Barreira alinhada • Alimentação parada'
+                      : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
                       ? feederStatus.label
                       : nextSchedule
                       ? `Próx. porção: ${formatPortionDetail(nextSchedule.portion)}`
@@ -1872,7 +1891,7 @@ export default function App() {
                   <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce' : ''}`} />
                   <span>
                     {feederCompartmentsLeft <= 0
-                      ? 'Ração Esgotada (0g)'
+                      ? 'Sem Comida — Na Barreira (0g)'
                       : feedNowCommand
                       ? 'Alimentando Peixes...'
                       : `Alimentar Manualmente (${formatPortionGrams(feedNowPortion)})`}
@@ -1916,8 +1935,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Visualização Gráfica do Aquário com Ondas, Bolhas de Oxigênio e Ração */}
-                  <div className="relative h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner mb-4 sm:mb-5">
+                  {/* Visualização Gráfica do Aquário + Tubo Vertical de Comida ao Lado Direito */}
+                  <div className="flex items-stretch gap-2.5 sm:gap-3.5 mb-4 sm:mb-5">
+                    <div className="relative flex-1 min-w-0 h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner">
                     {/* Reflexo de vidro sutil */}
                     <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.03] to-transparent -skew-x-12 z-20" />
 
@@ -2549,10 +2569,134 @@ export default function App() {
                       )}
                     </div>
                   </div>
+
+                    {/* Tubo Vertical Indicando a Quantidade Disponível de Comida */}
+                    <div
+                      className="w-[82px] sm:w-[96px] shrink-0 h-56 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 p-2 sm:p-2.5 flex flex-col items-center justify-between shadow-inner"
+                      title={`Comida disponível: ${feederGramsLeft}g (${feederCompartmentsLeft}/${TOTAL_FEEDER_COMPARTMENTS} compartimentos)`}
+                    >
+                      <div className="text-center leading-tight">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-sky-200/70 block">
+                          Comida
+                        </span>
+                        <span
+                          className={`font-mono-code text-xs sm:text-sm font-extrabold block ${
+                            feederCompartmentsLeft <= 0
+                              ? 'text-rose-400'
+                              : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                              ? 'text-rose-300'
+                              : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                              ? 'text-amber-300'
+                              : 'text-amber-200'
+                          }`}
+                        >
+                          {feederGramsLeft}g
+                        </span>
+                      </div>
+
+                      {/* Corpo cilíndrico translúcido do tubo */}
+                      <div className="flex-1 w-full flex flex-col items-center justify-center my-1 min-h-0">
+                        {/* Tampa superior */}
+                        <div className="w-10 sm:w-11 h-1.5 rounded-t-md bg-slate-400/35 border border-white/20 shrink-0" />
+
+                        {/* Vidro do tubo com 12 marcações de dose */}
+                        <div className="relative flex-1 w-9 sm:w-10 rounded-b-xl bg-[#020C12]/90 border border-sky-300/25 overflow-hidden shadow-[inset_0_0_12px_rgba(0,0,0,0.85)]">
+                          {/* Reflexo vertical de vidro */}
+                          <div className="pointer-events-none absolute inset-y-1 left-1 w-1 bg-white/15 rounded-full z-20" />
+
+                          {/* 11 linhas internas dividindo os 12 compartimentos (3g cada) */}
+                          <div className="pointer-events-none absolute inset-0 flex flex-col justify-evenly z-10">
+                            {Array.from({ length: TOTAL_FEEDER_COMPARTMENTS - 1 }).map((_, idx) => (
+                              <div key={idx} className="w-full border-t border-white/[0.08]" />
+                            ))}
+                          </div>
+
+                          {/* Nível vertical da comida */}
+                          <div
+                            className={`absolute bottom-0 inset-x-0 transition-all duration-700 ease-out ${
+                              feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                                ? 'bg-gradient-to-t from-rose-700 via-rose-500 to-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.45)]'
+                                : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                                ? 'bg-gradient-to-t from-amber-700 via-amber-500 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                                : 'bg-gradient-to-t from-amber-600 via-amber-500 to-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.4)]'
+                            }`}
+                            style={{ height: `${feederPct}%` }}
+                          >
+                            {feederPct > 0 && (
+                              <>
+                                <div
+                                  className="absolute inset-0 opacity-35"
+                                  style={{
+                                    backgroundImage:
+                                      'radial-gradient(rgba(120,53,15,0.65) 1px, transparent 1px)',
+                                    backgroundSize: '5px 5px',
+                                  }}
+                                />
+                                <div className="h-1 w-full bg-amber-100/75" />
+                              </>
+                            )}
+                          </div>
+
+                          {/* Indicação de vazio quando 0% */}
+                          {feederCompartmentsLeft <= 0 && (
+                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
+                              <span className="text-[8px] font-mono-code font-bold text-rose-300/90 leading-none">
+                                0%
+                              </span>
+                              <span className="text-[7px] font-bold uppercase text-rose-400/90 mt-0.5">
+                                Vazio
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bocal / Indicador de Barreira na base do tubo */}
+                        <div
+                          className={`w-10 sm:w-11 h-1.5 rounded-b-md mt-0.5 shrink-0 transition-all duration-300 ${
+                            feedNowCommand
+                              ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.85)] animate-pulse'
+                              : feederOnBarrier
+                              ? 'bg-emerald-400/85 shadow-[0_0_6px_rgba(52,211,153,0.6)]'
+                              : 'bg-sky-400/35'
+                          }`}
+                          title={
+                            feederOnBarrier
+                              ? 'Barreira alinhada tampando o furo'
+                              : 'Compartimento posicionado no furo'
+                          }
+                        />
+                      </div>
+
+                      {/* Rodapé do tubo */}
+                      {feederCompartmentsLeft <= 0 ? (
+                        <div className="w-full space-y-1 text-center">
+                          <span className="block text-[8px] font-semibold text-emerald-300/90 leading-none">
+                            Barreira OK
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleConfirmFeederRefill}
+                            className="w-full py-1 px-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[9px] sm:text-[10px] font-extrabold transition-all active:scale-95"
+                          >
+                            Repor 36g
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center leading-tight">
+                          <span className="text-[10px] font-mono-code font-bold text-sky-200/90 block">
+                            {feederCompartmentsLeft}/{TOTAL_FEEDER_COMPARTMENTS}
+                          </span>
+                          <span className="text-[8px] text-sky-300/65 block">
+                            {feederOnBarrier ? 'Barreira' : `${feederPct}%`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Métricas do Aquário */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
                     <span className="text-[11px] text-sky-200/65 block">Nível Atual</span>
                     <span className="text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
@@ -2563,6 +2707,22 @@ export default function App() {
                     <span className="text-[11px] text-sky-200/65 block">Volume Atual</span>
                     <span className="text-sm sm:text-base font-bold text-white font-mono-code mt-0.5 block">
                       {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
+                    </span>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
+                    <span className="text-[11px] text-sky-200/65 block">Comida Disponível</span>
+                    <span
+                      className={`text-sm sm:text-base font-bold font-mono-code mt-0.5 block ${
+                        feederCompartmentsLeft <= 0
+                          ? 'text-rose-400'
+                          : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                          ? 'text-amber-300'
+                          : 'text-amber-200'
+                      }`}
+                    >
+                      {feederCompartmentsLeft <= 0
+                        ? '0g • Barreira'
+                        : `${feederGramsLeft}g / ${MAX_FEEDER_GRAMS}g`}
                     </span>
                   </div>
                 </div>
@@ -2678,350 +2838,6 @@ export default function App() {
                           />
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SEÇÃO ALIMENTAÇÃO & GRÁFICO DE ESTOQUE DO CARROSSEL (12 COMPARTIMENTOS x 3g) */}
-            <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-fade-up delay-150">
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0 ${
-                      feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
-                        ? 'bg-rose-500/15 border-rose-400/35 text-rose-300'
-                        : 'bg-amber-500/15 border-amber-400/30 text-amber-300'
-                    }`}
-                  >
-                    <Utensils className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-base font-bold text-white">
-                      Alimentador &amp; Estoque de Ração
-                    </h3>
-                    <p className="text-[11px] sm:text-xs text-sky-200/65">
-                      Carrossel de 12 compartimentos (3g cada • capacidade total {MAX_FEEDER_GRAMS}g) com barreiras intercaladas
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border ${
-                      feederOnBarrier
-                        ? 'bg-sky-500/15 border-sky-400/35 text-sky-200'
-                        : 'bg-white/[0.05] border-white/15 text-sky-200/80'
-                    }`}
-                  >
-                    {feederOnBarrier ? 'Barreira no furo (Tampado)' : 'Compartimento no furo'}
-                  </span>
-                  <span
-                    className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border ${feederStatus.bg} ${feederStatus.color}`}
-                  >
-                    {feederStatus.label}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-                {/* ESQUERDA (6 cols): Controles de Alimentação + Modo Reabastecer */}
-                <div className="lg:col-span-6 space-y-4">
-                  {/* Bloco Alimentação Manual */}
-                  <div className="bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-sky-200/75">
-                        Disparo Manual
-                      </span>
-                      <span className="text-[11px] font-mono-code text-sky-300/80">
-                        {nextSchedule
-                          ? `Próximo agendado: ${nextSchedule.time} (${formatPortionGrams(nextSchedule.portion)})`
-                          : 'Sem horário ativo'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {[3, 6, 9, 12].map((g) => {
-                        const label = `${g}g`;
-                        const active = formatPortionGrams(feedNowPortion) === label;
-                        const disabledOpt = g > feederGramsLeft && feederGramsLeft > 0;
-                        return (
-                          <button
-                            key={label}
-                            type="button"
-                            onClick={() => setFeedNowPortion(label)}
-                            disabled={feedNowCommand || disabledOpt}
-                            className={`py-2 rounded-xl text-xs font-bold font-mono-code border transition-all ${
-                              active
-                                ? 'bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] border-sky-300/50 text-slate-950 shadow-sm'
-                                : 'bg-[#07212D]/80 border-white/[0.08] text-sky-200 hover:bg-white/[0.08] disabled:opacity-35 disabled:cursor-not-allowed'
-                            }`}
-                          >
-                            {label}
-                            <span className={`block text-[9px] font-normal ${active ? 'text-slate-900/80' : 'text-sky-300/60'}`}>
-                              {g / GRAMS_PER_DOSE} comp.
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleTriggerFeedNow(feedNowPortion)}
-                      disabled={feedNowCommand || feederCompartmentsLeft <= 0}
-                      className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
-                        feederCompartmentsLeft <= 0
-                          ? 'bg-rose-500/15 text-rose-300 border border-rose-500/35 cursor-not-allowed'
-                          : feedNowCommand
-                          ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
-                          : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                      }`}
-                    >
-                      <Utensils className={`w-4 h-4 ${feedNowCommand ? 'animate-bounce' : ''}`} />
-                      <span>
-                        {feederCompartmentsLeft <= 0
-                          ? 'Reservatório Vazio — Reabasteça Primeiro'
-                          : feedNowCommand
-                          ? 'Dispensando Ração + Tremidinha...'
-                          : `Alimentar Agora (${formatPortionGrams(feedNowPortion)} • ${parsePortionGrams(feedNowPortion) / GRAMS_PER_DOSE}× 3g)`}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Bloco Modo Reabastecer (Alinhar Barreira + Confirmar 12/12) */}
-                  <div className="bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-sky-200/75 flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-sky-400" />
-                        Modo Reabastecer
-                      </span>
-                      <span className="text-[11px] font-mono-code text-sky-300/75">
-                        {feederOnBarrier ? 'Furo tampado ✓' : 'Furo aberto'}
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-sky-200/65 leading-relaxed">
-                      Antes de colocar nova ração, posicione a <strong className="text-white">barreira</strong> sobre o furo para evitar que a ração caia direto no aquário. Depois, confirme o reabastecimento para reiniciar os 12 compartimentos (36g).
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <button
-                        type="button"
-                        onClick={handleAlignFeederBarrier}
-                        disabled={feederOnBarrier || feederRefillPending || feedNowCommand}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-[0.98] ${
-                          feederOnBarrier
-                            ? 'bg-emerald-500/15 border-emerald-400/35 text-emerald-300 cursor-default'
-                            : feederRefillPending
-                            ? 'bg-sky-500/20 border-sky-400/40 text-sky-200 animate-pulse cursor-wait'
-                            : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/15 text-white'
-                        }`}
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        <span>
-                          {feederOnBarrier
-                            ? 'Barreira no Furo'
-                            : feederRefillPending
-                            ? 'Alinhando Barreira...'
-                            : '1. Alinhar Barreira'}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleConfirmFeederRefill}
-                        disabled={feedNowCommand || feederRefillPending}
-                        className="py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#0B96B2] to-[#10C3E3] hover:from-[#10C3E3] hover:to-[#47DDF5] text-slate-950 shadow-md shadow-[#10C3E3]/20 transition-all active:scale-[0.98] disabled:opacity-45"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 shrink-0" />
-                        <span>2. Confirmar (12/12 • 36g)</span>
-                      </button>
-                    </div>
-
-                    {feederConfirmNotice && (
-                      <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold animate-scale-in">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        Estoque reiniciado para 12/12 compartimentos (36g) com a barreira no furo!
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* DIREITA (6 cols): Gráfico Visual do Carrossel de 12 Compartimentos + Barra de Nível */}
-                <div className="lg:col-span-6 bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-5">
-                  {/* Gráfico Circular do Carrossel (12 compartimentos + 12 barreiras + indicador do furo) */}
-                  <div className="relative w-44 h-44 sm:w-48 sm:h-48 shrink-0 flex items-center justify-center">
-                    {/* Indicador fixo do furo no topo (12h) */}
-                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
-                      <span
-                        className={`text-[9px] font-mono-code font-bold uppercase px-1.5 py-0.5 rounded-full border mb-0.5 whitespace-nowrap ${
-                          feederOnBarrier
-                            ? 'bg-emerald-500/20 border-emerald-400/45 text-emerald-300'
-                            : 'bg-sky-500/20 border-sky-400/45 text-sky-200'
-                        }`}
-                      >
-                        Furo
-                      </span>
-                      <div
-                        className={`w-0 h-0 border-l-[5px] border-r-[5px] border-t-[7px] border-l-transparent border-r-transparent ${
-                          feederOnBarrier ? 'border-t-emerald-400' : 'border-t-[#10C3E3]'
-                        }`}
-                      />
-                    </div>
-
-                    <svg viewBox="0 0 200 200" className="w-full h-full mt-3">
-                      {/* Base do tambor do carrossel */}
-                      <circle cx="100" cy="100" r="76" fill="#041822" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
-                      <circle cx="100" cy="100" r="46" fill="#031117" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
-
-                      {/* Carrossel giratório: 0° = Barreira no furo (12h), -15° = Compartimento no furo */}
-                      <g
-                        style={{
-                          transform: `rotate(${feederOnBarrier ? 0 : -15}deg)`,
-                          transformOrigin: '100px 100px',
-                          transition: 'transform 700ms cubic-bezier(0.22, 1, 0.36, 1)',
-                        }}
-                      >
-                        {Array.from({ length: TOTAL_FEEDER_COMPARTMENTS }).map((_, idx) => {
-                          const isFilled = idx < feederCompartmentsLeft;
-                          // Cada par (barreira + compartimento) ocupa 30°:
-                          // Barreira centrada em idx*30° (-90° = topo); Compartimento centrado em idx*30° + 15°
-                          const barrierAngle = -90 + idx * 30;
-                          const compAngle = barrierAngle + 15;
-                          const radius = 61;
-                          const circ = 2 * Math.PI * radius; // ~383.27
-                          const compArc = circ * (15.5 / 360);
-                          const barrierArc = circ * (10.5 / 360);
-
-                          const filledColor =
-                            feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
-                              ? '#FB7185'
-                              : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
-                              ? '#F59E0B'
-                              : '#10C3E3';
-
-                          return (
-                            <g key={idx}>
-                              {/* Barreira divisória */}
-                              <circle
-                                cx="100"
-                                cy="100"
-                                r={radius}
-                                fill="none"
-                                stroke={idx === 0 && feederOnBarrier ? '#34D399' : '#123847'}
-                                strokeWidth="18"
-                                strokeDasharray={`${barrierArc} ${circ - barrierArc}`}
-                                transform={`rotate(${barrierAngle - 5.25} 100 100)`}
-                                opacity={idx === 0 && feederOnBarrier ? 0.9 : 0.85}
-                              />
-                              {/* Compartimento de ração (3g) */}
-                              <circle
-                                cx="100"
-                                cy="100"
-                                r={radius}
-                                fill="none"
-                                stroke={isFilled ? filledColor : '#07222E'}
-                                strokeWidth="20"
-                                strokeDasharray={`${compArc} ${circ - compArc}`}
-                                transform={`rotate(${compAngle - 7.75} 100 100)`}
-                                className="transition-colors duration-500"
-                              />
-                            </g>
-                          );
-                        })}
-                      </g>
-                    </svg>
-
-                    {/* Leitura central do gráfico */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-3">
-                      <span className="text-2xl sm:text-3xl font-extrabold font-mono-code text-white leading-none">
-                        {feederGramsLeft}g
-                      </span>
-                      <span className="text-[11px] font-mono-code text-sky-200/75 mt-1">
-                        {feederCompartmentsLeft}/{TOTAL_FEEDER_COMPARTMENTS} comps
-                      </span>
-                      <span className={`text-[10px] font-bold mt-0.5 ${feederStatus.color}`}>
-                        {feederPct}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Detalhes e barra de 12 segmentos ao lado do gráfico */}
-                  <div className="flex-1 w-full space-y-3.5">
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="text-sky-200/75 font-medium">Ração Restante</span>
-                        <span className="font-mono-code font-bold text-white">
-                          {feederGramsLeft}g / {MAX_FEEDER_GRAMS}g
-                        </span>
-                      </div>
-
-                      {/* Barra segmentada com os 12 compartimentos individuais */}
-                      <div className="grid grid-cols-12 gap-1">
-                        {Array.from({ length: TOTAL_FEEDER_COMPARTMENTS }).map((_, idx) => {
-                          const filled = idx < feederCompartmentsLeft;
-                          return (
-                            <div
-                              key={idx}
-                              title={`Compartimento ${idx + 1}: ${filled ? 'Cheio (3g)' : 'Vazio'}`}
-                              className={`h-5 rounded-md border transition-all duration-300 ${
-                                filled
-                                  ? feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
-                                    ? 'bg-gradient-to-t from-rose-600 to-rose-400 border-rose-300/40 shadow-sm shadow-rose-500/20'
-                                    : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
-                                    ? 'bg-gradient-to-t from-amber-600 to-amber-400 border-amber-300/40 shadow-sm shadow-amber-500/20'
-                                    : 'bg-gradient-to-t from-[#0B96B2] to-[#10C3E3] border-sky-300/40 shadow-sm shadow-[#10C3E3]/20'
-                                  : 'bg-[#051B25] border-white/[0.07]'
-                              }`}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2.5 text-xs">
-                      <div className="bg-[#051923]/80 border border-white/[0.06] rounded-xl p-2.5">
-                        <span className="text-[10px] text-sky-200/60 block">Doses de 3g</span>
-                        <span className="text-sm font-extrabold font-mono-code text-white">
-                          {feederCompartmentsLeft} restante{feederCompartmentsLeft === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                      <div className="bg-[#051923]/80 border border-white/[0.06] rounded-xl p-2.5">
-                        <span className="text-[10px] text-sky-200/60 block">Autonomia Est.</span>
-                        <span className="text-sm font-extrabold font-mono-code text-sky-300">
-                          {(() => {
-                            const dailyGrams = activeSchedules.reduce(
-                              (sum, s) => sum + parsePortionGrams(s.portion),
-                              0
-                            );
-                            if (feederGramsLeft <= 0) return '0 dias';
-                            if (dailyGrams <= 0) return `${feederCompartmentsLeft}× 3g`;
-                            const days = feederGramsLeft / dailyGrams;
-                            return days < 1 ? '< 1 dia' : `~${days.toFixed(1)} dia${days >= 2 ? 's' : ''}`;
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Legenda do carrossel */}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-sky-200/65 pt-0.5">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span
-                          className="w-2.5 h-2.5 rounded-sm"
-                          style={{ backgroundColor: feederStatus.accent }}
-                        />
-                        Com ração (3g)
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-[#07222E] border border-white/15" />
-                        Vazio
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400/80" />
-                        Barreira
-                      </span>
                     </div>
                   </div>
                 </div>
