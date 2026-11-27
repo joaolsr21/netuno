@@ -741,7 +741,7 @@ export default function App() {
           id: l.id,
           time: formatLogTime(l.recorded_at),
           type: l.event_type,
-          message: l.message,
+          message: (l.message || '').replace(/ - BARREIRA ALINHADA/g, ''),
           source: l.source,
         }))
       );
@@ -866,7 +866,7 @@ export default function App() {
               id: l.id,
               time: formatLogTime(l.recorded_at),
               type: l.event_type,
-              message: l.message,
+              message: (l.message || '').replace(/ - BARREIRA ALINHADA/g, ''),
               source: l.source,
             },
             ...prev.slice(0, 19),
@@ -1047,7 +1047,7 @@ export default function App() {
               device_username: activeDeviceUsername,
               event_type: 'feeder',
               message: `Alimentação pelo Painel: ${gramsFed}g dispensados • Restam ${nextComps}/12 (${gramsRemaining}g)${
-                nextComps === 0 ? ' [ACABOU - BARREIRA ALINHADA]' : ''
+                nextComps === 0 ? ' [ACABOU]' : ''
               }`,
               source: 'Painel Web',
             },

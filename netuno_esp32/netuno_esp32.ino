@@ -1270,7 +1270,7 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
       delay(1200);
     }
     updateLCD();
-    sendFeederEventLog("Alimentacao bloqueada: sem comida (0/12) e motor travado na barreira.");
+    sendFeederEventLog("Alimentacao bloqueada: sem comida (0/12).");
     return;
   }
 
@@ -1313,7 +1313,7 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
     alignFeederToBarrier(true);
     Serial.println("[ALIMENTADOR] Comida terminou (0/12 = 0g)! Motor alinhado na BARREIRA e alimentacao parada.");
     String logMsg = triggerReason + ": " + String(gramsToRun) +
-                    "g dispensados • Comida terminou (0/12 = 0g) -> Motor alinhado na BARREIRA (alimentacao parada).";
+                    "g dispensados • Restam 0/12 (0g) [ACABOU]";
     sendFeederEventLog(logMsg);
     updateLCD();
     return;
