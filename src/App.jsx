@@ -200,6 +200,10 @@ export default function App() {
   const [lastAutoFedMinuteKey, setLastAutoFedMinuteKey] = useState('');
   const feedDbCleanupTimerRef = useRef(null);
   const blockedNoticeTimerRef = useRef(null);
+  const realtimeChannelRef = useRef(null);
+  const prevFeederCompsRef = useRef(TOTAL_FEEDER_COMPARTMENTS);
+  const prevDbFeedNowRef = useRef(false);
+  const lastFeedAnimStartRef = useRef(0);
 
   const [logs, setLogs] = useState([]);
   const [history, setHistory] = useState([]);
@@ -433,6 +437,17 @@ export default function App() {
     }, 5500);
   }, []);
 
+  // Inicia a animação visual de alimentação com trava curta para evitar duplicidade entre Broadcast/Realtime/ESP32
+  const startFeedingAnimation = useCallback((portion) => {
+    const now = Date.now();
+    if (now - lastFeedAnimStartRef.current < 1200) return;
+    lastFeedAnimStartRef.current = now;
+    if (portion) {
+      setFeedNowPortion(formatPortionGrams(portion));
+    }
+    setFeedNowCommand(true);
+  }, []);
+
   // Finaliza apenas a animação visual breve (2.2s) no site sem limpar prematuramente o comando no Supabase antes do ESP32 ler
   const finishFeedingCycle = useCallback(() => {
     setFeedNowCommand(false);
@@ -482,10 +497,10 @@ export default function App() {
     const dosesApplied = Math.min(dosesRequested, feederCompartmentsLeft);
     const nextComps = Math.max(0, feederCompartmentsLeft - dosesApplied);
 
+    prevFeederCompsRef.current = nextComps;
     setFeederCompartmentsLeft(nextComps);
     setFeederOnBarrier(nextComps === 0);
-    setFeedNowPortion(normalizedPortion);
-    setFeedNowCommand(true);
+    startFeedingAnimation(normalizedPortion);
 
     if (!espOnline && isSupabaseConfigured && supabase && activeDeviceUsername) {
       supabase
@@ -507,6 +522,7 @@ export default function App() {
     activeSchedules,
     lastAutoFedMinuteKey,
     triggerBlockedFeedWarning,
+    startFeedingAnimation,
   ]);
 
   // Formata linha de 16 caracteres para o Display LCD
@@ -620,6 +636,7 @@ export default function App() {
       if (statusData.pump_mode) {
         setPumpMode(statusData.pump_mode);
       }
+      prevDbFeedNowRef.current = false;
       if (statusData.feed_now_command) {
         // Limpa eventual flag residual no banco para não travar a tela em "Alimentando..." ao abrir o site
         setFeedNowCommand(false);
@@ -638,9 +655,12 @@ export default function App() {
         statusData.feeder_compartments_left !== undefined &&
         statusData.feeder_compartments_left !== null
       ) {
-        setFeederCompartmentsLeft(
-          Math.max(0, Math.min(TOTAL_FEEDER_COMPARTMENTS, Number(statusData.feeder_compartments_left)))
+        const loadedComps = Math.max(
+          0,
+          Math.min(TOTAL_FEEDER_COMPARTMENTS, Number(statusData.feeder_compartments_left))
         );
+        prevFeederCompsRef.current = loadedComps;
+        setFeederCompartmentsLeft(loadedComps);
       }
       if (statusData.feeder_on_barrier !== undefined && statusData.feeder_on_barrier !== null) {
         setFeederOnBarrier(Boolean(statusData.feeder_on_barrier));
@@ -777,7 +797,28 @@ export default function App() {
     if (!isSupabaseConfigured || !supabase || !activeDeviceUsername) return;
 
     const channel = supabase
-      .channel(`netuno-web-realtime-${activeDeviceUsername}`)
+      .channel(`netuno-web-realtime-${activeDeviceUsername.trim().toLowerCase()}`)
+      .on('broadcast', { event: 'feed_now' }, ({ payload }) => {
+        if (!payload) return;
+        if (payload.compartmentsLeft !== undefined && payload.compartmentsLeft !== null) {
+          const nextComps = Math.max(
+            0,
+            Math.min(TOTAL_FEEDER_COMPARTMENTS, Number(payload.compartmentsLeft))
+          );
+          prevFeederCompsRef.current = nextComps;
+          setFeederCompartmentsLeft(nextComps);
+          setFeederOnBarrier(
+            payload.onBarrier !== undefined ? Boolean(payload.onBarrier) : nextComps === 0
+          );
+        }
+        startFeedingAnimation(payload.portion);
+      })
+      .on('broadcast', { event: 'feeder_refill' }, () => {
+        prevFeederCompsRef.current = TOTAL_FEEDER_COMPARTMENTS;
+        setFeederCompartmentsLeft(TOTAL_FEEDER_COMPARTMENTS);
+        setFeederOnBarrier(true);
+        setFeederRefillPending(false);
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'aquarium_status' },
@@ -800,19 +841,26 @@ export default function App() {
           if (s.pump_mode) {
             setPumpMode(s.pump_mode);
           }
-          if (s.feed_now_command === false) {
-            setFeedNowCommand(false);
+
+          const nextComps =
+            s.feeder_compartments_left !== undefined && s.feeder_compartments_left !== null
+              ? Math.max(0, Math.min(TOTAL_FEEDER_COMPARTMENTS, Number(s.feeder_compartments_left)))
+              : null;
+          const stockDropped = nextComps !== null && nextComps < prevFeederCompsRef.current;
+          const dbFeedTriggered = s.feed_now_command === true && !prevDbFeedNowRef.current;
+
+          if (s.feed_now_command !== undefined && s.feed_now_command !== null) {
+            prevDbFeedNowRef.current = Boolean(s.feed_now_command);
+          }
+          if (dbFeedTriggered || stockDropped) {
+            startFeedingAnimation(s.feed_now_portion);
           }
           if (s.feed_now_portion) {
             setFeedNowPortion(formatPortionGrams(s.feed_now_portion));
           }
-          if (
-            s.feeder_compartments_left !== undefined &&
-            s.feeder_compartments_left !== null
-          ) {
-            setFeederCompartmentsLeft(
-              Math.max(0, Math.min(TOTAL_FEEDER_COMPARTMENTS, Number(s.feeder_compartments_left)))
-            );
+          if (nextComps !== null) {
+            prevFeederCompsRef.current = nextComps;
+            setFeederCompartmentsLeft(nextComps);
           }
           if (s.feeder_on_barrier !== undefined && s.feeder_on_barrier !== null) {
             setFeederOnBarrier(Boolean(s.feeder_on_barrier));
@@ -872,6 +920,14 @@ export default function App() {
             ...prev.slice(0, 19),
           ]);
 
+          if (
+            l.event_type === 'feeder' &&
+            typeof l.message === 'string' &&
+            l.message.includes('dispensados')
+          ) {
+            startFeedingAnimation();
+          }
+
           if (l.water_level_pct !== null && l.water_level_pct !== undefined) {
             setHistory((prev) => [
               ...prev.slice(-6),
@@ -889,10 +945,15 @@ export default function App() {
       )
       .subscribe();
 
+    realtimeChannelRef.current = channel;
+
     return () => {
+      if (realtimeChannelRef.current === channel) {
+        realtimeChannelRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
-  }, [fetchSupabaseData, activeDeviceUsername]);
+  }, [fetchSupabaseData, activeDeviceUsername, startFeedingAnimation]);
 
   // Autenticação por usuário e senha daquele ESP32 específico
   const handleDeviceLogin = async (e) => {
@@ -1020,10 +1081,25 @@ export default function App() {
     const dosesApplied = Math.min(dosesRequested, feederCompartmentsLeft);
     const nextComps = Math.max(0, feederCompartmentsLeft - dosesApplied);
 
-    setFeedNowCommand(true);
-    setFeedNowPortion(normalizedPortion);
+    prevFeederCompsRef.current = nextComps;
+    prevDbFeedNowRef.current = true;
+    startFeedingAnimation(normalizedPortion);
     setFeederCompartmentsLeft(nextComps);
     setFeederOnBarrier(nextComps === 0);
+
+    if (realtimeChannelRef.current) {
+      Promise.resolve(
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'feed_now',
+          payload: {
+            portion: normalizedPortion,
+            compartmentsLeft: nextComps,
+            onBarrier: nextComps === 0,
+          },
+        })
+      ).catch(() => {});
+    }
 
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       supabase
@@ -1091,11 +1167,22 @@ export default function App() {
 
   // Confirma que os 12 compartimentos foram reabastecidos (36g) com a barreira tampando o furo
   const handleConfirmFeederRefill = async () => {
+    prevFeederCompsRef.current = TOTAL_FEEDER_COMPARTMENTS;
     setFeederCompartmentsLeft(TOTAL_FEEDER_COMPARTMENTS);
     setFeederOnBarrier(true);
     setFeederRefillPending(false);
     setFeederConfirmNotice(true);
     setTimeout(() => setFeederConfirmNotice(false), 3500);
+
+    if (realtimeChannelRef.current) {
+      Promise.resolve(
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'feeder_refill',
+          payload: {},
+        })
+      ).catch(() => {});
+    }
 
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
