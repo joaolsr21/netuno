@@ -108,13 +108,42 @@
   animation-delay: 225ms;
 }
 
+/* Barras Superior e Inferior com Glassmorphism Translúcido Real */
+.glass-header {
+  background: linear-gradient(180deg, rgba(10, 28, 40, 0.46) 0%, rgba(5, 14, 21, 0.28) 100%);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-bottom: 1px solid rgba(71, 221, 245, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(17, 195, 227, 0.12),
+    0 10px 32px -6px rgba(0, 0, 0, 0.42);
+}
+
+.glass-footer {
+  background: linear-gradient(0deg, rgba(10, 28, 40, 0.44) 0%, rgba(5, 14, 21, 0.26) 100%);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-top: 1px solid rgba(71, 221, 245, 0.20);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 -10px 30px -6px rgba(0, 0, 0, 0.36);
+}
+
+.glass-subnav {
+  background: rgba(6, 18, 26, 0.32);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 /* Cards Clean com Glassmorphism e Micro-interação (Modo Escuro padrão) */
 .clean-card {
-  background: linear-gradient(165deg, rgba(12, 24, 32, 0.88) 0%, rgba(6, 13, 18, 0.94) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(17, 195, 227, 0.22);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.72);
+  background: linear-gradient(160deg, rgba(12, 30, 42, 0.62) 0%, rgba(6, 15, 22, 0.74) 100%);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(71, 221, 245, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 16px 36px -10px rgba(0, 0, 0, 0.68);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.3s ease,
               box-shadow 0.3s ease,
@@ -122,52 +151,130 @@
 }
 
 .clean-card:hover {
-  border-color: rgba(17, 195, 227, 0.48);
-  box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.85), 0 0 26px -6px rgba(17, 195, 227, 0.2);
+  border-color: rgba(71, 221, 245, 0.46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 20px 42px -10px rgba(0, 0, 0, 0.80),
+    0 0 28px -6px rgba(17, 195, 227, 0.22);
 }
 
 .clean-kpi {
-  background: linear-gradient(145deg, rgba(14, 28, 37, 0.86) 0%, rgba(7, 15, 21, 0.92) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(17, 195, 227, 0.16);
+  background: linear-gradient(145deg, rgba(14, 34, 47, 0.58) 0%, rgba(7, 17, 25, 0.70) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(71, 221, 245, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 12px 28px -8px rgba(0, 0, 0, 0.58);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .clean-kpi:hover {
   transform: translateY(-3px);
   border-color: #11C3E3;
-  box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.8), 0 0 20px -6px rgba(17, 195, 227, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 16px 32px -8px rgba(0, 0, 0, 0.75),
+    0 0 22px -6px rgba(17, 195, 227, 0.26);
+}
+
+.metric-glass-pill {
+  background: linear-gradient(160deg, rgba(5, 22, 31, 0.68) 0%, rgba(3, 14, 20, 0.82) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(71, 221, 245, 0.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 6px 16px -6px rgba(0, 0, 0, 0.50);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.metric-glass-pill:hover {
+  transform: translateY(-2px);
+  border-color: rgba(71, 221, 245, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 20px -6px rgba(0, 0, 0, 0.62),
+    0 0 14px -4px rgba(17, 195, 227, 0.20);
 }
 
 /* ============================================================================
-   MODO CLARO (#11C3E3 fundo + #FFFFFF cards + #000000 contraste + #0A93B2)
+   MODO CLARO (#11C3E3 fundo + vidro translúcido + #000000 contraste + #0A93B2)
    ============================================================================ */
+body.light-theme .glass-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.60) 0%, rgba(244, 248, 250, 0.40) 100%);
+  backdrop-filter: blur(24px) saturate(185%);
+  -webkit-backdrop-filter: blur(24px) saturate(185%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(10, 147, 178, 0.16),
+    0 8px 26px rgba(0, 52, 66, 0.12);
+}
+
+body.light-theme .glass-footer {
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0.56) 0%, rgba(244, 248, 250, 0.36) 100%);
+  backdrop-filter: blur(24px) saturate(185%);
+  -webkit-backdrop-filter: blur(24px) saturate(185%);
+  border-top: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 -8px 24px rgba(0, 52, 66, 0.10);
+}
+
+body.light-theme .glass-subnav {
+  background: rgba(255, 255, 255, 0.38);
+  border-top: 1px solid rgba(255, 255, 255, 0.65);
+}
+
 body.light-theme .clean-card {
-  background: #FFFFFF;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1.5px solid #E6EEF2;
-  box-shadow: 0 12px 30px rgba(0, 52, 66, 0.16);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.84) 0%, rgba(244, 248, 250, 0.74) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 14px 32px rgba(0, 52, 66, 0.15);
 }
 
 body.light-theme .clean-card:hover {
   border-color: #000000;
-  box-shadow: 0 18px 38px rgba(0, 40, 52, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 18px 38px rgba(0, 40, 52, 0.22);
 }
 
 body.light-theme .clean-kpi {
-  background: #FFFFFF;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1.5px solid #E6EEF2;
-  box-shadow: 0 10px 24px rgba(0, 52, 66, 0.14);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.84) 0%, rgba(244, 248, 250, 0.74) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 10px 26px rgba(0, 52, 66, 0.14);
 }
 
 body.light-theme .clean-kpi:hover {
   transform: translateY(-3px);
   border-color: #000000;
-  box-shadow: 0 16px 32px rgba(0, 40, 52, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 16px 32px rgba(0, 40, 52, 0.20);
+}
+
+body.light-theme .metric-glass-pill {
+  background: rgba(244, 248, 250, 0.88);
+  border: 1px solid rgba(10, 147, 178, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 4px 12px rgba(0, 52, 66, 0.07);
+}
+
+body.light-theme .metric-glass-pill:hover {
+  border-color: #0A93B2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 8px 18px rgba(0, 52, 66, 0.12);
 }
 
 /* Superfícies internas dos cards no Modo Claro (preservando .dark-island) */
@@ -712,15 +819,57 @@ body.light-theme :where(
 .site-bubble {
   animation: siteBubbleRise var(--site-duration, 14s) ease-in-out infinite;
   animation-delay: var(--site-delay, 0s);
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.85) 0%, rgba(17, 195, 227, 0.35) 55%, rgba(10, 147, 178, 0.14) 100%);
-  border: 1.5px solid rgba(71, 221, 245, 0.45);
-  box-shadow: 0 0 10px rgba(17, 195, 227, 0.22);
+  background: radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.92) 0%, rgba(17, 195, 227, 0.36) 52%, rgba(10, 147, 178, 0.12) 100%);
+  border: 1.5px solid rgba(71, 221, 245, 0.50);
+  box-shadow:
+    inset -2px -2px 5px rgba(17, 195, 227, 0.28),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.72),
+    0 0 12px rgba(17, 195, 227, 0.26);
 }
 
 body.light-theme .site-bubble {
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.96) 0%, rgba(224, 247, 252, 0.58) 55%, rgba(255, 255, 255, 0.18) 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.35);
+  background: radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.98) 0%, rgba(224, 247, 252, 0.58) 54%, rgba(255, 255, 255, 0.16) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset -2px -2px 4px rgba(10, 147, 178, 0.20),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.90),
+    0 2px 12px rgba(255, 255, 255, 0.42);
+}
+
+/* Feixes suaves de luz subaquática (cáusticas) para destacar o Glassmorphism */
+@keyframes causticSway {
+  0%, 100% {
+    transform: skewX(-16deg) translateX(0px) scaleY(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: skewX(-11deg) translateX(22px) scaleY(1.06);
+    opacity: 0.72;
+  }
+}
+
+.caustic-ray {
+  animation: causticSway var(--ray-duration, 12s) ease-in-out infinite;
+  animation-delay: var(--ray-delay, 0s);
+  transform-origin: top center;
+}
+
+/* Brilho suave na barra térmica */
+@keyframes thermalShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.thermal-bar-shimmer {
+  background-size: 160% 100%;
+  animation: thermalShimmer 4.5s ease-in-out infinite;
 }
 
 /* Modo Natalino (Escuro e Claro) */
@@ -732,25 +881,39 @@ body.dark-theme.christmas-theme {
     radial-gradient(circle at 50% 90%, rgba(245, 158, 11, 0.12) 0px, transparent 52%);
 }
 
+body.dark-theme.christmas-theme .glass-header {
+  background: linear-gradient(180deg, rgba(10, 31, 23, 0.50) 0%, rgba(5, 17, 13, 0.30) 100%);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.24);
+}
+
+body.dark-theme.christmas-theme .glass-footer {
+  background: linear-gradient(0deg, rgba(10, 31, 23, 0.48) 0%, rgba(5, 17, 13, 0.28) 100%);
+  border-top: 1px solid rgba(251, 191, 36, 0.20);
+}
+
+body.dark-theme.christmas-theme .glass-subnav {
+  background: rgba(5, 18, 13, 0.38);
+}
+
 .dark-theme.christmas-theme .clean-card {
-  background: linear-gradient(165deg, rgba(11, 34, 26, 0.76) 0%, rgba(14, 18, 22, 0.84) 100%);
-  border-color: rgba(251, 191, 36, 0.2);
-  box-shadow: 0 12px 32px -8px rgba(2, 12, 8, 0.72), 0 0 20px -10px rgba(244, 63, 94, 0.16);
+  background: linear-gradient(165deg, rgba(11, 34, 26, 0.64) 0%, rgba(14, 18, 22, 0.76) 100%);
+  border-color: rgba(251, 191, 36, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 14px 34px -8px rgba(2, 12, 8, 0.72), 0 0 20px -10px rgba(244, 63, 94, 0.16);
 }
 
 .dark-theme.christmas-theme .clean-card:hover {
-  border-color: rgba(251, 191, 36, 0.36);
-  box-shadow: 0 18px 40px -10px rgba(2, 12, 8, 0.85), 0 0 24px -6px rgba(16, 185, 129, 0.2);
+  border-color: rgba(251, 191, 36, 0.38);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 18px 40px -10px rgba(2, 12, 8, 0.85), 0 0 24px -6px rgba(16, 185, 129, 0.22);
 }
 
 .dark-theme.christmas-theme .clean-kpi {
-  background: linear-gradient(145deg, rgba(13, 40, 30, 0.72) 0%, rgba(16, 18, 22, 0.82) 100%);
-  border-color: rgba(251, 191, 36, 0.15);
+  background: linear-gradient(145deg, rgba(13, 40, 30, 0.60) 0%, rgba(16, 18, 22, 0.74) 100%);
+  border-color: rgba(251, 191, 36, 0.18);
 }
 
 .dark-theme.christmas-theme .clean-kpi:hover {
-  border-color: rgba(248, 113, 113, 0.42);
-  box-shadow: 0 14px 28px -8px rgba(10, 18, 14, 0.82);
+  border-color: rgba(248, 113, 113, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 28px -8px rgba(10, 18, 14, 0.82);
 }
 
 body.light-theme.christmas-theme {
@@ -761,17 +924,29 @@ body.light-theme.christmas-theme {
     radial-gradient(circle at 50% 92%, rgba(5, 150, 105, 0.18) 0px, transparent 50%);
 }
 
+body.light-theme.christmas-theme .glass-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(244, 248, 250, 0.42) 100%);
+  border-bottom: 1px solid rgba(5, 150, 105, 0.32);
+}
+
+body.light-theme.christmas-theme .glass-footer {
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0.58) 0%, rgba(244, 248, 250, 0.38) 100%);
+  border-top: 1px solid rgba(5, 150, 105, 0.32);
+}
+
 body.light-theme.christmas-theme .clean-card,
 body.light-theme.christmas-theme .clean-kpi {
-  background: #FFFFFF;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.85) 0%, rgba(244, 248, 250, 0.76) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-color: rgba(5, 150, 105, 0.35);
-  box-shadow: 0 12px 30px rgba(0, 52, 66, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 12px 30px rgba(0, 52, 66, 0.16);
 }
 
 body.light-theme.christmas-theme .clean-card:hover,
 body.light-theme.christmas-theme .clean-kpi:hover {
   border-color: #DC2626;
-  box-shadow: 0 16px 34px rgba(185, 28, 28, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), 0 16px 34px rgba(185, 28, 28, 0.16);
 }
 
 @keyframes christmasTwinkle {

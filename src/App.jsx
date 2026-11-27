@@ -370,6 +370,55 @@ export default function App() {
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none"
     >
+      {/* Halos subaquáticos difusos para realçar a refração do Glassmorphism no topo e na base */}
+      <div
+        className={`absolute -top-24 left-1/4 w-[28rem] h-56 rounded-full blur-3xl transition-colors duration-500 ${
+          isLightMode
+            ? 'bg-white/45'
+            : christmasMode
+            ? 'bg-emerald-400/20'
+            : 'bg-[#11C3E3]/25'
+        }`}
+      />
+      <div
+        className={`absolute -top-20 right-1/5 w-[24rem] h-48 rounded-full blur-3xl transition-colors duration-500 ${
+          isLightMode
+            ? 'bg-[#E0F7FC]/45'
+            : christmasMode
+            ? 'bg-rose-500/18'
+            : 'bg-[#47DDF5]/20'
+        }`}
+      />
+      <div
+        className={`absolute -bottom-16 inset-x-10 h-44 rounded-full blur-3xl transition-colors duration-500 ${
+          isLightMode
+            ? 'bg-[#066D86]/45'
+            : christmasMode
+            ? 'bg-emerald-500/18'
+            : 'bg-[#11C3E3]/22'
+        }`}
+      />
+
+      {/* Feixes suaves de luz subaquática (cáusticas) */}
+      <div
+        style={{ '--ray-duration': '11s', '--ray-delay': '0s' }}
+        className={`caustic-ray absolute -top-10 left-[12%] w-28 sm:w-44 h-[72vh] blur-xl bg-gradient-to-b ${
+          isLightMode ? 'from-white/35 via-white/10 to-transparent' : 'from-[#47DDF5]/16 via-[#11C3E3]/5 to-transparent'
+        }`}
+      />
+      <div
+        style={{ '--ray-duration': '14s', '--ray-delay': '-4s' }}
+        className={`caustic-ray absolute -top-10 left-[48%] w-32 sm:w-52 h-[78vh] blur-xl bg-gradient-to-b ${
+          isLightMode ? 'from-white/30 via-white/8 to-transparent' : 'from-[#11C3E3]/14 via-sky-400/5 to-transparent'
+        }`}
+      />
+      <div
+        style={{ '--ray-duration': '12.5s', '--ray-delay': '-7s' }}
+        className={`caustic-ray hidden sm:block absolute -top-10 right-[14%] w-36 h-[68vh] blur-xl bg-gradient-to-b ${
+          isLightMode ? 'from-white/32 via-white/8 to-transparent' : 'from-emerald-300/12 via-[#11C3E3]/4 to-transparent'
+        }`}
+      />
+
       {/* Bolhas subindo suavemente por todo o fundo do site */}
       {SITE_BUBBLES.map((b, idx) => (
         <span
@@ -1929,10 +1978,10 @@ export default function App() {
           onClick={toggleThemeMode}
           aria-label={themeMode === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
           title={themeMode === 'light' ? 'Mudar para Modo Escuro' : 'Mudar para Modo Claro'}
-          className={`fixed top-4 right-4 z-20 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all duration-200 active:scale-95 shadow-md ${
+          className={`fixed top-4 right-4 z-20 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold backdrop-blur-xl transition-all duration-200 active:scale-95 shadow-lg ${
             isLightMode
-              ? 'bg-white hover:bg-[#F4F8FA] border-[#E6EEF2] text-[#000000]'
-              : 'bg-[#0B161E]/90 hover:bg-[#11C3E3]/20 border-white/15 text-white'
+              ? 'bg-white/65 hover:bg-white/85 border-white/85 text-[#000000]'
+              : 'bg-[#091C26]/55 hover:bg-[#11C3E3]/25 border-sky-300/25 text-white'
           }`}
         >
           {themeMode === 'light' ? (
@@ -2107,10 +2156,8 @@ export default function App() {
         </div>
 
         <footer
-          className={`relative z-10 border-t py-3 px-4 text-center text-xs transition-colors ${
-            isLightMode
-              ? 'border-[#E6EEF2] bg-white/95 text-[#2B3A42]'
-              : 'border-white/[0.06] bg-[#050C10]/85 text-sky-200/50'
+          className={`glass-footer relative z-10 py-3 px-4 text-center text-xs transition-all ${
+            isLightMode ? 'text-[#000000]/80 font-medium' : 'text-sky-200/70'
           }`}
         >
           NETUNO • Monitoramento Inteligente
@@ -2121,9 +2168,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-[100dvh] ${
-        activeTab === 'dashboard' ? 'lg:h-[100dvh] lg:overflow-y-auto' : ''
-      } flex flex-col relative transition-colors duration-500 ${
+      className={`min-h-[100dvh] flex flex-col relative transition-colors duration-500 ${
         isLightMode
           ? 'text-[#000000] selection:bg-[#000000] selection:text-white'
           : christmasMode
@@ -2168,17 +2213,7 @@ export default function App() {
       )}
 
       {/* HEADER PRINCIPAL CLEAN & GLASSMORPHIC */}
-      <header
-        className={`sticky top-0 z-30 border-b backdrop-blur-2xl transition-all relative shrink-0 ${
-          isLightMode
-            ? christmasMode
-              ? 'border-emerald-500/30 bg-white/95 shadow-[0_8px_24px_rgba(0,52,66,0.12)]'
-              : 'border-[#E6EEF2] bg-white/95 shadow-[0_8px_24px_rgba(0,52,66,0.12)]'
-            : christmasMode
-            ? 'border-amber-400/25 bg-[#061510]/90'
-            : 'border-white/[0.08] bg-[#050C10]/85'
-        }`}
-      >
+      <header className="glass-header sticky top-0 z-30 transition-all shrink-0">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Identidade Visual */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -2374,15 +2409,7 @@ export default function App() {
         )}
 
         {/* Navegação Mobile Clean */}
-        <div
-          className={`grid grid-cols-2 gap-1.5 md:hidden border-t px-3 py-2 ${
-            isLightMode
-              ? 'border-[#E6EEF2] bg-white/95'
-              : christmasMode
-              ? 'border-amber-400/15 bg-[#05120D]/95'
-              : 'border-white/[0.06] bg-[#04151D]/95'
-          }`}
-        >
+        <div className="glass-subnav grid grid-cols-2 gap-1.5 md:hidden px-3 py-2 transition-colors">
           {[
             { id: 'dashboard', label: 'Painel', icon: Gauge },
             { id: 'history', label: 'Histórico', icon: TrendingUp },
@@ -2460,7 +2487,7 @@ export default function App() {
       )}
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main className="relative z-10 flex-1 min-h-0 flex flex-col max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 space-y-2.5 sm:space-y-3.5">
+      <main className="relative z-10 flex-1 flex flex-col max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4 space-y-3 sm:space-y-4">
         {/* ALERTA DE ESTOQUE DE RAÇÃO (quando estiver baixo, crítico ou vazio) */}
         {activeTab === 'dashboard' && feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS && (
           <div
@@ -2764,12 +2791,12 @@ export default function App() {
             ABA 1: PAINEL PRINCIPAL CLEAN & ANIMADO
            =================================================================== */}
         {activeTab === 'dashboard' && (
-          <div className="flex-1 min-h-0 flex flex-col">
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+          <div className="flex-1 flex flex-col">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 items-stretch">
               {/* COLUNA ESQUERDA (6 cols): NÍVEL DA ÁGUA INTERATIVO */}
-              <div className="lg:col-span-6 clean-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between min-h-0 animate-fade-up">
-                <div className="flex-1 min-h-0 flex flex-col">
-                  <div className="flex flex-wrap items-start justify-between gap-2 mb-2.5 sm:mb-3 shrink-0">
+              <div className="lg:col-span-6 clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-4 animate-fade-up">
+                <div className="flex flex-col">
+                  <div className="flex flex-wrap items-start justify-between gap-2 mb-3.5 shrink-0">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
                         <Waves className="w-4 h-4" />
@@ -2794,9 +2821,9 @@ export default function App() {
                   </div>
 
                   {/* Visualização Gráfica do Aquário + Tubo Vertical de Comida ao Lado Direito */}
-                  <div className="flex-1 min-h-0 flex items-stretch gap-2 sm:gap-3 mb-2.5 sm:mb-3">
+                  <div className="flex items-stretch gap-3 sm:gap-3.5 mb-4 sm:mb-5">
                     <div
-                      className={`relative flex-1 min-w-0 h-48 sm:h-56 lg:h-full lg:min-h-[165px] rounded-2xl border overflow-hidden transition-colors duration-300 ${
+                      className={`relative flex-1 min-w-0 h-48 sm:h-52 rounded-2xl border overflow-hidden transition-colors duration-300 ${
                         isLightMode
                           ? 'bg-gradient-to-b from-[#E8FAFE] via-[#CCF3FC] to-[#A6E9F8] border-[#11C3E3]/60 shadow-[inset_0_2px_14px_rgba(10,147,178,0.14)]'
                           : 'dark-island bg-gradient-to-b from-[#03121A] to-[#062433] border-sky-400/25 shadow-inner'
@@ -3528,7 +3555,7 @@ export default function App() {
 
                     {/* Tubo Vertical Indicando a Quantidade Disponível de Comida */}
                     <div
-                      className={`w-[76px] sm:w-[92px] shrink-0 h-48 sm:h-56 lg:h-full lg:min-h-[165px] rounded-2xl border p-2 flex flex-col items-center justify-between transition-colors duration-300 ${
+                      className={`w-[78px] sm:w-[94px] shrink-0 h-48 sm:h-52 rounded-2xl border p-2 flex flex-col items-center justify-between transition-colors duration-300 ${
                         isLightMode
                           ? 'bg-gradient-to-b from-[#F4F8FA] to-[#E0F7FC] border-[#11C3E3]/50 shadow-inner'
                           : 'dark-island bg-gradient-to-b from-[#03121A] to-[#062433] border-sky-400/25 shadow-inner'
@@ -3684,24 +3711,24 @@ export default function App() {
                 </div>
 
                 {/* Métricas do Aquário + Avisos de Comida + Botão de Abastecer */}
-                <div className="space-y-2.5 shrink-0">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2 sm:p-2.5 text-center">
-                      <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Nível Atual</span>
-                      <span className="text-xs sm:text-sm font-bold text-sky-300 font-mono-code mt-0.5 block">
+                <div className="space-y-3.5 sm:space-y-4 pt-0.5 shrink-0">
+                  <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-3 sm:gap-3.5">
+                    <div className="metric-glass-pill rounded-2xl px-3 py-2.5 sm:px-3.5 sm:py-3 text-center">
+                      <span className="text-[10px] sm:text-[11px] font-medium text-sky-200/70 block">Nível Atual</span>
+                      <span className="text-xs sm:text-sm font-extrabold text-sky-300 font-mono-code mt-1 block">
                         {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
                       </span>
                     </div>
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2 sm:p-2.5 text-center">
-                      <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Volume Atual</span>
-                      <span className="text-xs sm:text-sm font-bold text-white font-mono-code mt-0.5 block">
+                    <div className="metric-glass-pill rounded-2xl px-3 py-2.5 sm:px-3.5 sm:py-3 text-center">
+                      <span className="text-[10px] sm:text-[11px] font-medium text-sky-200/70 block">Volume Atual</span>
+                      <span className="text-xs sm:text-sm font-extrabold text-white font-mono-code mt-1 block">
                         {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
                       </span>
                     </div>
-                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-2 sm:p-2.5 text-center">
-                      <span className="text-[10px] sm:text-[11px] text-sky-200/65 block">Comida Disp.</span>
+                    <div className="metric-glass-pill rounded-2xl px-3 py-2.5 sm:px-3.5 sm:py-3 text-center">
+                      <span className="text-[10px] sm:text-[11px] font-medium text-sky-200/70 block">Comida Disp.</span>
                       <span
-                        className={`text-xs sm:text-sm font-bold font-mono-code mt-0.5 block ${
+                        className={`text-xs sm:text-sm font-extrabold font-mono-code mt-1 block ${
                           feederCompartmentsLeft <= 0
                             ? 'text-rose-400'
                             : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
@@ -3777,7 +3804,7 @@ export default function App() {
               </div>
 
               {/* COLUNA DIREITA (6 cols): DISPLAY LCD + TEMPERATURA */}
-              <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-col gap-3 sm:gap-4 min-h-0">
+              <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-col gap-3.5 sm:gap-4">
                 {/* CARD: DISPLAY LCD */}
                 <div className="clean-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shrink-0 animate-fade-up delay-75">
                   <div className="flex items-center justify-between gap-3 mb-2.5">
@@ -3842,73 +3869,76 @@ export default function App() {
                 </div>
 
                 {/* CARD: TEMPERATURA */}
-                <div className="clean-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 flex-1 min-h-0 flex flex-col justify-between animate-fade-up delay-150">
-                  <div className="flex-1 flex flex-col justify-between min-h-0">
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2.5 sm:mb-3 shrink-0">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
-                          <Thermometer className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
-                            Temperatura da Água
-                          </h3>
-                          <p className="text-[11px] text-sky-200/65">
-                            Monitoramento térmico em tempo real
-                          </p>
-                        </div>
+                <div className="clean-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5 animate-fade-up delay-150">
+                  <div className="flex flex-wrap items-start justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0">
+                        <Thermometer className="w-4 h-4" />
                       </div>
-
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 transition-all ${tempStatus.bg} ${tempStatus.color}`}
-                      >
-                        {tempStatus.label}
-                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+                          Temperatura da Água
+                        </h3>
+                        <p className="text-[11px] text-sky-200/65">
+                          Monitoramento térmico em tempo real
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Mostrador Principal de Temperatura + Barra Térmica Animada */}
-                    <div className="flex-1 bg-[#031117]/60 border border-white/[0.07] rounded-2xl p-3 sm:p-4 flex flex-col justify-center space-y-2.5">
-                      <div className="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between gap-2">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 transition-all ${tempStatus.bg} ${tempStatus.color}`}
+                    >
+                      {tempStatus.label}
+                    </span>
+                  </div>
+
+                  {/* Mostrador Principal de Temperatura + Barra Térmica Animada */}
+                  <div className="bg-[#031117]/55 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-4">
+                    <div className="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs text-sky-200/65 block">
+                          Temperatura Atual
+                        </span>
+                        <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-1 block font-mono-code">
+                          {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
+                        </span>
+                      </div>
+                      <div className="min-[380px]:text-right text-xs text-sky-200/70 space-y-1.5">
                         <div>
-                          <span className="text-xs text-sky-200/65 block">
-                            Temperatura Atual
-                          </span>
-                          <span className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight mt-0.5 block font-mono-code">
-                            {temperatureC !== null ? `${Number(temperatureC).toFixed(1)} °C` : '--'}
-                          </span>
+                          Faixa Ideal:{' '}
+                          <strong className="text-emerald-300 font-mono-code">
+                            {config.tempMinC}°C – {config.tempMaxC}°C
+                          </strong>
                         </div>
-                        <div className="min-[380px]:text-right text-xs text-sky-200/70 space-y-1">
-                          <div>
-                            Faixa Ideal:{' '}
-                            <strong className="text-emerald-300 font-mono-code">
-                              {config.tempMinC}°C – {config.tempMaxC}°C
-                            </strong>
-                          </div>
-                          <div>
-                            Fahrenheit:{' '}
-                            <strong className="text-white font-mono-code">
-                              {temperatureC !== null
-                                ? `${((Number(temperatureC) * 9) / 5 + 32).toFixed(1)} °F`
-                                : '--'}
-                            </strong>
-                          </div>
+                        <div>
+                          Fahrenheit:{' '}
+                          <strong className="text-white font-mono-code">
+                            {temperatureC !== null
+                              ? `${((Number(temperatureC) * 9) / 5 + 32).toFixed(1)} °F`
+                              : '--'}
+                          </strong>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Barra visual da faixa térmica */}
-                      <div className="space-y-1">
-                        <div className="h-2 w-full rounded-full bg-[#07222F] overflow-hidden p-0.5 border border-white/5">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-rose-400 transition-all duration-700"
-                            style={{
-                              width: `${
-                                temperatureC !== null
-                                  ? Math.max(8, Math.min(100, ((Number(temperatureC) - 15) / 20) * 100))
-                                  : 55
-                              }%`,
-                            }}
-                          />
-                        </div>
+                    {/* Barra visual da faixa térmica */}
+                    <div className="space-y-1.5">
+                      <div className="h-2.5 w-full rounded-full bg-[#07222F] overflow-hidden p-0.5 border border-white/10 shadow-inner">
+                        <div
+                          className="thermal-bar-shimmer h-full rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-rose-400 shadow-[0_0_10px_rgba(16,185,129,0.45)] transition-all duration-700"
+                          style={{
+                            width: `${
+                              temperatureC !== null
+                                ? Math.max(8, Math.min(100, ((Number(temperatureC) - 15) / 20) * 100))
+                                : 55
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-mono-code text-sky-200/55">
+                        <span>15°C</span>
+                        <span>Ideal: {config.tempMinC}°C–{config.tempMaxC}°C</span>
+                        <span>35°C</span>
                       </div>
                     </div>
                   </div>
@@ -5067,17 +5097,7 @@ export default function App() {
       </main>
 
       {/* RODAPÉ */}
-      <footer
-        className={`relative z-10 border-t backdrop-blur-xl py-2.5 px-4 sm:px-6 lg:px-8 mt-auto shrink-0 transition-colors ${
-          isLightMode
-            ? christmasMode
-              ? 'border-emerald-500/30 bg-white/95 shadow-[0_-4px_20px_rgba(0,52,66,0.08)]'
-              : 'border-[#E6EEF2] bg-white/95 shadow-[0_-4px_20px_rgba(0,52,66,0.08)]'
-            : christmasMode
-            ? 'border-amber-400/20 bg-[#05120D]/85'
-            : 'border-white/[0.06] bg-[#050C10]/85'
-        }`}
-      >
+      <footer className="glass-footer relative z-10 py-3 px-4 sm:px-6 lg:px-8 mt-auto shrink-0 transition-all">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2.5 text-xs text-sky-200/60">
           <img
             src="/logo-netuno.jpg"
