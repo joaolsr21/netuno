@@ -31,7 +31,9 @@ import {
   User,
   LogOut,
   ShieldCheck,
-  Snowflake
+  Snowflake,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 
@@ -321,6 +323,30 @@ export default function App() {
       // ignore
     }
   }, [christmasMode]);
+
+  const [themeMode, setThemeMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('netuno_theme_mode');
+      return saved === 'dark' ? 'dark' : 'light';
+    } catch (e) {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', themeMode === 'dark');
+    document.body.classList.toggle('light-theme', themeMode === 'light');
+    document.body.classList.toggle('dark-theme', themeMode === 'dark');
+    try {
+      localStorage.setItem('netuno_theme_mode', themeMode);
+    } catch (e) {
+      // ignore
+    }
+  }, [themeMode]);
+
+  const isLightMode = themeMode === 'light' && !christmasMode;
+  const toggleThemeMode = () =>
+    setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
 
   // Autenticação do ESP32 específico (usuário e senha cadastrados no portal 192.168.4.1 do ESP32)
   const [authDevice, setAuthDevice] = useState(() => {
@@ -1748,12 +1774,38 @@ export default function App() {
   if (!authDevice) {
     return (
       <div
-        className={`min-h-screen flex flex-col justify-between text-slate-100 relative overflow-hidden transition-colors duration-500 ${
+        className={`min-h-screen flex flex-col justify-between relative overflow-hidden transition-colors duration-500 ${
           christmasMode
-            ? 'bg-[#05110d] selection:bg-rose-600 selection:text-white'
-            : 'bg-[#031117] selection:bg-[#0B96B2] selection:text-white'
+            ? 'bg-[#05110d] text-slate-100 selection:bg-rose-600 selection:text-white'
+            : isLightMode
+            ? 'bg-[#11C3E3] text-[#000000] selection:bg-[#000000] selection:text-white'
+            : 'bg-[#050C10] text-slate-100 selection:bg-[#11C3E3] selection:text-[#000000]'
         }`}
       >
+        {/* Botão simples de alternar Modo Claro / Escuro no Login */}
+        <button
+          type="button"
+          onClick={toggleThemeMode}
+          aria-label={themeMode === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
+          title={themeMode === 'light' ? 'Mudar para Modo Escuro' : 'Mudar para Modo Claro'}
+          className={`fixed top-4 right-4 z-20 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all duration-200 active:scale-95 shadow-md ${
+            isLightMode
+              ? 'bg-white hover:bg-[#F4F8FA] border-[#E6EEF2] text-[#000000]'
+              : 'bg-[#0B161E]/90 hover:bg-[#11C3E3]/20 border-white/15 text-white'
+          }`}
+        >
+          {themeMode === 'light' ? (
+            <>
+              <Moon className="w-3.5 h-3.5 shrink-0" />
+              <span>Escuro</span>
+            </>
+          ) : (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span>Claro</span>
+            </>
+          )}
+        </button>
         {/* Flocos de neve quando o Modo Natalino estiver ativo */}
         {christmasMode && (
           <div className="pointer-events-none fixed inset-0 z-30 overflow-hidden">
@@ -1789,10 +1841,12 @@ export default function App() {
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative z-10">
           <div className="w-full max-w-md clean-card rounded-3xl overflow-hidden animate-scale-in">
             <div
-              className={`border-b border-white/[0.08] p-7 text-center ${
+              className={`border-b p-7 text-center ${
                 christmasMode
-                  ? 'bg-gradient-to-b from-rose-950/60 via-emerald-950/30 to-transparent'
-                  : 'bg-gradient-to-b from-[#082D3D]/80 to-transparent'
+                  ? 'border-white/[0.08] bg-gradient-to-b from-rose-950/60 via-emerald-950/30 to-transparent'
+                  : isLightMode
+                  ? 'border-[#E6EEF2] bg-gradient-to-b from-[#E0F7FC] to-transparent'
+                  : 'border-white/[0.08] bg-gradient-to-b from-[#082D3D]/80 to-transparent'
               }`}
             >
               <div className="relative mx-auto w-16 h-16 mb-3.5 animate-float">
@@ -1904,7 +1958,13 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="border-t border-white/[0.06] bg-[#031117]/80 py-4 px-4 text-center text-xs text-sky-200/50">
+        <footer
+          className={`border-t py-4 px-4 text-center text-xs transition-colors ${
+            isLightMode
+              ? 'border-[#E6EEF2] bg-white/95 text-[#2B3A42]'
+              : 'border-white/[0.06] bg-[#050C10]/85 text-sky-200/50'
+          }`}
+        >
           NETUNO • Monitoramento Inteligente
         </footer>
       </div>
@@ -1913,8 +1973,12 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col text-slate-100 transition-colors duration-500 ${
-        christmasMode ? 'selection:bg-rose-600 selection:text-white' : 'selection:bg-[#0B96B2] selection:text-white'
+      className={`min-h-screen flex flex-col transition-colors duration-500 ${
+        christmasMode
+          ? 'text-slate-100 selection:bg-rose-600 selection:text-white'
+          : isLightMode
+          ? 'text-[#000000] selection:bg-[#000000] selection:text-white'
+          : 'text-slate-100 selection:bg-[#11C3E3] selection:text-[#000000]'
       }`}
     >
       {/* Flocos de neve sutis no Modo Natalino */}
@@ -1939,7 +2003,7 @@ export default function App() {
 
       {/* ALERTA DE NÍVEL CRÍTICO */}
       {waterLevelPct !== null && waterLevelPct < Number(config.criticalLevelPct) && (
-        <div className="bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-2 text-center text-xs sm:text-sm font-medium text-white flex items-center justify-center gap-2 animate-pulse">
+        <div className="dark-island bg-rose-600/90 backdrop-blur-md border-b border-rose-400/40 px-4 py-2 text-center text-xs sm:text-sm font-medium text-white flex items-center justify-center gap-2 animate-pulse">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>
             <strong>Alerta de Nível:</strong> O nível da água está crítico ({waterLevelPct}%).
@@ -1952,7 +2016,9 @@ export default function App() {
         className={`sticky top-0 z-30 border-b backdrop-blur-2xl transition-all relative ${
           christmasMode
             ? 'border-amber-400/25 bg-[#061510]/90'
-            : 'border-white/[0.08] bg-[#031117]/85'
+            : isLightMode
+            ? 'border-[#E6EEF2] bg-white/95 shadow-[0_8px_24px_rgba(0,52,66,0.12)]'
+            : 'border-white/[0.08] bg-[#050C10]/85'
         }`}
       >
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
@@ -2042,6 +2108,26 @@ export default function App() {
               <span className="font-mono-code font-medium text-sky-100">{activeDeviceUsername}</span>
             </div>
 
+            {/* Botão simples para alternar Modo Claro / Escuro */}
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={toggleThemeMode}
+                className="inline-flex items-center justify-center p-2 rounded-xl bg-white/[0.04] hover:bg-[#0B96B2]/50 border border-white/[0.09] hover:border-sky-400/40 text-sky-200 hover:text-white transition-all duration-200 active:scale-95"
+                title={themeMode === 'light' ? 'Modo Escuro' : 'Modo Claro'}
+                aria-label={themeMode === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
+              >
+                {themeMode === 'light' ? (
+                  <Moon className="w-4 h-4 shrink-0" />
+                ) : (
+                  <Sun className="w-4 h-4 shrink-0 text-amber-300" />
+                )}
+              </button>
+              <span className="dark-island pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#000000] border border-white/15 text-[10px] font-semibold text-white px-2 py-0.5 rounded-md shadow-lg z-50">
+                {themeMode === 'light' ? 'Modo Escuro' : 'Modo Claro'}
+              </span>
+            </div>
+
             {/* Engrenagem de Configurações à esquerda do Logout */}
             <div className="relative group">
               <button
@@ -2066,7 +2152,7 @@ export default function App() {
               >
                 <Settings className="w-4 h-4 shrink-0" />
               </button>
-              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#061E29]/95 border border-white/15 text-[10px] font-semibold text-white px-2 py-0.5 rounded-md shadow-lg z-50">
+              <span className="dark-island pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#000000] border border-white/15 text-[10px] font-semibold text-white px-2 py-0.5 rounded-md shadow-lg z-50">
                 Configurações
               </span>
             </div>
@@ -2081,7 +2167,7 @@ export default function App() {
               >
                 <LogOut className="w-4 h-4 shrink-0" />
               </button>
-              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#061E29]/95 border border-white/15 text-[10px] font-semibold text-rose-200 px-2 py-0.5 rounded-md shadow-lg z-50">
+              <span className="dark-island pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap bg-[#000000] border border-white/15 text-[10px] font-semibold text-rose-200 px-2 py-0.5 rounded-md shadow-lg z-50">
                 Logout
               </span>
             </div>
@@ -2126,6 +2212,8 @@ export default function App() {
           className={`grid grid-cols-2 gap-1.5 md:hidden border-t px-3 py-2 ${
             christmasMode
               ? 'border-amber-400/15 bg-[#05120D]/95'
+              : isLightMode
+              ? 'border-[#E6EEF2] bg-white/95'
               : 'border-white/[0.06] bg-[#04151D]/95'
           }`}
         >
@@ -2537,7 +2625,7 @@ export default function App() {
 
                   {/* Visualização Gráfica do Aquário + Tubo Vertical de Comida ao Lado Direito */}
                   <div className="flex items-stretch gap-2 sm:gap-3.5 mb-4 sm:mb-5">
-                    <div className="relative flex-1 min-w-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner">
+                    <div className="dark-island relative flex-1 min-w-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 overflow-hidden shadow-inner">
                     {/* Reflexo de vidro sutil */}
                     <div className="pointer-events-none absolute top-0 left-6 w-24 h-full bg-gradient-to-r from-white/[0.03] to-transparent -skew-x-12 z-20" />
 
@@ -3226,7 +3314,7 @@ export default function App() {
 
                     {/* Tubo Vertical Indicando a Quantidade Disponível de Comida */}
                     <div
-                      className="w-[76px] sm:w-[96px] shrink-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 p-2 sm:p-2.5 flex flex-col items-center justify-between shadow-inner"
+                      className="dark-island w-[76px] sm:w-[96px] shrink-0 h-52 sm:h-64 rounded-2xl bg-gradient-to-b from-[#03121A] to-[#062433] border border-sky-400/25 p-2 sm:p-2.5 flex flex-col items-center justify-between shadow-inner"
                       title={`Comida disponível: ${feederGramsLeft}g (${feederCompartmentsLeft}/${TOTAL_FEEDER_COMPARTMENTS} compartimentos)`}
                     >
                       <div className="text-center leading-tight">
@@ -3476,7 +3564,7 @@ export default function App() {
                   </div>
 
                   {/* Moldura do Display LCD */}
-                  <div className="rounded-2xl bg-[#031016] border border-white/10 p-2.5 sm:p-3.5 shadow-inner">
+                  <div className="dark-island rounded-2xl bg-[#031016] border border-white/10 p-2.5 sm:p-3.5 shadow-inner">
                     <div className="rounded-xl bg-gradient-to-b from-[#0C352A] to-[#07241C] border border-emerald-400/35 px-3 sm:px-5 py-3 sm:py-4 shadow-[inset_0_0_28px_rgba(16,185,129,0.2)] overflow-x-auto">
                       <div className="font-mono-code text-[13px] min-[390px]:text-base sm:text-xl xl:text-2xl font-bold tracking-[0.07em] sm:tracking-[0.15em] text-emerald-200 drop-shadow-[0_0_8px_rgba(110,231,183,0.5)] whitespace-pre transition-all duration-300">
                         {lcdLine0}
@@ -3575,7 +3663,7 @@ export default function App() {
             <div className="bg-[#051923]/75 border-b border-white/[0.06] px-4 py-4 sm:px-6 sm:py-5 flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0B96B2] to-sky-500 border border-sky-300/30 flex items-center justify-center text-white shadow-md shadow-sky-500/20 shrink-0">
+                  <div className="keep-white w-10 h-10 rounded-xl bg-gradient-to-br from-[#0B96B2] to-sky-500 border border-sky-300/30 flex items-center justify-center text-white shadow-md shadow-sky-500/20 shrink-0">
                     <Settings className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
@@ -4004,7 +4092,7 @@ export default function App() {
               {/* ABA 5: DISPLAY LCD */}
               {wizardStep === 5 && (
                 <div className="max-w-2xl mx-auto space-y-5 animate-fade-up">
-                  <div className="rounded-2xl bg-[#031016] border border-white/[0.08] p-3 sm:p-4 shadow-inner">
+                  <div className="dark-island rounded-2xl bg-[#031016] border border-white/[0.08] p-3 sm:p-4 shadow-inner">
                     <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between gap-2">
                       <span>Prévia do Display LCD (16x2)</span>
                       {draftConfig.lcdCarousel && (
@@ -4693,7 +4781,11 @@ export default function App() {
       {/* RODAPÉ */}
       <footer
         className={`border-t backdrop-blur-xl py-5 px-4 sm:px-6 lg:px-8 mt-8 transition-colors ${
-          christmasMode ? 'border-amber-400/20 bg-[#05120D]/85' : 'border-white/[0.06] bg-[#031016]/80'
+          christmasMode
+            ? 'border-amber-400/20 bg-[#05120D]/85'
+            : isLightMode
+            ? 'border-[#E6EEF2] bg-white/95 shadow-[0_-4px_20px_rgba(0,52,66,0.08)]'
+            : 'border-white/[0.06] bg-[#050C10]/85'
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2.5 text-xs text-sky-200/60">

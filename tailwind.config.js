@@ -8,13 +8,24 @@ export default {
     extend: {
       colors: {
         netuno: {
-          deep: '#031117',
-          abyss: '#061D27',
-          card: '#092836',
-          teal: '#0B88A6',
-          aqua: '#10C3E3',
+          cyan: '#11C3E3',
+          deepCyan: '#0A93B2',
+          ice: '#E0F7FC',
+          snow: '#F4F8FA',
+          borderLight: '#E6EEF2',
+          borderMuted: '#D8E4E9',
+          muted: '#EAECEF',
+          graphite: '#2B3A42',
+          black: '#000000',
+          dark: '#050C10',
+          darkCard: '#0B161E',
+          deep: '#050C10',
+          abyss: '#0B161E',
+          card: '#0F1F28',
+          teal: '#0A93B2',
+          aqua: '#11C3E3',
           bright: '#47DDF5',
-          foam: '#E0F7FA',
+          foam: '#E0F7FC',
         }
       },
       fontFamily: {
