@@ -201,6 +201,7 @@ export default function App() {
   const [feederOnBarrier, setFeederOnBarrier] = useState(true);
   const [feederRefillPending, setFeederRefillPending] = useState(false);
   const [feederConfirmNotice, setFeederConfirmNotice] = useState(false);
+  const [feederBlockedNotice, setFeederBlockedNotice] = useState('');
   const [schedules, setSchedules] = useState([
     { id: 1, time: '08:00', portion: '3g', label: 'Manhã', enabled: true },
     { id: 2, time: '14:00', portion: '3g', label: 'Tarde', enabled: true },
@@ -213,6 +214,7 @@ export default function App() {
   const [wifiPortalCommandSent, setWifiPortalCommandSent] = useState(false);
   const [lastAutoFedMinuteKey, setLastAutoFedMinuteKey] = useState('');
   const feedDbCleanupTimerRef = useRef(null);
+  const blockedNoticeTimerRef = useRef(null);
 
   const [logs, setLogs] = useState([]);
   const [history, setHistory] = useState([]);
@@ -382,8 +384,8 @@ export default function App() {
     if (comps <= 0) {
       return {
         level: 'empty',
-        label: 'VAZIO — Reabastecer!',
-        shortLabel: 'Sem ração',
+        label: 'ACABOU — Requer Abastecimento',
+        shortLabel: 'Acabou',
         color: 'text-rose-400',
         bg: 'bg-rose-500/15 border-rose-500/45',
         accent: '#F43F5E',
@@ -392,8 +394,8 @@ export default function App() {
     if (comps <= FEEDER_CRITICAL_ALERT_COMPS) {
       return {
         level: 'critical',
-        label: 'CRÍTICO — Ração Quase Acabando',
-        shortLabel: 'Crítico',
+        label: 'CRÍTICO — Comida Quase Acabando',
+        shortLabel: 'Quase acabando',
         color: 'text-rose-300',
         bg: 'bg-rose-500/15 border-rose-400/40',
         accent: '#FB7185',
@@ -402,8 +404,8 @@ export default function App() {
     if (comps <= FEEDER_LOW_ALERT_COMPS) {
       return {
         level: 'low',
-        label: 'ATENÇÃO — Ração Baixa',
-        shortLabel: 'Ração Baixa',
+        label: 'AVISO — Comida Acabando',
+        shortLabel: 'Acabando',
         color: 'text-amber-300',
         bg: 'bg-amber-500/15 border-amber-400/40',
         accent: '#F59E0B',
@@ -434,6 +436,18 @@ export default function App() {
     activeSchedules.find((s) => s.time > rtcCurrentHHMM) ||
     (activeSchedules.length > 0 ? activeSchedules[0] : null);
 
+  const triggerBlockedFeedWarning = useCallback((reason) => {
+    setFeederBlockedNotice(
+      reason || 'Acabou a comida (0g)! Não é possível alimentar os peixes — requer abastecimento.'
+    );
+    if (blockedNoticeTimerRef.current) {
+      clearTimeout(blockedNoticeTimerRef.current);
+    }
+    blockedNoticeTimerRef.current = setTimeout(() => {
+      setFeederBlockedNotice('');
+    }, 5500);
+  }, []);
+
   // Finaliza apenas a animação visual breve (2.2s) no site sem limpar prematuramente o comando no Supabase antes do ESP32 ler
   const finishFeedingCycle = useCallback(() => {
     setFeedNowCommand(false);
@@ -443,6 +457,9 @@ export default function App() {
     return () => {
       if (feedDbCleanupTimerRef.current) {
         clearTimeout(feedDbCleanupTimerRef.current);
+      }
+      if (blockedNoticeTimerRef.current) {
+        clearTimeout(blockedNoticeTimerRef.current);
       }
     };
   }, []);
@@ -459,8 +476,7 @@ export default function App() {
   // Exibe animação breve no site quando o horário programado do módulo RTC atinge um agendamento (o ESP32 executa pelo próprio RTC)
   useEffect(() => {
     if (!activeDeviceUsername) return;
-    if (feederCompartmentsLeft <= 0) return;
-    if (rtcCurrentSeconds > 2) return; // Verifica nos primeiros segundos do minuto do RTC
+    if (rtcCurrentSeconds > 15) return; // Janela resiliente mesmo se o navegador atrasar timers
     const match = activeSchedules.find((s) => s.time === rtcCurrentHHMM);
     if (!match) return;
 
@@ -468,7 +484,22 @@ export default function App() {
     if (lastAutoFedMinuteKey === minuteKey) return;
 
     setLastAutoFedMinuteKey(minuteKey);
-    setFeedNowPortion(formatPortionGrams(match.portion));
+
+    if (feederCompartmentsLeft <= 0) {
+      triggerBlockedFeedWarning(
+        `Horário programado (${match.time}): acabou a comida (0g)! Não dá para alimentar — requer abastecimento.`
+      );
+      return;
+    }
+
+    const normalizedPortion = formatPortionGrams(match.portion);
+    const dosesRequested = parsePortionGrams(normalizedPortion) / GRAMS_PER_DOSE;
+    const dosesApplied = Math.min(dosesRequested, feederCompartmentsLeft);
+    const nextComps = Math.max(0, feederCompartmentsLeft - dosesApplied);
+
+    setFeederCompartmentsLeft(nextComps);
+    setFeederOnBarrier(nextComps === 0);
+    setFeedNowPortion(normalizedPortion);
     setFeedNowCommand(true);
   }, [
     activeDeviceUsername,
@@ -478,6 +509,7 @@ export default function App() {
     rtcDateFormatted,
     activeSchedules,
     lastAutoFedMinuteKey,
+    triggerBlockedFeedWarning,
   ]);
 
   // Formata linha de 16 caracteres para o Display LCD
@@ -658,6 +690,40 @@ export default function App() {
           portion: formatPortionGrams(s.portion),
         }))
       );
+    } else if (scheduleData && scheduleData.length === 0) {
+      const seedKey = `netuno_sched_seeded_${activeDeviceUsername}`;
+      let alreadySeeded = false;
+      try {
+        alreadySeeded = localStorage.getItem(seedKey) === 'true';
+      } catch (e) {
+        // ignore
+      }
+
+      if (!alreadySeeded) {
+        try {
+          localStorage.setItem(seedKey, 'true');
+        } catch (e) {
+          // ignore
+        }
+        const defaultRows = [
+          { device_username: activeDeviceUsername, time: '08:00', portion: '3g', label: 'Manhã', enabled: true },
+          { device_username: activeDeviceUsername, time: '14:00', portion: '3g', label: 'Tarde', enabled: true },
+          { device_username: activeDeviceUsername, time: '20:00', portion: '6g', label: 'Noite', enabled: true },
+        ];
+        const { data: insertedRows } = await supabase
+          .from('feed_schedules')
+          .insert(defaultRows)
+          .select();
+        if (insertedRows && insertedRows.length > 0) {
+          setSchedules(
+            insertedRows
+              .map((s) => ({ ...s, portion: formatPortionGrams(s.portion) }))
+              .sort((a, b) => a.time.localeCompare(b.time))
+          );
+        }
+      } else {
+        setSchedules([]);
+      }
     }
 
     const { data: logData } = await supabase
@@ -938,7 +1004,12 @@ export default function App() {
   };
 
   const handleTriggerFeedNow = (portion = feedNowPortion) => {
-    if (feederCompartmentsLeft <= 0) return;
+    if (feederCompartmentsLeft <= 0) {
+      triggerBlockedFeedWarning(
+        'Acabou a comida (0g)! Não dá para alimentar os peixes — clique em Abastecer Comida.'
+      );
+      return;
+    }
     const normalizedPortion = formatPortionGrams(portion);
     const dosesRequested = parsePortionGrams(normalizedPortion) / GRAMS_PER_DOSE;
     const dosesApplied = Math.min(dosesRequested, feederCompartmentsLeft);
@@ -1629,10 +1700,21 @@ export default function App() {
         <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#061E29]/95 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-emerald-200 flex items-center gap-3 animate-fade-up">
           <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
           <div>
-            <div className="font-bold text-white">Reabastecimento Confirmado!</div>
+            <div className="font-bold text-white">Comida Abastecida (36g • 12/12)!</div>
             <p className="text-sky-200/80 text-[11px]">
-              Estoque reiniciado para 12/12 compartimentos ({MAX_FEEDER_GRAMS}g) com a barreira tampando o furo.
+              Tubo cheio e motor de passo alinhado na barreira pronto para começar um novo ciclo.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Notificação flutuante quando tentativa de alimentação é bloqueada por falta de comida */}
+      {feederBlockedNotice && (
+        <div className="fixed top-28 sm:top-20 left-3 right-3 sm:left-auto sm:right-8 z-50 sm:max-w-md bg-[#240912]/95 border border-rose-400/55 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md text-xs text-rose-100 flex items-start gap-3 animate-fade-up">
+          <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
+          <div className="space-y-1">
+            <div className="font-bold text-white">Alimentação Bloqueada — Sem Comida!</div>
+            <p className="text-rose-200/85 text-[11px] leading-relaxed">{feederBlockedNotice}</p>
           </div>
         </div>
       )}
@@ -1659,17 +1741,17 @@ export default function App() {
               <div className="min-w-0">
                 <div className="text-xs sm:text-sm font-bold text-white">
                   {feederCompartmentsLeft <= 0
-                    ? 'Comida Esgotada (0g • 0/12) — Alimentação Parada'
+                    ? 'Acabou a Comida (0g) — Não dá para alimentar! Requer abastecimento'
                     : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
-                    ? `Atenção Crítica: Ração quase acabando (${feederGramsLeft}g • ${feederCompartmentsLeft}/12)`
-                    : `Aviso de Estoque Baixo: restam ${feederGramsLeft}g (${feederCompartmentsLeft}/12 compartimentos)`}
+                    ? `Atenção Crítica: A comida está quase acabando! Restam ${feederGramsLeft}g (${feederCompartmentsLeft}/12)`
+                    : `Aviso: A comida está acabando! Restam ${feederGramsLeft}g (${feederCompartmentsLeft}/12 compartimentos)`}
                 </div>
                 <p className="text-[11px] sm:text-xs text-white/75 mt-0.5">
                   {feederCompartmentsLeft <= 0
-                    ? 'O motor alinhou automaticamente com a barreira tampando o furo e parou a alimentação. Coloque nova ração (36g) e confirme o reabastecimento.'
+                    ? 'A alimentação manual e programada foi parada. O motor já alinhou a barreira com o furo — coloque nova ração (36g) e clique em Abastecer Comida.'
                     : feederOnBarrier
-                    ? 'A barreira já está tampando o furo. Após colocar a ração nos 12 compartimentos (3g cada), confirme o reabastecimento.'
-                    : 'Ative o Modo Reabastecer para alinhar a barreira tampando o furo antes de colocar nova ração.'}
+                    ? 'A barreira já está tampando o furo. Se completar os 12 compartimentos (36g), clique em Abastecer Comida.'
+                    : 'Programe o reabastecimento: ao zerar, a barreira fecha o furo automaticamente, ou clique para alinhar antes.'}
                 </p>
               </div>
             </div>
@@ -1680,7 +1762,7 @@ export default function App() {
                   onClick={handleConfirmFeederRefill}
                   className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-all active:scale-95"
                 >
-                  Confirmar Reabastecimento (36g)
+                  Abastecer Comida (36g)
                 </button>
               ) : (
                 <button
@@ -1815,14 +1897,14 @@ export default function App() {
                     {feedNowCommand
                       ? 'Alimentando...'
                       : feederCompartmentsLeft <= 0
-                      ? 'Sem Comida'
+                      ? 'Acabou a Comida'
                       : nextSchedule
                       ? `Próx: ${nextSchedule.time}`
                       : 'Programado'}
                   </span>
                   <span className={`text-[11px] mt-0.5 block truncate ${feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS ? feederStatus.color : 'text-emerald-300/90'}`}>
                     {feederCompartmentsLeft <= 0
-                      ? 'Barreira alinhada • Alimentação parada'
+                      ? 'Não dá para alimentar • Requer abastecimento'
                       : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
                       ? feederStatus.label
                       : nextSchedule
@@ -1878,20 +1960,24 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => handleTriggerFeedNow(feedNowPortion)}
-                  disabled={feedNowCommand || feederCompartmentsLeft <= 0}
+                  disabled={feedNowCommand}
                   className={`w-full py-2.5 sm:py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
                     feederCompartmentsLeft <= 0
-                      ? 'bg-rose-500/15 text-rose-300 border border-rose-500/35 cursor-not-allowed'
+                      ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/45'
                       : feedNowCommand
                       ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 cursor-not-allowed animate-pulse'
                       : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/20 hover:shadow-amber-500/35'
                   }`}
-                  title="Acionar alimentação manual imediata dos peixes"
+                  title={
+                    feederCompartmentsLeft <= 0
+                      ? 'Sem comida — requer abastecimento'
+                      : 'Acionar alimentação manual imediata dos peixes'
+                  }
                 >
                   <Utensils className={`w-3.5 h-3.5 ${feedNowCommand ? 'animate-bounce' : ''}`} />
                   <span>
                     {feederCompartmentsLeft <= 0
-                      ? 'Sem Comida — Na Barreira (0g)'
+                      ? 'Sem Comida — Requer Abastecimento'
                       : feedNowCommand
                       ? 'Alimentando Peixes...'
                       : `Alimentar Manualmente (${formatPortionGrams(feedNowPortion)})`}
@@ -2277,7 +2363,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Pedrinhas lisas, concha e estrela-do-mar no substrato */}
+                      {/* Pedrinhas azuis por todo o fundo do aquário, concha e estrela-do-mar */}
                       <svg
                         viewBox="0 0 600 42"
                         preserveAspectRatio="none"
@@ -2293,31 +2379,85 @@ export default function App() {
                           fill="url(#sandGradFront)"
                         />
 
-                        {/* Conjunto de pedrinhas arredondadas à esquerda-centro */}
-                        <ellipse cx="122" cy="27" rx="16" ry="7" fill="#334155" />
-                        <ellipse cx="122" cy="25.5" rx="13" ry="4.5" fill="#475569" opacity="0.65" />
-                        <ellipse cx="142" cy="29" rx="11" ry="5.5" fill="#1E293B" />
-                        <ellipse cx="106" cy="30" rx="9" ry="4.5" fill="#475569" />
+                        {/* Camada de trás das pedrinhas azuis cobrindo todo o fundo */}
+                        {[
+                          { cx: 14, cy: 33, rx: 10, ry: 4.5, fill: '#1E40AF' },
+                          { cx: 34, cy: 31, rx: 11, ry: 5, fill: '#0284C7' },
+                          { cx: 56, cy: 33, rx: 10, ry: 4.5, fill: '#1D4ED8' },
+                          { cx: 78, cy: 31, rx: 12, ry: 5, fill: '#0EA5E9' },
+                          { cx: 101, cy: 32, rx: 11, ry: 4.8, fill: '#1E3A8A' },
+                          { cx: 123, cy: 28, rx: 15, ry: 6.2, fill: '#2563EB' },
+                          { cx: 145, cy: 30, rx: 12, ry: 5.2, fill: '#0284C7' },
+                          { cx: 168, cy: 32, rx: 11, ry: 4.8, fill: '#1D4ED8' },
+                          { cx: 190, cy: 31, rx: 12, ry: 5, fill: '#0EA5E9' },
+                          { cx: 213, cy: 33, rx: 10, ry: 4.5, fill: '#1E40AF' },
+                          { cx: 236, cy: 31, rx: 12, ry: 5, fill: '#2563EB' },
+                          { cx: 259, cy: 32, rx: 11, ry: 4.8, fill: '#0284C7' },
+                          { cx: 282, cy: 31, rx: 12, ry: 5, fill: '#1D4ED8' },
+                          { cx: 306, cy: 30, rx: 14, ry: 5.5, fill: '#0EA5E9' },
+                          { cx: 328, cy: 32, rx: 11, ry: 4.8, fill: '#1E40AF' },
+                          { cx: 351, cy: 31, rx: 12, ry: 5, fill: '#2563EB' },
+                          { cx: 374, cy: 33, rx: 10, ry: 4.5, fill: '#0284C7' },
+                          { cx: 397, cy: 31, rx: 12, ry: 5, fill: '#1D4ED8' },
+                          { cx: 420, cy: 32, rx: 11, ry: 4.8, fill: '#1E3A8A' },
+                          { cx: 444, cy: 30, rx: 13, ry: 5.4, fill: '#2563EB' },
+                          { cx: 467, cy: 30, rx: 14, ry: 5.8, fill: '#0284C7' },
+                          { cx: 490, cy: 32, rx: 11, ry: 4.8, fill: '#1D4ED8' },
+                          { cx: 513, cy: 31, rx: 12, ry: 5, fill: '#0EA5E9' },
+                          { cx: 536, cy: 32, rx: 11, ry: 4.8, fill: '#1E40AF' },
+                          { cx: 559, cy: 31, rx: 12, ry: 5, fill: '#2563EB' },
+                          { cx: 583, cy: 32, rx: 12, ry: 5, fill: '#0284C7' },
+                        ].map((p, idx) => (
+                          <ellipse key={`pb-${idx}`} cx={p.cx} cy={p.cy} rx={p.rx} ry={p.ry} fill={p.fill} opacity="0.9" />
+                        ))}
 
-                        {/* Pedrinha central discreta */}
-                        <ellipse cx="305" cy="31" rx="14" ry="5" fill="#1E293B" opacity="0.85" />
-                        <ellipse cx="322" cy="33" rx="8" ry="3.5" fill="#334155" opacity="0.85" />
+                        {/* Camada da frente das pedrinhas azuis com brilhos sutis */}
+                        {[
+                          { cx: 24, cy: 36, rx: 11, ry: 4.8, fill: '#38BDF8', hi: '#BAE6FD' },
+                          { cx: 46, cy: 37, rx: 10, ry: 4.4, fill: '#2563EB', hi: '#93C5FD' },
+                          { cx: 69, cy: 36, rx: 11, ry: 4.6, fill: '#0284C7', hi: '#7DD3FC' },
+                          { cx: 92, cy: 37, rx: 10, ry: 4.3, fill: '#38BDF8', hi: '#E0F2FE' },
+                          { cx: 114, cy: 36, rx: 11, ry: 4.7, fill: '#1D4ED8', hi: '#93C5FD' },
+                          { cx: 137, cy: 36, rx: 12, ry: 4.8, fill: '#0EA5E9', hi: '#BAE6FD' },
+                          { cx: 160, cy: 37, rx: 10, ry: 4.4, fill: '#2563EB', hi: '#7DD3FC' },
+                          { cx: 183, cy: 36, rx: 11, ry: 4.6, fill: '#38BDF8', hi: '#E0F2FE' },
+                          { cx: 205, cy: 37, rx: 10, ry: 4.4, fill: '#0284C7', hi: '#7DD3FC' },
+                          { cx: 228, cy: 36, rx: 11, ry: 4.7, fill: '#1D4ED8', hi: '#93C5FD' },
+                          { cx: 251, cy: 37, rx: 10, ry: 4.4, fill: '#0EA5E9', hi: '#BAE6FD' },
+                          { cx: 274, cy: 36, rx: 11, ry: 4.6, fill: '#2563EB', hi: '#93C5FD' },
+                          { cx: 297, cy: 37, rx: 10, ry: 4.3, fill: '#38BDF8', hi: '#E0F2FE' },
+                          { cx: 320, cy: 36, rx: 11, ry: 4.7, fill: '#0284C7', hi: '#7DD3FC' },
+                          { cx: 343, cy: 37, rx: 10, ry: 4.4, fill: '#1D4ED8', hi: '#93C5FD' },
+                          { cx: 366, cy: 36, rx: 11, ry: 4.6, fill: '#0EA5E9', hi: '#BAE6FD' },
+                          { cx: 389, cy: 37, rx: 10, ry: 4.4, fill: '#2563EB', hi: '#93C5FD' },
+                          { cx: 411, cy: 36, rx: 11, ry: 4.7, fill: '#38BDF8', hi: '#E0F2FE' },
+                          { cx: 435, cy: 37, rx: 10, ry: 4.4, fill: '#0284C7', hi: '#7DD3FC' },
+                          { cx: 458, cy: 36, rx: 11, ry: 4.7, fill: '#1D4ED8', hi: '#93C5FD' },
+                          { cx: 481, cy: 37, rx: 10, ry: 4.4, fill: '#0EA5E9', hi: '#BAE6FD' },
+                          { cx: 504, cy: 36, rx: 11, ry: 4.6, fill: '#2563EB', hi: '#93C5FD' },
+                          { cx: 527, cy: 37, rx: 10, ry: 4.4, fill: '#38BDF8', hi: '#E0F2FE' },
+                          { cx: 550, cy: 36, rx: 11, ry: 4.7, fill: '#0284C7', hi: '#7DD3FC' },
+                          { cx: 574, cy: 37, rx: 11, ry: 4.5, fill: '#1D4ED8', hi: '#93C5FD' },
+                        ].map((p, idx) => (
+                          <g key={`pf-${idx}`}>
+                            <ellipse cx={p.cx} cy={p.cy} rx={p.rx} ry={p.ry} fill={p.fill} />
+                            <ellipse cx={p.cx - 2} cy={p.cy - 1.4} rx={p.rx * 0.55} ry={p.ry * 0.4} fill={p.hi} opacity="0.45" />
+                          </g>
+                        ))}
 
-                        {/* Concha com pérola e pedrinhas próximas ao coral à direita */}
-                        <ellipse cx="458" cy="29" rx="15" ry="6.5" fill="#334155" />
-                        <ellipse cx="478" cy="31" rx="10" ry="5" fill="#1E293B" />
+                        {/* Concha com pérola à direita */}
                         <path
                           d="M424 31C424 24 434 20 439 27C441 30 438 33 431 33C426 33 424 32 424 31Z"
                           fill="#FDE68A"
-                          fillOpacity="0.85"
+                          fillOpacity="0.9"
                         />
                         <circle cx="432" cy="28" r="2.2" fill="#FFFBEB" />
 
-                        {/* Pequena estrela-do-mar sobre a areia */}
+                        {/* Pequena estrela-do-mar sobre as pedrinhas azuis */}
                         <path
                           d="M525 25L527.2 28.8L531.5 29.4L528.3 32.3L529.1 36.5L525 34.4L520.9 36.5L521.7 32.3L518.5 29.4L522.8 28.8Z"
                           fill="#FB923C"
-                          fillOpacity="0.9"
+                          fillOpacity="0.95"
                         />
 
                         <defs>
@@ -2669,25 +2809,33 @@ export default function App() {
 
                       {/* Rodapé do tubo */}
                       {feederCompartmentsLeft <= 0 ? (
-                        <div className="w-full space-y-1 text-center">
+                        <div className="w-full space-y-0.5 text-center">
+                          <span className="block text-[8px] font-extrabold text-rose-400 leading-none uppercase">
+                            Acabou!
+                          </span>
                           <span className="block text-[8px] font-semibold text-emerald-300/90 leading-none">
                             Barreira OK
                           </span>
-                          <button
-                            type="button"
-                            onClick={handleConfirmFeederRefill}
-                            className="w-full py-1 px-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[9px] sm:text-[10px] font-extrabold transition-all active:scale-95"
-                          >
-                            Repor 36g
-                          </button>
                         </div>
                       ) : (
                         <div className="text-center leading-tight">
                           <span className="text-[10px] font-mono-code font-bold text-sky-200/90 block">
                             {feederCompartmentsLeft}/{TOTAL_FEEDER_COMPARTMENTS}
                           </span>
-                          <span className="text-[8px] text-sky-300/65 block">
-                            {feederOnBarrier ? 'Barreira' : `${feederPct}%`}
+                          <span
+                            className={`text-[8px] block font-semibold ${
+                              feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                                ? 'text-rose-300'
+                                : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                                ? 'text-amber-300'
+                                : 'text-sky-300/65'
+                            }`}
+                          >
+                            {feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                              ? 'Acabando!'
+                              : feederOnBarrier
+                              ? 'Barreira'
+                              : `${feederPct}%`}
                           </span>
                         </div>
                       )}
@@ -2695,36 +2843,96 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Métricas do Aquário */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
-                    <span className="text-[11px] text-sky-200/65 block">Nível Atual</span>
-                    <span className="text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
-                      {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
-                    </span>
+                {/* Métricas do Aquário + Avisos de Comida + Botão de Abastecer */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3.5 text-center">
+                      <span className="text-[11px] text-sky-200/65 block">Nível Atual</span>
+                      <span className="text-base font-bold text-sky-300 font-mono-code mt-0.5 block">
+                        {waterLevelPct !== null ? `${waterLevelPct}%` : '--'}
+                      </span>
+                    </div>
+                    <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
+                      <span className="text-[11px] text-sky-200/65 block">Volume Atual</span>
+                      <span className="text-sm sm:text-base font-bold text-white font-mono-code mt-0.5 block">
+                        {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
+                      </span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
+                      <span className="text-[11px] text-sky-200/65 block">Comida Disponível</span>
+                      <span
+                        className={`text-sm sm:text-base font-bold font-mono-code mt-0.5 block ${
+                          feederCompartmentsLeft <= 0
+                            ? 'text-rose-400'
+                            : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
+                            ? 'text-amber-300'
+                            : 'text-amber-200'
+                        }`}
+                      >
+                        {feederCompartmentsLeft <= 0
+                          ? '0g • Barreira'
+                          : `${feederGramsLeft}g / ${MAX_FEEDER_GRAMS}g`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
-                    <span className="text-[11px] text-sky-200/65 block">Volume Atual</span>
-                    <span className="text-sm sm:text-base font-bold text-white font-mono-code mt-0.5 block">
-                      {waterVolumeLiters !== null ? `${waterVolumeLiters} / ${maxVolumeLiters} L` : `-- / ${maxVolumeLiters} L`}
-                    </span>
-                  </div>
-                  <div className="col-span-2 sm:col-span-1 bg-[#031117]/55 border border-white/[0.07] rounded-2xl p-3 sm:p-3.5 text-center">
-                    <span className="text-[11px] text-sky-200/65 block">Comida Disponível</span>
-                    <span
-                      className={`text-sm sm:text-base font-bold font-mono-code mt-0.5 block ${
+
+                  {/* Aviso claro dentro do card quando a comida está acabando ou acabou */}
+                  {feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS && (
+                    <div
+                      className={`rounded-2xl px-3.5 py-2.5 border text-xs flex items-start gap-2.5 ${
                         feederCompartmentsLeft <= 0
-                          ? 'text-rose-400'
-                          : feederCompartmentsLeft <= FEEDER_LOW_ALERT_COMPS
-                          ? 'text-amber-300'
-                          : 'text-amber-200'
+                          ? 'bg-rose-500/15 border-rose-500/45 text-rose-100'
+                          : feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                          ? 'bg-rose-500/10 border-rose-400/35 text-rose-100'
+                          : 'bg-amber-500/15 border-amber-400/35 text-amber-100'
                       }`}
                     >
-                      {feederCompartmentsLeft <= 0
-                        ? '0g • Barreira'
-                        : `${feederGramsLeft}g / ${MAX_FEEDER_GRAMS}g`}
-                    </span>
-                  </div>
+                      <AlertTriangle
+                        className={`w-4 h-4 shrink-0 mt-0.5 ${
+                          feederCompartmentsLeft <= FEEDER_CRITICAL_ALERT_COMPS
+                            ? 'text-rose-400 animate-pulse'
+                            : 'text-amber-300'
+                        }`}
+                      />
+                      <span className="leading-snug">
+                        {feederCompartmentsLeft <= 0 ? (
+                          <>
+                            <strong className="text-white">Acabou a comida!</strong> Não dá para alimentar — requer abastecimento. O motor de passo já alinhou a barreira com o furo.
+                          </>
+                        ) : (
+                          <>
+                            <strong className="text-white">Aviso: A comida está acabando!</strong> Restam apenas{' '}
+                            <strong className="font-mono-code">{feederGramsLeft}g</strong> ({feederCompartmentsLeft}/12 compartimentos). Abasteça o reservatório em breve.
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Botão para confirmar o abastecimento de comida (enche o tubo e prepara o motor na barreira) */}
+                  <button
+                    type="button"
+                    onClick={handleConfirmFeederRefill}
+                    disabled={feedNowCommand}
+                    className={`w-full py-2.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 ${
+                      feederCompartmentsLeft < TOTAL_FEEDER_COMPARTMENTS
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold shadow-md shadow-emerald-500/20'
+                        : 'bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/35 text-emerald-200 font-bold'
+                    }`}
+                    title="Clique após abastecer os 12 compartimentos (36g) para encher o tubo e preparar o motor de passo"
+                  >
+                    {feederCompartmentsLeft < TOTAL_FEEDER_COMPARTMENTS ? (
+                      <>
+                        <RotateCcw className="w-4 h-4 shrink-0" />
+                        <span>Abastecer Comida (Encher Tubo • 36g)</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>Tubo Cheio (36g) • Reconfirmar Abastecimento &amp; Preparar Motor</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 

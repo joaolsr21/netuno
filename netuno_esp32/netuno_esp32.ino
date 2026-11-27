@@ -1288,8 +1288,8 @@ void dispenseFoodNow(const String& portionLabel, const String& triggerReason) {
 void checkFeederByRtcTime() {
   readRtcModule();
 
-  int currentMinuteKey = (rtcDay * 10000) + (rtcHour * 100) + rtcMinute;
-  if (rtcSecond <= 3 && currentMinuteKey != lastFedKey) {
+  int currentMinuteKey = ((rtcMonth * 32 + rtcDay) * 1440) + (rtcHour * 60) + rtcMinute;
+  if (rtcSecond <= 25 && currentMinuteKey != lastFedKey) {
     for (int i = 0; i < MAX_FEED_SCHEDULES; i++) {
       if (feedSchedules[i].enabled &&
           feedSchedules[i].hour == rtcHour &&
@@ -1334,8 +1334,11 @@ void syncStatusWithSupabase() {
   String upsertEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?on_conflict=device_username";
   String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?" + filterQuery;
 
-  // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC (evita sobrescrever rtc_datetime)
-  http.begin(filterEndpoint + "&select=rtc_set_command,rtc_datetime");
+  // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC ou reabastecimento (evita sobrescrever comandos pendentes)
+  String preSelect = feederColsSupported
+                       ? "rtc_set_command,rtc_datetime,feeder_confirm_refill_command,feeder_refill_command"
+                       : "rtc_set_command,rtc_datetime";
+  http.begin(filterEndpoint + "&select=" + preSelect);
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
   int preCode = http.GET();
@@ -1351,6 +1354,28 @@ void syncStatusWithSupabase() {
       ackPre.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
       ackPre.PATCH("{\"rtc_set_command\":false}");
       ackPre.end();
+    }
+    if (preBody.indexOf("\"feeder_refill_command\":true") >= 0 || preBody.indexOf("\"feeder_refill_command\": true") >= 0) {
+      HTTPClient ackPreRefill;
+      ackPreRefill.setTimeout(2500);
+      ackPreRefill.begin(filterEndpoint);
+      ackPreRefill.addHeader("Content-Type", "application/json");
+      ackPreRefill.addHeader("apikey", SUPABASE_KEY);
+      ackPreRefill.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+      ackPreRefill.PATCH("{\"feeder_refill_command\":false}");
+      ackPreRefill.end();
+      alignFeederToBarrier(false);
+    }
+    if (preBody.indexOf("\"feeder_confirm_refill_command\":true") >= 0 || preBody.indexOf("\"feeder_confirm_refill_command\": true") >= 0) {
+      HTTPClient ackPreConfirm;
+      ackPreConfirm.setTimeout(2500);
+      ackPreConfirm.begin(filterEndpoint);
+      ackPreConfirm.addHeader("Content-Type", "application/json");
+      ackPreConfirm.addHeader("apikey", SUPABASE_KEY);
+      ackPreConfirm.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+      ackPreConfirm.PATCH("{\"feeder_confirm_refill_command\":false}");
+      ackPreConfirm.end();
+      confirmFeederRefill();
     }
   }
   http.end();
@@ -1538,15 +1563,13 @@ void syncSchedulesFromSupabase() {
       cursor = objEnd + 1;
     }
 
-    if (count > 0) {
-      for (int i = count; i < MAX_FEED_SCHEDULES; i++) {
-        feedSchedules[i].hour    = 0;
-        feedSchedules[i].minute  = 0;
-        feedSchedules[i].portion = "";
-        feedSchedules[i].enabled = false;
-      }
-      Serial.printf("[SUPABASE] %d horário(s) de alimentação sincronizados.\n", count);
+    for (int i = count; i < MAX_FEED_SCHEDULES; i++) {
+      feedSchedules[i].hour    = 0;
+      feedSchedules[i].minute  = 0;
+      feedSchedules[i].portion = "";
+      feedSchedules[i].enabled = false;
     }
+    Serial.printf("[SUPABASE] %d horário(s) de alimentação sincronizados.\n", count);
   }
   http.end();
 }
@@ -1692,8 +1715,8 @@ void loop() {
     }
   }
 
-  // 6. Sincroniza horários programados do site (feed_schedules) ao conectar e depois a cada 15 segundos
-  if (WiFi.status() == WL_CONNECTED && (!schedulesSyncedOnce || now - lastSchedulesSyncMs >= 15000)) {
+  // 6. Sincroniza horários programados do site (feed_schedules) ao conectar e depois a cada 5 segundos
+  if (WiFi.status() == WL_CONNECTED && (!schedulesSyncedOnce || now - lastSchedulesSyncMs >= 5000)) {
     lastSchedulesSyncMs = now;
     syncSchedulesFromSupabase();
   }

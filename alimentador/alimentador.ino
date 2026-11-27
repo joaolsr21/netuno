@@ -282,13 +282,16 @@ void confirmarReabastecimento(int qtdComps) {
     return;
   }
 
+  compartimentosRestantes = qtdComps;
   if (!alinhadoComBarreira) {
-    Serial.println("\n[AVISO] O furo NAO esta tampado pela barreira!");
-    Serial.println("-> Envie 'u' primeiro para alinhar a barreira antes de reabastecer.");
+    Serial.printf("\n[REABASTECIDO!] Estoque atualizado para %d/%d compartimentos (%dg).\n",
+                  compartimentosRestantes, TOTAL_COMPARTIMENTOS,
+                  compartimentosRestantes * GRAMAS_POR_COMPARTIMENTO);
+    Serial.println("-> Alinhando BARREIRA no furo automaticamente para preparar o motor...");
+    moverMotor(passosBarreira, ACAO_POSICIONAR_BARREIRA, "Reabastecimento -> Alinhando BARREIRA para iniciar novo ciclo");
     return;
   }
 
-  compartimentosRestantes = qtdComps;
   Serial.printf("\n[REABASTECIDO!] Estoque atualizado para %d/%d compartimentos (%dg).\n",
                 compartimentosRestantes, TOTAL_COMPARTIMENTOS,
                 compartimentosRestantes * GRAMAS_POR_COMPARTIMENTO);
