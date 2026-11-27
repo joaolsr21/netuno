@@ -366,7 +366,30 @@ void onWiFiEvent(WiFiEvent_t event) {
 // 3. PORTAL DE CONFIGURAÇÃO LOCAL (AP "NETUNO-SETUP" -> 10.0.0.1)
 //    Permite cadastrar múltiplas redes Wi-Fi direto pelo celular/PC
 // ============================================================================
+// Escapa caracteres especiais para evitar quebra/injeção HTML no Portal AP
+String htmlEscape(const String& str) {
+  String out = "";
+  out.reserve(str.length());
+  for (size_t i = 0; i < str.length(); i++) {
+    char c = str.charAt(i);
+    if (c == '&') out += "&amp;";
+    else if (c == '<') out += "&lt;";
+    else if (c == '>') out += "&gt;";
+    else if (c == '"') out += "&quot;";
+    else if (c == '\'') out += "&#39;";
+    else out += c;
+  }
+  return out;
+}
+
 void handlePortalRoot() {
+  String safeUser = htmlEscape(deviceUsername);
+  String safeSsid = htmlEscape(savedNetworks[0].enabled ? savedNetworks[0].ssid : String(""));
+  String devPassPh = devicePassword.length() > 0 ? "Deixe em branco para manter a atual" : "Crie uma senha de acesso";
+  String wifiPassPh = (savedNetworks[0].enabled && savedNetworks[0].password.length() > 0)
+                        ? "Deixe em branco para manter a atual"
+                        : "Senha da rede Wi-Fi";
+
   String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
   html += "<title>Netuno - Configurar ESP32</title>";
@@ -384,15 +407,17 @@ void handlePortalRoot() {
   html += "<h4>1. Cadastrar Acesso deste ESP32 no Site</h4>";
   html += "<p style='font-size:12px;color:#A5F3FC;margin:4px 0 8px'>Defina o Usuário e Senha que você usará no site para acessar este ESP32 em específico:</p>";
   html += "<label>Usuário do ESP32 (Acesso no Site):</label>";
-  html += "<input name='dev_user' value='" + deviceUsername + "' placeholder='Ex: aquario_joao' required>";
+  html += "<input name='dev_user' value='" + safeUser + "' placeholder='Ex: aquario_joao' required>";
   html += "<label>Senha do ESP32 (Acesso no Site):</label>";
-  html += "<input name='dev_pass' type='password' value='" + devicePassword + "' placeholder='Crie uma senha de acesso' required>";
+  html += "<input name='dev_pass' type='password' value='' placeholder='" + devPassPh + "'";
+  if (devicePassword.length() == 0) html += " required";
+  html += ">";
 
   html += "<h4>2. Configurar Rede Wi-Fi (2.4 GHz)</h4>";
   html += "<label>Nome do Wi-Fi (SSID):</label>";
-  html += "<input name='ssid' value='" + (savedNetworks[0].enabled ? savedNetworks[0].ssid : String("")) + "' placeholder='Ex: Iphone de JL' required>";
+  html += "<input name='ssid' value='" + safeSsid + "' placeholder='Ex: Iphone de JL' required>";
   html += "<label>Senha do Wi-Fi:</label>";
-  html += "<input name='pass' type='password' value='" + (savedNetworks[0].enabled ? savedNetworks[0].password : String("")) + "' placeholder='Senha da rede Wi-Fi'>";
+  html += "<input name='pass' type='password' value='' placeholder='" + wifiPassPh + "'>";
 
   html += "<button type='submit'>Salvar Usuário, Senha e Wi-Fi</button>";
   html += "</form>";
@@ -401,7 +426,7 @@ void handlePortalRoot() {
   for (int i = 0; i < MAX_SAVED_WIFI; i++) {
     html += "<div class='net'><strong>Rede " + String(i + 1) + ":</strong> ";
     html += (savedNetworks[i].enabled && savedNetworks[i].ssid.length() > 0)
-              ? savedNetworks[i].ssid
+              ? htmlEscape(savedNetworks[i].ssid)
               : "<em>(Vazio)</em>";
     html += "</div>";
   }
@@ -416,6 +441,21 @@ void handlePortalSave() {
   String newSsid = portalServer.arg("ssid");
   String newPass = portalServer.arg("pass");
 
+  if (devPass.length() == 0 && devicePassword.length() > 0) {
+    devPass = devicePassword;
+  }
+
+  if (newSsid.length() > 0 && newPass.length() == 0) {
+    String cleanSsid = newSsid;
+    cleanSsid.trim();
+    for (int i = 0; i < MAX_SAVED_WIFI; i++) {
+      if (savedNetworks[i].ssid.equalsIgnoreCase(cleanSsid) && savedNetworks[i].password.length() > 0) {
+        newPass = savedNetworks[i].password;
+        break;
+      }
+    }
+  }
+
   if (devUser.length() > 0) {
     saveDeviceCredentialsToNVS(devUser, devPass);
   }
@@ -428,7 +468,7 @@ void handlePortalSave() {
     "text/html",
     "<html><body style='background:#031117;color:#47DDF5;font-family:sans-serif;text-align:center;padding:40px'>"
     "<h2>Configuracao Salva com Sucesso!</h2>"
-    "<p style='color:#CFFAFE'>Usuario vinculado a este ESP32: <strong>" + deviceUsername + "</strong></p>"
+    "<p style='color:#CFFAFE'>Usuario vinculado a este ESP32: <strong>" + htmlEscape(deviceUsername) + "</strong></p>"
     "<p>Use este mesmo usuario e senha para acessar seu aquario no site Netuno.</p>"
     "<p>Conectando ao Wi-Fi...</p></body></html>"
   );
@@ -639,6 +679,22 @@ void enqueueOfflineReading() {
                 offlineCount, OFFLINE_QUEUE_SIZE);
 }
 
+// Escapa strings para montagem segura de payloads JSON
+String jsonEscape(const String& str) {
+  String out = "";
+  out.reserve(str.length());
+  for (size_t i = 0; i < str.length(); i++) {
+    char c = str.charAt(i);
+    if (c == '\\') out += "\\\\";
+    else if (c == '"') out += "\\\"";
+    else if (c == '\n') out += "\\n";
+    else if (c == '\r') out += "\\r";
+    else if (c == '\t') out += "\\t";
+    else out += c;
+  }
+  return out;
+}
+
 void flushOfflineQueueToSupabase() {
   if (WiFi.status() != WL_CONNECTED || offlineCount == 0) return;
 
@@ -659,12 +715,12 @@ void flushOfflineQueueToSupabase() {
 
   String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
   String message = "[Recuperado Offline] Água: " + String(item.waterPct) + "% • Temp: " + String(item.tempC, 1) + " °C";
-  String payload = "{\"device_username\":\"" + activeUser + "\","
+  String payload = "{\"device_username\":\"" + jsonEscape(activeUser) + "\","
                    "\"event_type\":\"sync\","
                    "\"water_level_pct\":" + String(item.waterPct) + ","
                    "\"distance_cm\":" + String(item.distanceCm, 1) + ","
                    "\"temperature_c\":" + String(item.tempC, 1) + ","
-                   "\"message\":\"" + message + "\","
+                   "\"message\":\"" + jsonEscape(message) + "\","
                    "\"source\":\"Fila Offline ESP32\"}";
 
   int code = http.POST(payload);
@@ -1000,7 +1056,7 @@ void applyIsoDateTimeToRtc(const String& jsonResponse) {
   int s  = fullIso.substring(17, 19).toInt();
   if (y < 2024) return;
 
-  if (fullIso.indexOf("Z") >= 19 || fullIso.indexOf("+00:00") >= 19) {
+  if (fullIso.indexOf("Z") >= 19 || fullIso.indexOf("+00") >= 19) {
     shiftDateTimeHours(y, mo, d, h, RTC_TZ_OFFSET_HOURS);
   }
   writeRtcModule(y, mo, d, h, mi, s);
@@ -1093,9 +1149,9 @@ void sendFeederEventLog(const String& message) {
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
 
   String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
-  String payload = "{\"device_username\":\"" + activeUser + "\","
+  String payload = "{\"device_username\":\"" + jsonEscape(activeUser) + "\","
                    "\"event_type\":\"feeder\","
-                   "\"message\":\"" + message + "\","
+                   "\"message\":\"" + jsonEscape(message) + "\","
                    "\"source\":\"Alimentador ESP32\"}";
 
   http.POST(payload);
@@ -1334,16 +1390,32 @@ void syncStatusWithSupabase() {
   String upsertEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?on_conflict=device_username";
   String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?" + filterQuery;
 
-  // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC, alimentação ou reabastecimento (evita sobrescrever comandos pendentes)
+  // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC, alimentação, bomba, reabastecimento ou portal Wi-Fi
   String preSelect = feederColsSupported
-                       ? "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,feeder_confirm_refill_command,feeder_refill_command"
-                       : "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion";
+                       ? "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,feeder_confirm_refill_command,feeder_refill_command,wifi_setup_command,pump_relay_on"
+                       : "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,wifi_setup_command,pump_relay_on";
   http.begin(filterEndpoint + "&select=" + preSelect);
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
   int preCode = http.GET();
+
+  if (preCode == 400 && feederColsSupported) {
+    feederColsSupported = false;
+    http.end();
+    preSelect = "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,wifi_setup_command,pump_relay_on";
+    http.begin(filterEndpoint + "&select=" + preSelect);
+    http.addHeader("apikey", SUPABASE_KEY);
+    http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+    preCode = http.GET();
+  }
+
   if (preCode >= 200 && preCode < 300) {
     String preBody = http.getString();
+    if (preBody.indexOf("\"pump_relay_on\":false") >= 0 || preBody.indexOf("\"pump_relay_on\": false") >= 0) {
+      applyPumpRelay(false);
+    } else if (preBody.indexOf("\"pump_relay_on\":true") >= 0 || preBody.indexOf("\"pump_relay_on\": true") >= 0) {
+      applyPumpRelay(true);
+    }
     if (preBody.indexOf("\"rtc_set_command\":true") >= 0 || preBody.indexOf("\"rtc_set_command\": true") >= 0) {
       syncRtcWithNtpOrIso(preBody);
       HTTPClient ackPre;
@@ -1364,9 +1436,11 @@ void syncStatusWithSupabase() {
       ackPreFeed.addHeader("Content-Type", "application/json");
       ackPreFeed.addHeader("apikey", SUPABASE_KEY);
       ackPreFeed.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-      ackPreFeed.PATCH("{\"feed_now_command\":false}");
+      int ackCode = ackPreFeed.PATCH("{\"feed_now_command\":false}");
       ackPreFeed.end();
-      dispenseFoodNow(portionStr, "Comando Manual do Site");
+      if (ackCode >= 200 && ackCode < 300) {
+        dispenseFoodNow(portionStr, "Comando Manual do Site");
+      }
     }
     if (preBody.indexOf("\"feeder_refill_command\":true") >= 0 || preBody.indexOf("\"feeder_refill_command\": true") >= 0) {
       HTTPClient ackPreRefill;
@@ -1375,9 +1449,11 @@ void syncStatusWithSupabase() {
       ackPreRefill.addHeader("Content-Type", "application/json");
       ackPreRefill.addHeader("apikey", SUPABASE_KEY);
       ackPreRefill.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-      ackPreRefill.PATCH("{\"feeder_refill_command\":false}");
+      int ackCode = ackPreRefill.PATCH("{\"feeder_refill_command\":false}");
       ackPreRefill.end();
-      alignFeederToBarrier(false);
+      if (ackCode >= 200 && ackCode < 300) {
+        alignFeederToBarrier(false);
+      }
     }
     if (preBody.indexOf("\"feeder_confirm_refill_command\":true") >= 0 || preBody.indexOf("\"feeder_confirm_refill_command\": true") >= 0) {
       HTTPClient ackPreConfirm;
@@ -1386,9 +1462,27 @@ void syncStatusWithSupabase() {
       ackPreConfirm.addHeader("Content-Type", "application/json");
       ackPreConfirm.addHeader("apikey", SUPABASE_KEY);
       ackPreConfirm.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-      ackPreConfirm.PATCH("{\"feeder_confirm_refill_command\":false}");
+      int ackCode = ackPreConfirm.PATCH("{\"feeder_confirm_refill_command\":false}");
       ackPreConfirm.end();
-      confirmFeederRefill();
+      if (ackCode >= 200 && ackCode < 300) {
+        confirmFeederRefill();
+      }
+    }
+    if (preBody.indexOf("\"wifi_setup_command\":true") >= 0 || preBody.indexOf("\"wifi_setup_command\": true") >= 0) {
+      HTTPClient ackPreWifi;
+      ackPreWifi.setTimeout(2500);
+      ackPreWifi.begin(filterEndpoint);
+      ackPreWifi.addHeader("Content-Type", "application/json");
+      ackPreWifi.addHeader("apikey", SUPABASE_KEY);
+      ackPreWifi.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+      int ackCode = ackPreWifi.PATCH("{\"wifi_setup_command\":false}");
+      ackPreWifi.end();
+      if (ackCode >= 200 && ackCode < 300) {
+        Serial.println("\n[NETUNO] >>> Comando recebido do site: Abrindo Ponto de Acesso NETUNO-SETUP (10.0.0.1)...");
+        http.end();
+        startConfigPortalAP();
+        return;
+      }
     }
   }
   http.end();
@@ -1399,13 +1493,15 @@ void syncStatusWithSupabase() {
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
   http.addHeader("Prefer", "resolution=merge-duplicates,return=representation");
 
-  String basePayload = "{\"device_id\":\"" + WiFi.macAddress() + "\","
-                       "\"device_username\":\"" + activeUser + "\","
-                       "\"device_password\":\"" + devicePassword + "\","
+  String nowIso = getRtcIsoString();
+  String basePayload = "{\"device_id\":\"" + jsonEscape(WiFi.macAddress()) + "\","
+                       "\"device_username\":\"" + jsonEscape(activeUser) + "\","
+                       "\"device_password\":\"" + jsonEscape(devicePassword) + "\","
                        "\"water_level_pct\":" + String(waterLevelPct) + ","
                        "\"distance_cm\":" + String(distanceCm, 1) + ","
                        "\"temperature_c\":" + String(temperatureC, 1) + ","
-                       "\"rtc_datetime\":\"" + getRtcIsoString() + "\","
+                       "\"rtc_datetime\":\"" + nowIso + "\","
+                       "\"esp_last_seen\":\"" + nowIso + "\","
                        "\"wifi_rssi\":" + String(WiFi.RSSI());
 
   String payload = feederColsSupported
@@ -1446,7 +1542,7 @@ void syncStatusWithSupabase() {
       applyPumpRelay(true);
     }
 
-    // 1. Caso tenha chegado pedido de sincronização do RTC durante a requisição
+    // Caso tenha chegado pedido de sincronização do RTC durante a requisição
     if (response.indexOf("\"rtc_set_command\":true") >= 0 || response.indexOf("\"rtc_set_command\": true") >= 0) {
       syncRtcWithNtpOrIso(response);
       HTTPClient ack;
@@ -1457,68 +1553,6 @@ void syncStatusWithSupabase() {
       ack.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
       ack.PATCH("{\"rtc_set_command\":false}");
       ack.end();
-    }
-
-    // 2. Se o usuário clicou em "Alimentar Manualmente" pelo site ("feed_now_command":true)
-    if (response.indexOf("\"feed_now_command\":true") >= 0 || response.indexOf("\"feed_now_command\": true") >= 0) {
-      String portionStr = extractJsonStringField(response, "feed_now_portion");
-      if (portionStr.length() == 0) portionStr = "3g";
-
-      // Limpa o comando antes de girar o motor de passo para evitar re-disparo
-      HTTPClient ackFeed;
-      ackFeed.setTimeout(2500);
-      ackFeed.begin(filterEndpoint);
-      ackFeed.addHeader("Content-Type", "application/json");
-      ackFeed.addHeader("apikey", SUPABASE_KEY);
-      ackFeed.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-      ackFeed.PATCH("{\"feed_now_command\":false}");
-      ackFeed.end();
-
-      dispenseFoodNow(portionStr, "Comando Manual do Site");
-    }
-
-    // 2b. Se o usuário clicou em "Posicionar Barreira (Reabastecer)" pelo site
-    if (response.indexOf("\"feeder_refill_command\":true") >= 0 || response.indexOf("\"feeder_refill_command\": true") >= 0) {
-      HTTPClient ackRefill;
-      ackRefill.setTimeout(2500);
-      ackRefill.begin(filterEndpoint);
-      ackRefill.addHeader("Content-Type", "application/json");
-      ackRefill.addHeader("apikey", SUPABASE_KEY);
-      ackRefill.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-      ackRefill.PATCH("{\"feeder_refill_command\":false}");
-      ackRefill.end();
-
-      alignFeederToBarrier(false);
-    }
-
-    // 2c. Se o usuário clicou em "Confirmar Reabastecimento (12/12)" pelo site
-    if (response.indexOf("\"feeder_confirm_refill_command\":true") >= 0 || response.indexOf("\"feeder_confirm_refill_command\": true") >= 0) {
-      HTTPClient ackConfirm;
-      ackConfirm.setTimeout(2500);
-      ackConfirm.begin(filterEndpoint);
-      ackConfirm.addHeader("Content-Type", "application/json");
-      ackConfirm.addHeader("apikey", SUPABASE_KEY);
-      ackConfirm.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-      ackConfirm.PATCH("{\"feeder_confirm_refill_command\":false}");
-      ackConfirm.end();
-
-      confirmFeederRefill();
-    }
-
-    // 3. Se o site enviou comando para abrir o portal de configuração Wi-Fi
-    if (response.indexOf("\"wifi_setup_command\":true") >= 0 || response.indexOf("\"wifi_setup_command\": true") >= 0) {
-      Serial.println("\n[NETUNO] >>> Comando recebido do site: Abrindo Ponto de Acesso NETUNO-SETUP (10.0.0.1)...");
-      http.end();
-      HTTPClient ackWifi;
-      ackWifi.setTimeout(2500);
-      ackWifi.begin(filterEndpoint);
-      ackWifi.addHeader("Content-Type", "application/json");
-      ackWifi.addHeader("apikey", SUPABASE_KEY);
-      ackWifi.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
-      ackWifi.PATCH("{\"wifi_setup_command\":false}");
-      ackWifi.end();
-      startConfigPortalAP();
-      return;
     }
   } else {
     httpFailCount++;
@@ -1603,13 +1637,14 @@ void sendLogToSupabase() {
 
   String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
   String message = "Água: " + String(waterLevelPct) + "% • Temp: " + String(temperatureC, 1) + " °C";
-  String payload = "{\"device_username\":\"" + activeUser + "\","
+  String sourceStr = "ESP32 Wi-Fi (" + connectedSsid + ")";
+  String payload = "{\"device_username\":\"" + jsonEscape(activeUser) + "\","
                    "\"event_type\":\"sensor\","
                    "\"water_level_pct\":" + String(waterLevelPct) + ","
                    "\"distance_cm\":" + String(distanceCm, 1) + ","
                    "\"temperature_c\":" + String(temperatureC, 1) + ","
-                   "\"message\":\"" + message + "\","
-                   "\"source\":\"ESP32 Wi-Fi (" + connectedSsid + ")\"}";
+                   "\"message\":\"" + jsonEscape(message) + "\","
+                   "\"source\":\"" + jsonEscape(sourceStr) + "\"}";
 
   int code = http.POST(payload);
   http.end();

@@ -14,14 +14,12 @@ import {
   Utensils,
   Settings,
   CheckCircle2,
-  Sliders,
   Plus,
   Minus,
   Trash2,
   Power,
   RotateCcw,
   Save,
-  Sparkles,
   Droplets,
   Clock,
   Wifi,
@@ -112,19 +110,11 @@ const stepPortionGrams = (currentValue, deltaSteps) => {
   return `${next}g`;
 };
 
+const escapeIlike = (val) => String(val || '').replace(/[\\%_]/g, '\\$&');
+
 const DEFAULT_CONFIG = {
   deviceUsername: '',
   devicePassword: '',
-  wifiSsid: 'Iphone de JL',
-  wifiPassword: '',
-  wifiSecurity: 'WPA2-PSK',
-  wifiApName: 'NETUNO-SETUP',
-  wifiPortalIp: '10.0.0.1',
-  autoPortalOnFirstBoot: true,
-  savedWifiNetworks: [
-    { id: 1, ssid: 'Iphone de JL', password: '', priority: 'Principal (1ª opção)' },
-    { id: 2, ssid: 'Casa_Fibra_2.4G', password: '', priority: 'Reserva Automática (2ª opção)' },
-  ],
   aquariumName: 'Aquário Principal',
   lengthCm: 25,
   widthCm: 13,
@@ -149,15 +139,17 @@ const DEFAULT_CONFIG = {
 };
 
 export default function App() {
-  // Carrega configurações salvas localmente (ou usa padrão)
+  // Carrega configurações salvas localmente (ou usa padrão, sem persistir senhas no navegador)
   const [config, setConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('netuno_router_config');
       if (saved) {
         const parsed = JSON.parse(saved);
+        const { wifiPassword: _wp, savedWifiNetworks: _swn, ...safeParsed } = parsed;
         return {
           ...DEFAULT_CONFIG,
-          ...parsed,
+          ...safeParsed,
+          devicePassword: '',
           gramsPerDose: GRAMS_PER_DOSE,
           defaultPortion: formatPortionGrams(parsed.defaultPortion || '3g'),
         };
@@ -168,24 +160,17 @@ export default function App() {
     return DEFAULT_CONFIG;
   });
 
-  // Rascunho para o Assistente de Configuração (estilo Roteador)
+  // Rascunho para o Assistente de Configuração
   const [draftConfig, setDraftConfig] = useState(config);
-  const [wizardStep, setWizardStep] = useState(1); // 1 a 6
+  const [wizardStep, setWizardStep] = useState(1); // 1 a 4
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [exclusiveSetupMode, setExclusiveSetupMode] = useState(() => !config.setupCompleted);
   const [showWifiPassword, setShowWifiPassword] = useState(false);
-  const [scanningWifi, setScanningWifi] = useState(false);
-  const [wifiTestStatus, setWifiTestStatus] = useState(null);
-  const [availableNetworks, setAvailableNetworks] = useState([
-    { ssid: 'Iphone de JL', rssi: -46, security: 'WPA2-PSK' },
-    { ssid: 'Casa_Fibra_2.4G', rssi: -58, security: 'WPA2-PSK' },
-    { ssid: 'Netuno_Guest', rssi: -71, security: 'WPA2-PSK' },
-  ]);
 
   // Estados de leitura e operação
   const [loading, setLoading] = useState(true);
   const [espOnline, setEspOnline] = useState(false);
   const [lastSeenIso, setLastSeenIso] = useState(null);
+  const prevEspLastSeenRef = useRef(null);
 
   const [waterLevelPct, setWaterLevelPct] = useState(null);
   const [distanceCm, setDistanceCm] = useState(null);
@@ -509,7 +494,7 @@ export default function App() {
           feeder_compartments_left: nextComps,
           feeder_on_barrier: nextComps === 0,
         })
-        .ilike('device_username', activeDeviceUsername)
+        .ilike('device_username', escapeIlike(activeDeviceUsername))
         .then(() => {}, () => {});
     }
   }, [
@@ -604,9 +589,16 @@ export default function App() {
 
     const { data: statusData, error: statusError } = await supabase
       .from('aquarium_status')
-      .select('*')
-      .ilike('device_username', activeDeviceUsername)
+      .select(
+        'id, device_id, device_username, water_level_pct, distance_cm, temperature_c, pump_relay_on, pump_mode, pump_cycle_minutes, feed_now_command, feed_now_portion, feeder_compartments_left, feeder_on_barrier, feeder_refill_command, feeder_confirm_refill_command, rtc_datetime, rtc_set_command, wifi_setup_command, wifi_rssi, esp_last_seen, updated_at'
+      )
+      .ilike('device_username', escapeIlike(activeDeviceUsername))
       .maybeSingle();
+
+    if (statusError) {
+      setLoading(false);
+      return;
+    }
 
     if (!statusData) {
       // Dispositivo não existe no banco de dados (sessão inválida antiga salva no localStorage)
@@ -634,7 +626,7 @@ export default function App() {
         supabase
           .from('aquarium_status')
           .update({ feed_now_command: false })
-          .ilike('device_username', activeDeviceUsername)
+          .ilike('device_username', escapeIlike(activeDeviceUsername))
           .then(() => {}, () => {});
       } else {
         setFeedNowCommand(false);
@@ -654,6 +646,7 @@ export default function App() {
         setFeederOnBarrier(Boolean(statusData.feeder_on_barrier));
       }
       setFeederRefillPending(Boolean(statusData.feeder_refill_command));
+      prevEspLastSeenRef.current = statusData.esp_last_seen || null;
 
       const espEverSent =
         Number(statusData.distance_cm) > 0 ||
@@ -672,13 +665,10 @@ export default function App() {
           setTemperatureC(Number(statusData.temperature_c));
         }
         setEspRtcIso(statusData.rtc_datetime || null);
-        const seenAt = statusData.rtc_datetime || statusData.esp_last_seen || statusData.updated_at;
+        const seenAt = statusData.esp_last_seen || statusData.rtc_datetime || statusData.updated_at;
         if (seenAt) {
           setLastSeenIso(seenAt);
-          const diffSec = Math.max(
-            0,
-            Math.floor((Date.now() - new Date(seenAt).getTime()) / 1000)
-          );
+          const diffSec = Math.abs(Date.now() - new Date(seenAt).getTime()) / 1000;
           setEspOnline(diffSec < 30);
         }
       } else {
@@ -692,7 +682,7 @@ export default function App() {
     const { data: scheduleData } = await supabase
       .from('feed_schedules')
       .select('*')
-      .ilike('device_username', activeDeviceUsername)
+      .ilike('device_username', escapeIlike(activeDeviceUsername))
       .order('time', { ascending: true });
 
     if (scheduleData && scheduleData.length > 0) {
@@ -741,7 +731,7 @@ export default function App() {
     const { data: logData } = await supabase
       .from('telemetry_logs')
       .select('*')
-      .ilike('device_username', activeDeviceUsername)
+      .ilike('device_username', escapeIlike(activeDeviceUsername))
       .order('recorded_at', { ascending: false })
       .limit(20);
 
@@ -775,10 +765,7 @@ export default function App() {
   useEffect(() => {
     if (!lastSeenIso) return;
     const interval = setInterval(() => {
-      const diffSec = Math.max(
-        0,
-        Math.floor((Date.now() - new Date(lastSeenIso).getTime()) / 1000)
-      );
+      const diffSec = Math.abs(Date.now() - new Date(lastSeenIso).getTime()) / 1000;
       setEspOnline(diffSec < 30);
     }, 1000);
     return () => clearInterval(interval);
@@ -797,7 +784,7 @@ export default function App() {
         (payload) => {
           const s = payload.new;
           if (!s) return;
-          if (s.device_username && s.device_username !== activeDeviceUsername) return;
+          if (!s.device_username || s.device_username.toLowerCase() !== activeDeviceUsername.toLowerCase()) return;
           if (s.water_level_pct !== undefined && s.water_level_pct !== null) {
             setWaterLevelPct(Number(s.water_level_pct));
           }
@@ -835,12 +822,12 @@ export default function App() {
           }
           if (s.rtc_datetime) {
             setEspRtcIso(s.rtc_datetime);
-            setLastSeenIso(s.rtc_datetime);
-            const diffSec = Math.max(
-              0,
-              Math.floor((Date.now() - new Date(s.rtc_datetime).getTime()) / 1000)
-            );
+          }
+          if (s.esp_last_seen && s.esp_last_seen !== prevEspLastSeenRef.current) {
+            prevEspLastSeenRef.current = s.esp_last_seen;
+            const diffSec = Math.abs(Date.now() - new Date(s.esp_last_seen).getTime()) / 1000;
             if (diffSec < 120) {
+              setLastSeenIso(new Date().toISOString());
               setEspOnline(true);
             }
           }
@@ -853,7 +840,7 @@ export default function App() {
           supabase
             .from('feed_schedules')
             .select('*')
-            .ilike('device_username', activeDeviceUsername)
+            .ilike('device_username', escapeIlike(activeDeviceUsername))
             .order('time', { ascending: true })
             .then(({ data }) => {
               if (data) {
@@ -873,7 +860,7 @@ export default function App() {
         (payload) => {
           const l = payload.new;
           if (!l) return;
-          if (l.device_username && l.device_username !== activeDeviceUsername) return;
+          if (!l.device_username || l.device_username.toLowerCase() !== activeDeviceUsername.toLowerCase()) return;
           setLogs((prev) => [
             {
               id: l.id,
@@ -916,6 +903,10 @@ export default function App() {
       setLoginError('Informe o Usuário e a Senha configurados no seu ESP32.');
       return;
     }
+    if (cleanUser.includes('%')) {
+      setLoginError('Nome de usuário inválido.');
+      return;
+    }
 
     setLoginLoading(true);
     setLoginError('');
@@ -925,7 +916,7 @@ export default function App() {
         const { data: existingDevice, error: fetchError } = await supabase
           .from('aquarium_status')
           .select('*')
-          .ilike('device_username', cleanUser)
+          .ilike('device_username', escapeIlike(cleanUser))
           .maybeSingle();
 
         if (fetchError) {
@@ -962,7 +953,6 @@ export default function App() {
         const canonicalUsername = existingDevice.device_username || cleanUser;
         const sessionData = {
           username: canonicalUsername,
-          password: cleanPass,
           deviceId: existingDevice.device_id || 'ESP32',
         };
         setAuthDevice(sessionData);
@@ -970,12 +960,12 @@ export default function App() {
         setConfig((prev) => ({
           ...prev,
           deviceUsername: canonicalUsername,
-          devicePassword: cleanPass,
+          devicePassword: '',
         }));
         setDraftConfig((prev) => ({
           ...prev,
           deviceUsername: canonicalUsername,
-          devicePassword: cleanPass,
+          devicePassword: '',
         }));
       } else {
         setLoginError('Serviço Supabase não está configurado.');
@@ -994,6 +984,9 @@ export default function App() {
     setWaterLevelPct(null);
     setDistanceCm(null);
     setTemperatureC(null);
+    setEspOnline(false);
+    setLastSeenIso(null);
+    prevEspLastSeenRef.current = null;
     setLogs([]);
     setHistory([]);
     try {
@@ -1011,7 +1004,7 @@ export default function App() {
       await supabase
         .from('aquarium_status')
         .update({ pump_relay_on: next })
-        .ilike('device_username', activeDeviceUsername);
+        .ilike('device_username', escapeIlike(activeDeviceUsername));
     }
   };
 
@@ -1041,7 +1034,7 @@ export default function App() {
           feeder_compartments_left: nextComps,
           feeder_on_barrier: nextComps === 0,
         })
-        .ilike('device_username', activeDeviceUsername)
+        .ilike('device_username', escapeIlike(activeDeviceUsername))
         .then(() => {}, () => {});
 
       if (!espOnline) {
@@ -1070,7 +1063,7 @@ export default function App() {
         supabase
           .from('aquarium_status')
           .update({ feed_now_command: false })
-          .ilike('device_username', activeDeviceUsername)
+          .ilike('device_username', escapeIlike(activeDeviceUsername))
           .then(() => {}, () => {});
       }, 15000);
     }
@@ -1084,7 +1077,7 @@ export default function App() {
       await supabase
         .from('aquarium_status')
         .update({ feeder_refill_command: true })
-        .ilike('device_username', activeDeviceUsername)
+        .ilike('device_username', escapeIlike(activeDeviceUsername))
         .then(() => {}, () => {});
 
       setTimeout(() => {
@@ -1112,7 +1105,7 @@ export default function App() {
           feeder_compartments_left: TOTAL_FEEDER_COMPARTMENTS,
           feeder_on_barrier: true,
         })
-        .ilike('device_username', activeDeviceUsername)
+        .ilike('device_username', escapeIlike(activeDeviceUsername))
         .then(() => {}, () => {});
     }
   };
@@ -1121,8 +1114,29 @@ export default function App() {
     e.preventDefault();
     if (!newScheduleTime) return;
     const normalizedPortion = formatPortionGrams(newSchedulePortion);
+    const existing = schedules.find((s) => s.time === newScheduleTime);
+
+    if (existing) {
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === existing.id ? { ...s, portion: normalizedPortion, enabled: true } : s
+        )
+      );
+      if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+        await supabase
+          .from('feed_schedules')
+          .update({ portion: normalizedPortion, enabled: true })
+          .eq('id', existing.id)
+          .ilike('device_username', escapeIlike(activeDeviceUsername));
+      }
+      return;
+    }
+
+    if (schedules.length >= 8) return;
+
+    const tempId = Date.now();
     const newItem = {
-      id: Date.now(),
+      id: tempId,
       device_username: activeDeviceUsername || 'admin',
       time: newScheduleTime,
       portion: normalizedPortion,
@@ -1131,15 +1145,30 @@ export default function App() {
     };
     setSchedules((prev) => [...prev, newItem].sort((a, b) => a.time.localeCompare(b.time)));
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
-      await supabase.from('feed_schedules').insert([
-        {
-          device_username: activeDeviceUsername,
-          time: newScheduleTime,
-          portion: normalizedPortion,
-          label: 'Programado',
-          enabled: true,
-        },
-      ]);
+      const { data: insertedRow } = await supabase
+        .from('feed_schedules')
+        .insert([
+          {
+            device_username: activeDeviceUsername,
+            time: newScheduleTime,
+            portion: normalizedPortion,
+            label: 'Programado',
+            enabled: true,
+          },
+        ])
+        .select()
+        .single();
+      if (insertedRow) {
+        setSchedules((prev) =>
+          prev
+            .map((s) =>
+              s.id === tempId
+                ? { ...insertedRow, portion: formatPortionGrams(insertedRow.portion) }
+                : s
+            )
+            .sort((a, b) => a.time.localeCompare(b.time))
+        );
+      }
     }
   };
 
@@ -1150,15 +1179,23 @@ export default function App() {
     setSchedules((prev) =>
       prev.map((s) => (s.id === id ? { ...s, enabled: nextEnabled } : s))
     );
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from('feed_schedules').update({ enabled: nextEnabled }).eq('id', id);
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+      await supabase
+        .from('feed_schedules')
+        .update({ enabled: nextEnabled })
+        .eq('id', id)
+        .ilike('device_username', escapeIlike(activeDeviceUsername));
     }
   };
 
   const handleDeleteSchedule = async (id) => {
     setSchedules((prev) => prev.filter((s) => s.id !== id));
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from('feed_schedules').delete().eq('id', id);
+    if (isSupabaseConfigured && supabase && activeDeviceUsername) {
+      await supabase
+        .from('feed_schedules')
+        .delete()
+        .eq('id', id)
+        .ilike('device_username', escapeIlike(activeDeviceUsername));
     }
   };
 
@@ -1176,25 +1213,54 @@ export default function App() {
           rtc_datetime: nowIso,
           rtc_set_command: true,
         })
-        .ilike('device_username', activeDeviceUsername)
+        .ilike('device_username', escapeIlike(activeDeviceUsername))
         .then(() => {}, () => {});
     }
   };
 
   const handleSaveWizardConfig = async () => {
     const cleanNewUser = (draftConfig.deviceUsername || activeDeviceUsername || '').trim();
-    const cleanNewPass = (draftConfig.devicePassword || authDevice?.password || '').trim();
+    const cleanNewPass = (draftConfig.devicePassword || '').trim();
+
+    const clampedLength = Math.max(10, Math.min(300, Number(draftConfig.lengthCm) || 25));
+    const clampedWidth = Math.max(10, Math.min(200, Number(draftConfig.widthCm) || 13));
+    const clampedHeight = Math.max(10, Math.min(150, Number(draftConfig.heightCm) || 18));
+    const clampedOffset = Math.max(2, Math.min(Math.min(15, clampedHeight - 4), Number(draftConfig.sensorOffsetCm) || 2));
+
+    const rawCrit = Math.max(15, Math.min(50, Number(draftConfig.criticalLevelPct) || 35));
+    const rawWarn = Math.max(rawCrit + 5, Math.min(85, Number(draftConfig.warningLevelPct) || 65));
+    const rawMaxAlert = Math.max(rawWarn + 5, Math.min(99, Number(draftConfig.maxAlertLevelPct) || 95));
+
+    const rawTMin = Math.max(10, Math.min(32, Number(draftConfig.tempMinC) || 22));
+    const rawTMax = Math.max(15, Math.min(35, Number(draftConfig.tempMaxC) || 29));
+    const safeTempMin = Math.min(rawTMin, rawTMax - 1);
+    const safeTempMax = Math.max(rawTMax, safeTempMin + 1);
+
+    const clampedCycleOn = Math.max(5, Math.min(240, Number(draftConfig.pumpCycleOnMin) || 45));
+    const clampedSafetyPct = Math.max(10, Math.min(50, Number(draftConfig.pumpSafetyCutoffPct) || 30));
 
     const normalizedPortion = formatPortionGrams(draftConfig.defaultPortion);
     const finalConfig = {
       ...draftConfig,
+      lengthCm: clampedLength,
+      widthCm: clampedWidth,
+      heightCm: clampedHeight,
+      sensorOffsetCm: clampedOffset,
+      criticalLevelPct: rawCrit,
+      warningLevelPct: rawWarn,
+      maxAlertLevelPct: rawMaxAlert,
+      tempMinC: safeTempMin,
+      tempMaxC: safeTempMax,
+      pumpCycleOnMin: clampedCycleOn,
+      pumpSafetyCutoffPct: clampedSafetyPct,
       gramsPerDose: GRAMS_PER_DOSE,
       defaultPortion: normalizedPortion,
       deviceUsername: cleanNewUser,
-      devicePassword: cleanNewPass,
+      devicePassword: '',
       setupCompleted: true,
     };
     setConfig(finalConfig);
+    setDraftConfig(finalConfig);
     setPumpMode(finalConfig.pumpMode);
     setFeedNowPortion(normalizedPortion);
     try {
@@ -1205,7 +1271,7 @@ export default function App() {
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       const updatePayload = {
         pump_mode: finalConfig.pumpMode,
-        pump_cycle_minutes: Number(finalConfig.pumpCycleOnMin) || 45,
+        pump_cycle_minutes: clampedCycleOn,
         feed_now_portion: finalConfig.defaultPortion,
       };
       if (cleanNewPass) {
@@ -1214,12 +1280,11 @@ export default function App() {
       await supabase
         .from('aquarium_status')
         .update(updatePayload)
-        .eq('device_username', activeDeviceUsername);
+        .ilike('device_username', escapeIlike(activeDeviceUsername));
     }
     setSaveSuccess(true);
     setTimeout(() => {
       setSaveSuccess(false);
-      setExclusiveSetupMode(false);
       setActiveTab('dashboard');
     }, 1200);
   };
@@ -1232,40 +1297,22 @@ export default function App() {
       supabase
         .from('aquarium_status')
         .update({ wifi_setup_command: true })
-        .ilike('device_username', activeDeviceUsername)
+        .ilike('device_username', escapeIlike(activeDeviceUsername))
         .then(() => {}, () => {});
     }
 
     setTimeout(() => setWifiPortalCommandSent(false), 5000);
   };
 
-  const handleScanWifiNetworks = () => {
-    setScanningWifi(true);
-    setTimeout(() => {
-      setAvailableNetworks([
-        { ssid: 'Iphone de JL', rssi: -44, security: 'WPA2-PSK' },
-        { ssid: 'Casa_Fibra_2.4G', rssi: -55, security: 'WPA2-PSK' },
-        { ssid: 'Vivo-Fibra-2G', rssi: -67, security: 'WPA2-PSK' },
-        { ssid: 'Netuno_Guest', rssi: -74, security: 'WPA2-PSK' },
-      ]);
-      setScanningWifi(false);
-    }, 900);
-  };
-
-  const handleTestWifiConnection = () => {
-    if (!draftConfig.wifiSsid) return;
-    setWifiTestStatus('connecting');
-    setTimeout(() => {
-      setWifiTestStatus('connected');
-    }, 1000);
-  };
-
   const handleResetFactoryDefaults = () => {
-    const firstBootConfig = { ...DEFAULT_CONFIG, setupCompleted: false };
+    const firstBootConfig = {
+      ...DEFAULT_CONFIG,
+      deviceUsername: activeDeviceUsername,
+      setupCompleted: true,
+    };
     setDraftConfig(firstBootConfig);
     setConfig(firstBootConfig);
     setWizardStep(1);
-    setExclusiveSetupMode(true);
     setActiveTab('setup');
     try {
       localStorage.setItem('netuno_router_config', JSON.stringify(firstBootConfig));
@@ -3238,11 +3285,11 @@ export default function App() {
                           <input
                             type={showWifiPassword ? 'text' : 'password'}
                             maxLength={32}
-                            value={draftConfig.devicePassword ?? authDevice?.password ?? ''}
+                            value={draftConfig.devicePassword || ''}
                             onChange={(e) =>
                               setDraftConfig({ ...draftConfig, devicePassword: e.target.value })
                             }
-                            placeholder="Senha deste ESP32"
+                            placeholder="Nova senha (deixe em branco para manter a atual)"
                             className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl pl-3.5 pr-10 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400 transition-colors"
                           />
                           <button

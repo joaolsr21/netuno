@@ -64,24 +64,30 @@ flowchart TD
 | **Display LCD `16x2` I2C & Módulo RTC** | Exibir status e manter horário exato (`0x27` / `0x68`) | `GPIO 21` (`SDA`) / `GPIO 22` (`SCL`) | Barramento I2C compartilhado. |
 | **Sensor Ultrassônico `HC-SR04`** | Medir distância até a lâmina d'água (`cm` e `%`) | `GPIO 5` (`TRIG`) / `GPIO 18` (`ECHO`) | Instalado no topo do aquário apontando para baixo. |
 | **Sensor de Temperatura `DS18B20`** | Medir temperatura da água (`°C`) | `GPIO 15` (`OneWire`) | Leitura térmica contínua. |
-| **Alimentador Automático** | Dosador de ração | `GPIO 13` (`PWM`) | Tempo de abertura varia conforme porção (`3g`, `5g`, `8g`). |
+| **Módulo da Bomba de Oxigênio** | Relé de oxigenação do aquário | `GPIO 23` | Controle remoto e modo automático/manual. |
+| **Alimentador Automático (Motor de Passo)** | Dosador de carrossel (`12` compartimentos × `3g` = `36g`) com barreiras intercaladas | `GPIO 12` (`IN1`), `GPIO 13` (`IN2`), `GPIO 14` (`IN3`), `GPIO 27` (`IN4`) | `170` passos barreira ↔ compartimento, `341` passos próximo compartimento + tremidinha; ao zerar (`0/12`), alinha automaticamente na barreira. |
 
 ---
 
 ## 5. Estrutura das Tabelas no Supabase (`supabase/schema.sql`)
 
 1. **`public.aquarium_status`**:
-   * `water_level_pct` (`INT`): Percentual atual de água (`0` a `100%`).
+   * `device_id`, `device_username`, `device_password`: identificação e credenciais do ESP32.
+   * `water_level_pct` (`INT`, `0..100`): Percentual atual de água.
    * `distance_cm` (`FLOAT`): Distância medida pelo sensor ultrassônico até a água.
    * `temperature_c` (`FLOAT`): Temperatura da água em °C.
    * `pump_relay_on` (`BOOLEAN`): Estado atual do relé da bomba de oxigênio.
    * `pump_mode` (`TEXT`): `'auto'` ou `'manual'`.
+   * `pump_cycle_minutes` (`INT`): Duração do ciclo ligado em minutos.
    * `feed_now_command` (`BOOLEAN`): Flag acionada quando o usuário clica em *"Alimentar Manualmente"*.
-   * `feed_now_portion` (`TEXT`): Porção solicitada (`'Leve (3g)'`, `'Padrão (5g)'`, `'Generosa (8g)'`).
-   * `esp_last_seen` (`TIMESTAMPTZ`): Último sinal de vida enviado pelo ESP32.
+   * `feed_now_portion` (`TEXT`): Porção solicitada em múltiplos de 3g (`'3g'`, `'6g'`, `'9g'`, ... `'36g'`).
+   * `feeder_compartments_left` (`INT`, `0..12`): Compartimentos restantes no carrossel (`0` a `12`).
+   * `feeder_on_barrier` (`BOOLEAN`): Indica se a barreira está alinhada tampando o furo.
+   * `feeder_refill_command` (`BOOLEAN`) / `feeder_confirm_refill_command` (`BOOLEAN`): Comandos de posicionamento da barreira e confirmação de reabastecimento (`12/12 • 36g`).
+   * `rtc_datetime`, `rtc_set_command`, `wifi_setup_command`, `wifi_rssi`, `esp_last_seen`, `updated_at`.
 
 2. **`public.feed_schedules`** *(Horários programados do alimentador)*:
-   * `id`, `device_username`, `time` (`'08:00'`), `portion` (`'Padrão (5g)'`), `label` (`'Manhã'`), `enabled` (`true`/`false`).
+   * `id`, `device_username`, `time` (`'08:00'`), `portion` (`'3g'`, `'6g'`, `'9g'`, ... `'36g'`), `label` (`'Manhã'`, `'Programado'`), `enabled` (`true`/`false`).
 
 3. **`public.telemetry_logs`** *(Histórico completo para gráficos e auditoria)*:
    * `id`, `device_username`, `event_type` (`'sensor'`, `'pump'`, `'feeder'`, `'sync'`), `water_level_pct`, `distance_cm`, `temperature_c`, `message`, `source` (`'ESP32 Wi-Fi'`, `'Fila Offline ESP32'`, `'Painel Web'`), `recorded_at`.

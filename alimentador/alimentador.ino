@@ -374,6 +374,7 @@ void processarComando(String cmd) {
 
   // Parada de emergência funciona a qualquer momento
   if (cmd.length() > 0 && tolower(cmd.charAt(0)) == 'x') {
+    bool estavaEmMovimento = (estadoMotor != ESTADO_PARADO);
     mp.stop();
     mp.setCurrentPosition(mp.currentPosition());
     estadoMotor = ESTADO_PARADO;
@@ -382,6 +383,9 @@ void processarComando(String cmd) {
     etapasTremidaRestantes = 0;
     desligarBobinas();
     Serial.println("\n[PARADO] Motor interrompido imediatamente e bobinas desligadas.");
+    if (estavaEmMovimento) {
+      Serial.println("[AVISO] O motor parou durante um movimento: ajuste a posicao angular ('a <graus>' ou 'b') antes do proximo ciclo.");
+    }
     return;
   }
 
@@ -549,7 +553,7 @@ void lerSerial() {
     if (c == '\n') {
       processarComando(entradaSerial);
       entradaSerial = "";
-    } else {
+    } else if (entradaSerial.length() < 64) {
       entradaSerial += c;
     }
   }

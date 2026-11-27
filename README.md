@@ -19,14 +19,16 @@ O **Netuno** monitora o nível da água (sensor ultrassônico `HC-SR04`) e a tem
 
 ```text
 netuno/
+├── alimentador/
+│   └── alimentador.ino     # Sketch isolado de teste e calibração do alimentador (12x 3g)
+├── netuno_esp32/
+│   └── netuno_esp32.ino    # Firmware do ESP32 (HC-SR04 + DS18B20 + LCD + RTC + Motor + Multi-WiFi)
 ├── public/                 # Assets estáticos e logo oficial Netuno
 ├── src/                    # Painel Web (React + Vite + Tailwind CSS) pronto para Vercel
 │   ├── lib/supabase.js     # Cliente Supabase Realtime
 │   └── App.jsx             # Interface principal do site
-├── netuno_esp32/
-│   └── netuno_esp32.ino    # Firmware do ESP32 (HC-SR04 + DS18B20 + LCD + RTC + Multi-WiFi)
 └── supabase/
-    └── schema.sql          # Script SQL das tabelas e Realtime no Supabase
+    └── schema.sql          # Script SQL das tabelas, constraints e Realtime no Supabase
 ```
 
 ---

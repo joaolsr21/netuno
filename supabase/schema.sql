@@ -47,6 +47,27 @@ ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS feeder_on_barrier BO
 ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS feeder_refill_command BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE public.aquarium_status ADD COLUMN IF NOT EXISTS feeder_confirm_refill_command BOOLEAN NOT NULL DEFAULT false;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_aquarium_water_level_pct'
+  ) THEN
+    ALTER TABLE public.aquarium_status
+      ADD CONSTRAINT chk_aquarium_water_level_pct
+      CHECK (water_level_pct >= 0 AND water_level_pct <= 100);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_aquarium_feeder_compartments_left'
+  ) THEN
+    ALTER TABLE public.aquarium_status
+      ADD CONSTRAINT chk_aquarium_feeder_compartments_left
+      CHECK (feeder_compartments_left >= 0 AND feeder_compartments_left <= 12);
+  END IF;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_aquarium_status_device_username
   ON public.aquarium_status (device_username);
 
@@ -135,7 +156,7 @@ BEGIN
     WHERE pubname = 'supabase_realtime' AND tablename = 'feed_schedules'
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.feed_schedules;
-  End IF;
+  END IF;
 
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables
