@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.aquarium_status (
   distance_cm FLOAT NOT NULL DEFAULT 0,
   temperature_c FLOAT NOT NULL DEFAULT 26.0,
   pump_relay_on BOOLEAN NOT NULL DEFAULT true,
-  pump_mode TEXT NOT NULL DEFAULT 'auto', -- 'auto' | 'manual'
+  pump_mode TEXT NOT NULL DEFAULT 'cycle|45|15|30', -- 'manual' | 'cycle|<onMin>|<offMin>|<safetyPct>' | 'schedule|<HH:MM>|<HH:MM>|<safetyPct>'
   pump_cycle_minutes INT NOT NULL DEFAULT 45,
   feed_now_command BOOLEAN NOT NULL DEFAULT false,
   feed_now_portion TEXT NOT NULL DEFAULT '3g',

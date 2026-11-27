@@ -165,6 +165,15 @@ float rawDistanceCm       = -1.0;
 float waterVolumeL        = 0.0;
 float temperatureC        = 26.0;
 bool  pumpRelayOn         = true;
+String pumpModeRaw        = "cycle|45|15|30";
+String pumpModeType       = "cycle"; // "cycle" | "schedule" | "manual"
+int    pumpCycleOnMin     = 45;
+int    pumpCycleOffMin    = 15;
+int    pumpSchedOnMin     = 8 * 60;
+int    pumpSchedOffMin    = 22 * 60;
+int    pumpSafetyCutoffPct = 30;
+unsigned long pumpPhaseStartMs = 0;
+int    lastPumpSchedWindow = -1;
 
 enum WifiState {
   WIFI_STATE_DISCONNECTED,
@@ -230,6 +239,110 @@ void saveFeederStateToNVS() {
   prefs.putInt("comps", feederCompartmentsLeft);
   prefs.putBool("barrier", feederOnBarrier);
   prefs.end();
+}
+
+int parsePumpHHMMMinutes(const String& hhmm, int fallbackMin) {
+  int colonIdx = hhmm.indexOf(':');
+  if (colonIdx <= 0) return fallbackMin;
+  int h = constrain(hhmm.substring(0, colonIdx).toInt(), 0, 23);
+  int m = constrain(hhmm.substring(colonIdx + 1).toInt(), 0, 59);
+  return h * 60 + m;
+}
+
+bool isPumpWithinSchedule(int nowTotalMin) {
+  if (pumpSchedOnMin == pumpSchedOffMin) return true;
+  if (pumpSchedOnMin < pumpSchedOffMin) {
+    return (nowTotalMin >= pumpSchedOnMin && nowTotalMin < pumpSchedOffMin);
+  }
+  return (nowTotalMin >= pumpSchedOnMin || nowTotalMin < pumpSchedOffMin);
+}
+
+void savePumpConfigToNVS() {
+  prefs.begin("netuno_pump", false);
+  prefs.putString("mode_raw", pumpModeRaw);
+  prefs.putBool("relay_on", pumpRelayOn);
+  prefs.end();
+}
+
+void parseAndApplyPumpMode(const String& raw, int fallbackCycleOn, bool fromBoot) {
+  String clean = raw;
+  clean.trim();
+  if (clean.length() == 0) return;
+
+  String nextType = "cycle";
+  int nextCycleOn = constrain(fallbackCycleOn > 0 ? fallbackCycleOn : pumpCycleOnMin, 1, 240);
+  int nextCycleOff = pumpCycleOffMin;
+  int nextSchedOn = pumpSchedOnMin;
+  int nextSchedOff = pumpSchedOffMin;
+  int nextSafety = pumpSafetyCutoffPct;
+
+  if (clean == "manual") {
+    nextType = "manual";
+  } else if (clean.startsWith("schedule|")) {
+    nextType = "schedule";
+    int p1 = clean.indexOf('|');
+    int p2 = clean.indexOf('|', p1 + 1);
+    int p3 = (p2 > p1) ? clean.indexOf('|', p2 + 1) : -1;
+    if (p2 > p1) {
+      nextSchedOn = parsePumpHHMMMinutes(clean.substring(p1 + 1, p2), nextSchedOn);
+      String endPart = (p3 > p2) ? clean.substring(p2 + 1, p3) : clean.substring(p2 + 1);
+      nextSchedOff = parsePumpHHMMMinutes(endPart, nextSchedOff);
+      if (p3 > p2) {
+        int sVal = clean.substring(p3 + 1).toInt();
+        if (sVal >= 10) nextSafety = constrain(sVal, 10, 50);
+      }
+    }
+  } else if (clean.startsWith("cycle|")) {
+    nextType = "cycle";
+    int p1 = clean.indexOf('|');
+    int p2 = clean.indexOf('|', p1 + 1);
+    int p3 = (p2 > p1) ? clean.indexOf('|', p2 + 1) : -1;
+    if (p2 > p1) {
+      int onVal = clean.substring(p1 + 1, p2).toInt();
+      String offPart = (p3 > p2) ? clean.substring(p2 + 1, p3) : clean.substring(p2 + 1);
+      int offVal = offPart.toInt();
+      if (onVal >= 1) nextCycleOn = constrain(onVal, 1, 240);
+      if (offVal >= 1) nextCycleOff = constrain(offVal, 1, 240);
+      if (p3 > p2) {
+        int sVal = clean.substring(p3 + 1).toInt();
+        if (sVal >= 10) nextSafety = constrain(sVal, 10, 50);
+      }
+    }
+  } else if (clean == "auto") {
+    nextType = "cycle";
+    clean = "cycle|" + String(nextCycleOn) + "|" + String(nextCycleOff) + "|" + String(nextSafety);
+  }
+
+  bool changed = (clean != pumpModeRaw);
+  pumpModeRaw = clean;
+  pumpModeType = nextType;
+  pumpCycleOnMin = nextCycleOn;
+  pumpCycleOffMin = nextCycleOff;
+  pumpSchedOnMin = nextSchedOn;
+  pumpSchedOffMin = nextSchedOff;
+  pumpSafetyCutoffPct = nextSafety;
+
+  if (!fromBoot && changed) {
+    pumpPhaseStartMs = millis();
+    lastPumpSchedWindow = -1;
+    savePumpConfigToNVS();
+    Serial.printf("[BOMBA] Config atualizada: %s (ON=%dm OFF=%dm, Sched=%02d:%02d-%02d:%02d, Corte<%d%%)\n",
+                  pumpModeRaw.c_str(), pumpCycleOnMin, pumpCycleOffMin,
+                  pumpSchedOnMin / 60, pumpSchedOnMin % 60,
+                  pumpSchedOffMin / 60, pumpSchedOffMin % 60,
+                  pumpSafetyCutoffPct);
+  }
+}
+
+void loadPumpConfigFromNVS() {
+  prefs.begin("netuno_pump", true);
+  String savedRaw = prefs.getString("mode_raw", "cycle|45|15|30");
+  pumpRelayOn = prefs.getBool("relay_on", true);
+  prefs.end();
+
+  parseAndApplyPumpMode(savedRaw, 45, true);
+  pumpPhaseStartMs = millis();
+  lastPumpSchedWindow = -1;
 }
 
 // ============================================================================
@@ -741,6 +854,75 @@ void applyPumpRelay(bool on) {
   pumpRelayOn = on;
   uint8_t level = PUMP_RELAY_ACTIVE_LOW ? (on ? LOW : HIGH) : (on ? HIGH : LOW);
   digitalWrite(PIN_PUMP_RELAY, level);
+}
+
+void patchPumpRelayToSupabase() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  String activeUser = deviceUsername.length() > 0 ? deviceUsername : String("admin");
+  activeUser.trim();
+  String filterEndpoint = String(SUPABASE_URL) + "/rest/v1/aquarium_status?device_username=eq." + urlEncodeValue(activeUser);
+
+  HTTPClient http;
+  http.setTimeout(3000);
+  http.begin(filterEndpoint);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+  http.PATCH(String("{\"pump_relay_on\":") + (pumpRelayOn ? "true" : "false") + "}");
+  http.end();
+}
+
+void checkPumpAutomation() {
+  unsigned long nowMs = millis();
+
+  // Proteção contra trabalho a seco quando o sensor ultrassônico tem leitura válida abaixo do corte
+  if (rawDistanceCm > 0.0f && waterLevelPct < pumpSafetyCutoffPct && pumpRelayOn) {
+    applyPumpRelay(false);
+    pumpPhaseStartMs = nowMs;
+    savePumpConfigToNVS();
+    patchPumpRelayToSupabase();
+    Serial.printf("[BOMBA] Corte de seguranca: nivel %d%% < %d%% -> Bomba DESLIGADA.\n",
+                  waterLevelPct, pumpSafetyCutoffPct);
+    return;
+  }
+
+  if (pumpModeType == "cycle") {
+    unsigned long targetMs = (unsigned long)(pumpRelayOn ? pumpCycleOnMin : pumpCycleOffMin) * 60000UL;
+    if (nowMs - pumpPhaseStartMs >= targetMs) {
+      bool nextOn = !pumpRelayOn;
+      // Não liga automaticamente se o nível estiver abaixo do corte de segurança
+      if (nextOn && rawDistanceCm > 0.0f && waterLevelPct < pumpSafetyCutoffPct) {
+        pumpPhaseStartMs = nowMs;
+        return;
+      }
+      applyPumpRelay(nextOn);
+      pumpPhaseStartMs = nowMs;
+      savePumpConfigToNVS();
+      patchPumpRelayToSupabase();
+      Serial.printf("[BOMBA/CICLO] Alternou automaticamente para %s.\n", nextOn ? "LIGADA" : "DESLIGADA");
+    }
+  } else if (pumpModeType == "schedule") {
+    int nowTotalMin = rtcHour * 60 + rtcMinute;
+    int curWindow = isPumpWithinSchedule(nowTotalMin) ? 1 : 0;
+    if (lastPumpSchedWindow != curWindow) {
+      lastPumpSchedWindow = curWindow;
+      bool targetOn = (curWindow == 1);
+      if (targetOn && rawDistanceCm > 0.0f && waterLevelPct < pumpSafetyCutoffPct) {
+        targetOn = false;
+      }
+      if (pumpRelayOn != targetOn) {
+        applyPumpRelay(targetOn);
+        pumpPhaseStartMs = nowMs;
+        savePumpConfigToNVS();
+        patchPumpRelayToSupabase();
+        Serial.printf("[BOMBA/HORARIO] %02d:%02d -> Bomba %s conforme programacao (%02d:%02d-%02d:%02d).\n",
+                      rtcHour, rtcMinute, targetOn ? "LIGADA" : "DESLIGADA",
+                      pumpSchedOnMin / 60, pumpSchedOnMin % 60,
+                      pumpSchedOffMin / 60, pumpSchedOffMin % 60);
+      }
+    }
+  }
 }
 
 float lerDistanciaUnica() {
@@ -1392,8 +1574,8 @@ void syncStatusWithSupabase() {
 
   // 0. Verifica ANTES de enviar telemetria se o site pediu sincronização do RTC, alimentação, bomba, reabastecimento ou portal Wi-Fi
   String preSelect = feederColsSupported
-                       ? "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,feeder_confirm_refill_command,feeder_refill_command,wifi_setup_command,pump_relay_on"
-                       : "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,wifi_setup_command,pump_relay_on";
+                       ? "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,feeder_confirm_refill_command,feeder_refill_command,wifi_setup_command,pump_relay_on,pump_mode,pump_cycle_minutes"
+                       : "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,wifi_setup_command,pump_relay_on,pump_mode,pump_cycle_minutes";
   http.begin(filterEndpoint + "&select=" + preSelect);
   http.addHeader("apikey", SUPABASE_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -1402,7 +1584,7 @@ void syncStatusWithSupabase() {
   if (preCode == 400 && feederColsSupported) {
     feederColsSupported = false;
     http.end();
-    preSelect = "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,wifi_setup_command,pump_relay_on";
+    preSelect = "rtc_set_command,rtc_datetime,feed_now_command,feed_now_portion,wifi_setup_command,pump_relay_on,pump_mode,pump_cycle_minutes";
     http.begin(filterEndpoint + "&select=" + preSelect);
     http.addHeader("apikey", SUPABASE_KEY);
     http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -1411,10 +1593,23 @@ void syncStatusWithSupabase() {
 
   if (preCode >= 200 && preCode < 300) {
     String preBody = http.getString();
+    String dbPumpMode = extractJsonStringField(preBody, "pump_mode");
+    int dbPumpCycleMin = extractJsonIntField(preBody, "pump_cycle_minutes", pumpCycleOnMin);
+    if (dbPumpMode.length() > 0 && dbPumpMode != pumpModeRaw) {
+      parseAndApplyPumpMode(dbPumpMode, dbPumpCycleMin, false);
+    }
     if (preBody.indexOf("\"pump_relay_on\":false") >= 0 || preBody.indexOf("\"pump_relay_on\": false") >= 0) {
-      applyPumpRelay(false);
+      if (pumpRelayOn) {
+        applyPumpRelay(false);
+        pumpPhaseStartMs = millis();
+        savePumpConfigToNVS();
+      }
     } else if (preBody.indexOf("\"pump_relay_on\":true") >= 0 || preBody.indexOf("\"pump_relay_on\": true") >= 0) {
-      applyPumpRelay(true);
+      if (!pumpRelayOn) {
+        applyPumpRelay(true);
+        pumpPhaseStartMs = millis();
+        savePumpConfigToNVS();
+      }
     }
     if (preBody.indexOf("\"rtc_set_command\":true") >= 0 || preBody.indexOf("\"rtc_set_command\": true") >= 0) {
       syncRtcWithNtpOrIso(preBody);
@@ -1535,11 +1730,24 @@ void syncStatusWithSupabase() {
     httpFailCount = 0;
     String response = http.getString();
 
-    // Sincroniza estado da bomba (GPIO 23) conforme comando salvo no Supabase
+    // Sincroniza modo e estado da bomba (GPIO 23) conforme comando salvo no Supabase
+    String respPumpMode = extractJsonStringField(response, "pump_mode");
+    int respPumpCycleMin = extractJsonIntField(response, "pump_cycle_minutes", pumpCycleOnMin);
+    if (respPumpMode.length() > 0 && respPumpMode != pumpModeRaw) {
+      parseAndApplyPumpMode(respPumpMode, respPumpCycleMin, false);
+    }
     if (response.indexOf("\"pump_relay_on\":false") >= 0 || response.indexOf("\"pump_relay_on\": false") >= 0) {
-      applyPumpRelay(false);
+      if (pumpRelayOn) {
+        applyPumpRelay(false);
+        pumpPhaseStartMs = millis();
+        savePumpConfigToNVS();
+      }
     } else if (response.indexOf("\"pump_relay_on\":true") >= 0 || response.indexOf("\"pump_relay_on\": true") >= 0) {
-      applyPumpRelay(true);
+      if (!pumpRelayOn) {
+        applyPumpRelay(true);
+        pumpPhaseStartMs = millis();
+        savePumpConfigToNVS();
+      }
     }
 
     // Caso tenha chegado pedido de sincronização do RTC durante a requisição
@@ -1662,6 +1870,7 @@ void setup() {
 
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
+  loadPumpConfigFromNVS();
   pinMode(PIN_PUMP_RELAY, OUTPUT);
   applyPumpRelay(pumpRelayOn);
 
@@ -1721,6 +1930,9 @@ void loop() {
 
   // 2. Lê o horário do Módulo RTC continuamente e aciona o alimentador nos horários programados (mesmo sem Wi-Fi!)
   checkFeederByRtcTime();
+
+  // 2b. Executa automação da bomba de oxigênio (ciclo de tempo, horário programado e corte de segurança)
+  checkPumpAutomation();
 
   // 3. Alterna entre Tela 0 (Nível/Temp), Tela 1 (Data/Hora + Próx.) e Tela 2 (Ração Restante) a cada 3 segundos
   if (now - lastLcdToggleMs >= 3000) {

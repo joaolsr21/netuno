@@ -112,6 +112,93 @@ const stepPortionGrams = (currentValue, deltaSteps) => {
 
 const escapeIlike = (val) => String(val || '').replace(/[\\%_]/g, '\\$&');
 
+const normalizePumpHHMM = (value, fallback = '08:00') => {
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const h = Math.max(0, Math.min(23, parseInt(match[1], 10)));
+  const m = Math.max(0, Math.min(59, parseInt(match[2], 10)));
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const parsePumpModeString = (rawMode, fallbackCycleOn = 45, fallbackSafetyPct = 30) => {
+  const safeOn = Math.max(1, Math.min(240, Number(fallbackCycleOn) || 45));
+  const safeCutoff = Math.max(10, Math.min(50, Number(fallbackSafetyPct) || 30));
+  const raw = String(rawMode || '').trim();
+
+  if (raw === 'manual') {
+    return {
+      pumpMode: 'manual',
+      pumpCycleOnMin: safeOn,
+      pumpCycleOffMin: 15,
+      pumpScheduleOn: '08:00',
+      pumpScheduleOff: '22:00',
+      pumpSafetyCutoffPct: safeCutoff,
+    };
+  }
+
+  if (raw.startsWith('schedule|')) {
+    const parts = raw.split('|');
+    return {
+      pumpMode: 'schedule',
+      pumpCycleOnMin: safeOn,
+      pumpCycleOffMin: 15,
+      pumpScheduleOn: normalizePumpHHMM(parts[1], '08:00'),
+      pumpScheduleOff: normalizePumpHHMM(parts[2], '22:00'),
+      pumpSafetyCutoffPct: Math.max(10, Math.min(50, Number(parts[3]) || safeCutoff)),
+    };
+  }
+
+  if (raw.startsWith('cycle|')) {
+    const parts = raw.split('|');
+    return {
+      pumpMode: 'cycle',
+      pumpCycleOnMin: Math.max(1, Math.min(240, Number(parts[1]) || safeOn)),
+      pumpCycleOffMin: Math.max(1, Math.min(240, Number(parts[2]) || 15)),
+      pumpScheduleOn: '08:00',
+      pumpScheduleOff: '22:00',
+      pumpSafetyCutoffPct: Math.max(10, Math.min(50, Number(parts[3]) || safeCutoff)),
+    };
+  }
+
+  return {
+    pumpMode: raw === 'schedule' ? 'schedule' : 'cycle',
+    pumpCycleOnMin: safeOn,
+    pumpCycleOffMin: 15,
+    pumpScheduleOn: '08:00',
+    pumpScheduleOff: '22:00',
+    pumpSafetyCutoffPct: safeCutoff,
+  };
+};
+
+const serializePumpModeString = (cfg) => {
+  const safety = Math.max(10, Math.min(50, Number(cfg.pumpSafetyCutoffPct) || 30));
+  if (cfg.pumpMode === 'manual') return 'manual';
+  if (cfg.pumpMode === 'schedule') {
+    return `schedule|${normalizePumpHHMM(cfg.pumpScheduleOn, '08:00')}|${normalizePumpHHMM(
+      cfg.pumpScheduleOff,
+      '22:00'
+    )}|${safety}`;
+  }
+  const onMin = Math.max(1, Math.min(240, Number(cfg.pumpCycleOnMin) || 45));
+  const offMin = Math.max(1, Math.min(240, Number(cfg.pumpCycleOffMin) || 15));
+  return `cycle|${onMin}|${offMin}|${safety}`;
+};
+
+const isWithinPumpSchedule = (currentHHMM, onHHMM, offHHMM) => {
+  const toMinutes = (str) => {
+    const [h, m] = normalizePumpHHMM(str, '08:00').split(':').map(Number);
+    return h * 60 + m;
+  };
+  const nowMin = toMinutes(currentHHMM);
+  const startMin = toMinutes(onHHMM);
+  const endMin = toMinutes(offHHMM);
+  if (startMin === endMin) return true;
+  if (startMin < endMin) {
+    return nowMin >= startMin && nowMin < endMin;
+  }
+  return nowMin >= startMin || nowMin < endMin;
+};
+
 const DEFAULT_CONFIG = {
   deviceUsername: '',
   devicePassword: '',
@@ -129,9 +216,11 @@ const DEFAULT_CONFIG = {
   lcdLine2Mode: 'temp_c', // 'temp_c' | 'pump_status' | 'next_feed'
   lcdCarousel: false,
   lcdCustomText: 'NETUNO AQUARIO',
-  pumpMode: 'auto', // 'auto' | 'manual'
+  pumpMode: 'cycle', // 'cycle' | 'schedule' | 'manual'
   pumpCycleOnMin: 45,
   pumpCycleOffMin: 15,
+  pumpScheduleOn: '08:00',
+  pumpScheduleOff: '22:00',
   pumpSafetyCutoffPct: 30,
   gramsPerDose: GRAMS_PER_DOSE,
   defaultPortion: '3g',
@@ -146,9 +235,14 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         const { wifiPassword: _wp, savedWifiNetworks: _swn, ...safeParsed } = parsed;
+        const normalizedPumpMode =
+          safeParsed.pumpMode === 'auto' ? 'cycle' : safeParsed.pumpMode || 'cycle';
         return {
           ...DEFAULT_CONFIG,
           ...safeParsed,
+          pumpMode: normalizedPumpMode,
+          pumpScheduleOn: normalizePumpHHMM(safeParsed.pumpScheduleOn, '08:00'),
+          pumpScheduleOff: normalizePumpHHMM(safeParsed.pumpScheduleOff, '22:00'),
           devicePassword: '',
           gramsPerDose: GRAMS_PER_DOSE,
           defaultPortion: formatPortionGrams(parsed.defaultPortion || '3g'),
@@ -162,7 +256,7 @@ export default function App() {
 
   // Rascunho para o Assistente de Configuração
   const [draftConfig, setDraftConfig] = useState(config);
-  const [wizardStep, setWizardStep] = useState(1); // 1 a 4
+  const [wizardStep, setWizardStep] = useState(1); // 1 a 8
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showWifiPassword, setShowWifiPassword] = useState(false);
 
@@ -177,7 +271,7 @@ export default function App() {
   const [temperatureC, setTemperatureC] = useState(null);
   const [rtcTimestamp, setRtcTimestamp] = useState(() => new Date().toISOString());
   const [pumpRelayOn, setPumpRelayOn] = useState(true);
-  const [pumpMode, setPumpMode] = useState(config.pumpMode || 'auto');
+  const [pumpMode, setPumpMode] = useState(config.pumpMode || 'cycle');
   const [feedNowCommand, setFeedNowCommand] = useState(false);
   const [feedNowPortion, setFeedNowPortion] = useState(() =>
     formatPortionGrams(config.defaultPortion || '3g')
@@ -204,6 +298,8 @@ export default function App() {
   const prevFeederCompsRef = useRef(TOTAL_FEEDER_COMPARTMENTS);
   const prevDbFeedNowRef = useRef(false);
   const lastFeedAnimStartRef = useRef(0);
+  const pumpPhaseStartRef = useRef(Date.now());
+  const lastPumpScheduleWindowRef = useRef(null);
 
   const [logs, setLogs] = useState([]);
   const [history, setHistory] = useState([]);
@@ -453,6 +549,132 @@ export default function App() {
     setFeedNowCommand(false);
   }, []);
 
+  // Aplica configurações da bomba vindas do Supabase/Realtime mantendo estado e localStorage sincronizados
+  const applyParsedPumpSettings = useCallback((rawMode, cycleMinutes, syncDraft = false) => {
+    const parsed = parsePumpModeString(rawMode, cycleMinutes);
+    setPumpMode(parsed.pumpMode);
+    setConfig((prev) => {
+      const updated = { ...prev, ...parsed };
+      try {
+        localStorage.setItem('netuno_router_config', JSON.stringify(updated));
+      } catch (e) {
+        // ignore
+      }
+      return updated;
+    });
+    if (syncDraft) {
+      setDraftConfig((prev) => ({ ...prev, ...parsed }));
+    }
+  }, []);
+
+  // Executa automação da bomba no navegador quando ESP32 está offline e monitora corte de segurança quando online
+  useEffect(() => {
+    if (!activeDeviceUsername) return;
+    const timer = setInterval(() => {
+      const safetyBlocked =
+        espOnline &&
+        distanceCm !== null &&
+        Number(distanceCm) > 0 &&
+        waterLevelPct !== null &&
+        Number(waterLevelPct) < Number(config.pumpSafetyCutoffPct);
+
+      if (safetyBlocked && pumpRelayOn) {
+        setPumpRelayOn(false);
+        pumpPhaseStartRef.current = Date.now();
+        if (isSupabaseConfigured && supabase) {
+          supabase
+            .from('aquarium_status')
+            .update({ pump_relay_on: false })
+            .ilike('device_username', escapeIlike(activeDeviceUsername))
+            .then(() => {}, () => {});
+        }
+        if (realtimeChannelRef.current) {
+          Promise.resolve(
+            realtimeChannelRef.current.send({
+              type: 'broadcast',
+              event: 'pump_sync',
+              payload: { pumpRelayOn: false },
+            })
+          ).catch(() => {});
+        }
+        return;
+      }
+
+      if (espOnline) return;
+
+      if (pumpMode === 'cycle') {
+        const targetMs =
+          Math.max(1, Number(pumpRelayOn ? config.pumpCycleOnMin : config.pumpCycleOffMin) || 15) *
+          60000;
+        if (Date.now() - pumpPhaseStartRef.current >= targetMs) {
+          const nextOn = !pumpRelayOn;
+          pumpPhaseStartRef.current = Date.now();
+          setPumpRelayOn(nextOn);
+          if (isSupabaseConfigured && supabase) {
+            supabase
+              .from('aquarium_status')
+              .update({ pump_relay_on: nextOn })
+              .ilike('device_username', escapeIlike(activeDeviceUsername))
+              .then(() => {}, () => {});
+          }
+          if (realtimeChannelRef.current) {
+            Promise.resolve(
+              realtimeChannelRef.current.send({
+                type: 'broadcast',
+                event: 'pump_sync',
+                payload: { pumpRelayOn: nextOn },
+              })
+            ).catch(() => {});
+          }
+        }
+      } else if (pumpMode === 'schedule') {
+        const inWindow = isWithinPumpSchedule(
+          rtcCurrentHHMM,
+          config.pumpScheduleOn,
+          config.pumpScheduleOff
+        );
+        if (lastPumpScheduleWindowRef.current !== inWindow) {
+          lastPumpScheduleWindowRef.current = inWindow;
+          if (pumpRelayOn !== inWindow) {
+            pumpPhaseStartRef.current = Date.now();
+            setPumpRelayOn(inWindow);
+            if (isSupabaseConfigured && supabase) {
+              supabase
+                .from('aquarium_status')
+                .update({ pump_relay_on: inWindow })
+                .ilike('device_username', escapeIlike(activeDeviceUsername))
+                .then(() => {}, () => {});
+            }
+            if (realtimeChannelRef.current) {
+              Promise.resolve(
+                realtimeChannelRef.current.send({
+                  type: 'broadcast',
+                  event: 'pump_sync',
+                  payload: { pumpRelayOn: inWindow },
+                })
+              ).catch(() => {});
+            }
+          }
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [
+    activeDeviceUsername,
+    espOnline,
+    distanceCm,
+    waterLevelPct,
+    pumpMode,
+    pumpRelayOn,
+    rtcCurrentHHMM,
+    config.pumpCycleOnMin,
+    config.pumpCycleOffMin,
+    config.pumpScheduleOn,
+    config.pumpScheduleOff,
+    config.pumpSafetyCutoffPct,
+  ]);
+
   useEffect(() => {
     return () => {
       if (feedDbCleanupTimerRef.current) {
@@ -634,7 +856,7 @@ export default function App() {
         setPumpRelayOn(Boolean(statusData.pump_relay_on));
       }
       if (statusData.pump_mode) {
-        setPumpMode(statusData.pump_mode);
+        applyParsedPumpSettings(statusData.pump_mode, statusData.pump_cycle_minutes, true);
       }
       prevDbFeedNowRef.current = false;
       if (statusData.feed_now_command) {
@@ -780,7 +1002,7 @@ export default function App() {
     }
 
     setLoading(false);
-  }, [activeDeviceUsername]);
+  }, [activeDeviceUsername, applyParsedPumpSettings]);
 
   useEffect(() => {
     if (!lastSeenIso) return;
@@ -819,6 +1041,16 @@ export default function App() {
         setFeederOnBarrier(true);
         setFeederRefillPending(false);
       })
+      .on('broadcast', { event: 'pump_sync' }, ({ payload }) => {
+        if (!payload) return;
+        if (payload.pumpRelayOn !== undefined && payload.pumpRelayOn !== null) {
+          pumpPhaseStartRef.current = Date.now();
+          setPumpRelayOn(Boolean(payload.pumpRelayOn));
+        }
+        if (payload.pumpModeRaw) {
+          applyParsedPumpSettings(payload.pumpModeRaw, payload.pumpCycleMinutes, false);
+        }
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'aquarium_status' },
@@ -836,10 +1068,14 @@ export default function App() {
             setTemperatureC(Number(s.temperature_c));
           }
           if (s.pump_relay_on !== undefined && s.pump_relay_on !== null) {
-            setPumpRelayOn(Boolean(s.pump_relay_on));
+            const nextVal = Boolean(s.pump_relay_on);
+            setPumpRelayOn((prev) => {
+              if (prev !== nextVal) pumpPhaseStartRef.current = Date.now();
+              return nextVal;
+            });
           }
           if (s.pump_mode) {
-            setPumpMode(s.pump_mode);
+            applyParsedPumpSettings(s.pump_mode, s.pump_cycle_minutes, false);
           }
 
           const nextComps =
@@ -953,7 +1189,7 @@ export default function App() {
       }
       supabase.removeChannel(channel);
     };
-  }, [fetchSupabaseData, activeDeviceUsername, startFeedingAnimation]);
+  }, [fetchSupabaseData, activeDeviceUsername, startFeedingAnimation, applyParsedPumpSettings]);
 
   // Autenticação por usuário e senha daquele ESP32 específico
   const handleDeviceLogin = async (e) => {
@@ -1060,7 +1296,17 @@ export default function App() {
   // Funções de controle e salvamento do assistente
   const handleTogglePump = async () => {
     const next = !pumpRelayOn;
+    pumpPhaseStartRef.current = Date.now();
     setPumpRelayOn(next);
+    if (realtimeChannelRef.current) {
+      Promise.resolve(
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'pump_sync',
+          payload: { pumpRelayOn: next },
+        })
+      ).catch(() => {});
+    }
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       await supabase
         .from('aquarium_status')
@@ -1323,8 +1569,15 @@ export default function App() {
     const safeTempMin = Math.min(rawTMin, rawTMax - 1);
     const safeTempMax = Math.max(rawTMax, safeTempMin + 1);
 
-    const clampedCycleOn = Math.max(5, Math.min(240, Number(draftConfig.pumpCycleOnMin) || 45));
+    const clampedCycleOn = Math.max(1, Math.min(240, Number(draftConfig.pumpCycleOnMin) || 45));
+    const clampedCycleOff = Math.max(1, Math.min(240, Number(draftConfig.pumpCycleOffMin) || 15));
     const clampedSafetyPct = Math.max(10, Math.min(50, Number(draftConfig.pumpSafetyCutoffPct) || 30));
+    const safePumpMode =
+      draftConfig.pumpMode === 'manual' || draftConfig.pumpMode === 'schedule'
+        ? draftConfig.pumpMode
+        : 'cycle';
+    const safeScheduleOn = normalizePumpHHMM(draftConfig.pumpScheduleOn, '08:00');
+    const safeScheduleOff = normalizePumpHHMM(draftConfig.pumpScheduleOff, '22:00');
 
     const normalizedPortion = formatPortionGrams(draftConfig.defaultPortion);
     const finalConfig = {
@@ -1338,7 +1591,11 @@ export default function App() {
       maxAlertLevelPct: rawMaxAlert,
       tempMinC: safeTempMin,
       tempMaxC: safeTempMax,
+      pumpMode: safePumpMode,
       pumpCycleOnMin: clampedCycleOn,
+      pumpCycleOffMin: clampedCycleOff,
+      pumpScheduleOn: safeScheduleOn,
+      pumpScheduleOff: safeScheduleOff,
       pumpSafetyCutoffPct: clampedSafetyPct,
       gramsPerDose: GRAMS_PER_DOSE,
       defaultPortion: normalizedPortion,
@@ -1346,21 +1603,57 @@ export default function App() {
       devicePassword: '',
       setupCompleted: true,
     };
+    const serializedPumpMode = serializePumpModeString(finalConfig);
     setConfig(finalConfig);
     setDraftConfig(finalConfig);
     setPumpMode(finalConfig.pumpMode);
     setFeedNowPortion(normalizedPortion);
+
+    let nextPumpRelayFromSave = null;
+    if (finalConfig.pumpMode === 'schedule') {
+      const targetOn = isWithinPumpSchedule(
+        rtcCurrentHHMM,
+        finalConfig.pumpScheduleOn,
+        finalConfig.pumpScheduleOff
+      );
+      lastPumpScheduleWindowRef.current = targetOn;
+      pumpPhaseStartRef.current = Date.now();
+      setPumpRelayOn(targetOn);
+      nextPumpRelayFromSave = targetOn;
+    } else if (finalConfig.pumpMode === 'cycle') {
+      lastPumpScheduleWindowRef.current = null;
+      pumpPhaseStartRef.current = Date.now();
+    } else {
+      lastPumpScheduleWindowRef.current = null;
+    }
+
     try {
       localStorage.setItem('netuno_router_config', JSON.stringify(finalConfig));
     } catch (e) {
       // ignore
     }
+    if (realtimeChannelRef.current) {
+      Promise.resolve(
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'pump_sync',
+          payload: {
+            pumpModeRaw: serializedPumpMode,
+            pumpCycleMinutes: clampedCycleOn,
+            ...(nextPumpRelayFromSave !== null ? { pumpRelayOn: nextPumpRelayFromSave } : {}),
+          },
+        })
+      ).catch(() => {});
+    }
     if (isSupabaseConfigured && supabase && activeDeviceUsername) {
       const updatePayload = {
-        pump_mode: finalConfig.pumpMode,
+        pump_mode: serializedPumpMode,
         pump_cycle_minutes: clampedCycleOn,
         feed_now_portion: finalConfig.defaultPortion,
       };
+      if (nextPumpRelayFromSave !== null) {
+        updatePayload.pump_relay_on = nextPumpRelayFromSave;
+      }
       if (cleanNewPass) {
         updatePayload.device_password = cleanNewPass;
       }
@@ -1411,23 +1704,43 @@ export default function App() {
   const wizardSteps = [
     {
       step: 1,
-      title: 'Acesso & Aquário',
-      icon: Droplets,
+      title: 'Credenciais & ESP32',
+      icon: ShieldCheck,
     },
     {
       step: 2,
-      title: 'Nível & Temperatura',
-      icon: Waves,
+      title: 'Medidas do Aquário',
+      icon: Droplets,
     },
     {
       step: 3,
+      title: 'Nível de Água',
+      icon: Waves,
+    },
+    {
+      step: 4,
+      title: 'Faixa de Temperatura',
+      icon: Thermometer,
+    },
+    {
+      step: 5,
       title: 'Display LCD',
       icon: Monitor,
     },
     {
-      step: 4,
-      title: 'RTC, Bomba & Ração',
+      step: 6,
+      title: 'Data e Hora RTC',
       icon: Clock,
+    },
+    {
+      step: 7,
+      title: 'Bomba de Oxigênio',
+      icon: Wind,
+    },
+    {
+      step: 8,
+      title: 'Alimentador',
+      icon: Utensils,
     },
   ];
 
@@ -2011,10 +2324,23 @@ export default function App() {
             {/* Card 3: Bomba de Oxigênio */}
             <div className="col-span-2 sm:col-span-1 clean-kpi rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 group">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65 block">
-                    Bomba de Oxigênio
-                  </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-sky-200/65">
+                      Bomba de Oxigênio
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftConfig(config);
+                        setWizardStep(7);
+                        setActiveTab('setup');
+                      }}
+                      className="text-[10px] font-semibold text-sky-300 hover:text-white underline underline-offset-2 ml-auto sm:ml-0"
+                    >
+                      Configurar ›
+                    </button>
+                  </div>
                   <span
                     className={`text-2xl sm:text-3xl font-extrabold mt-1 block tracking-tight transition-colors ${
                       pumpRelayOn ? 'text-emerald-300' : 'text-amber-300'
@@ -2022,8 +2348,12 @@ export default function App() {
                   >
                     {pumpRelayOn ? 'Ligada' : 'Desligada'}
                   </span>
-                  <span className="text-[11px] text-sky-200/75 mt-0.5 block">
-                    Modo {pumpMode === 'auto' ? 'Automático' : 'Manual'}
+                  <span className="text-[11px] text-sky-200/75 mt-0.5 block truncate">
+                    {pumpMode === 'cycle'
+                      ? `Ciclo: ${config.pumpCycleOnMin}min ON • ${config.pumpCycleOffMin}min OFF`
+                      : pumpMode === 'schedule'
+                      ? `Horário: ${config.pumpScheduleOn} às ${config.pumpScheduleOff}`
+                      : 'Modo Manual'}
                   </span>
                 </div>
                 <div
@@ -2069,7 +2399,7 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         setDraftConfig(config);
-                        setWizardStep(4);
+                        setWizardStep(8);
                         setActiveTab('setup');
                       }}
                       className="text-[10px] font-semibold text-sky-300 hover:text-white underline underline-offset-2 ml-auto sm:ml-0"
@@ -3136,7 +3466,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         setDraftConfig(config);
-                        setWizardStep(3);
+                        setWizardStep(5);
                         setActiveTab('setup');
                       }}
                       className="text-xs text-sky-300 hover:text-white flex items-center gap-1 shrink-0 transition-transform hover:translate-x-0.5"
@@ -3283,8 +3613,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Sub-abas limpas de Configuração */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-[#031016]/80 border border-white/[0.06]">
+              {/* Sub-abas limpas de Configuração (8 seções separadas) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-[#031016]/80 border border-white/[0.06]">
                 {wizardSteps.map((item) => {
                   const Icon = item.icon;
                   const active = wizardStep === item.step;
@@ -3330,14 +3660,13 @@ export default function App() {
             )}
 
             <div className="p-4 sm:p-8 space-y-5 sm:space-y-6">
-              {/* ABA 1: ACESSO & DIMENSÕES DO AQUÁRIO */}
+              {/* ABA 1: CREDENCIAIS DE ACESSO E ABRIR PAINEL DE CONFIGURAÇÃO NO ESP32 */}
               {wizardStep === 1 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-fade-up">
-                  {/* Acesso do ESP32 */}
-                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <div className="max-w-2xl mx-auto animate-fade-up">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-6 space-y-4">
+                    <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      Credenciais de Acesso do ESP32
+                      Credenciais de Acesso e Abrir Painel de Configuração no ESP32
                     </h3>
 
                     <div className="space-y-3">
@@ -3382,7 +3711,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="pt-2 space-y-2 border-t border-white/[0.06]">
+                      <div className="pt-3 space-y-2 border-t border-white/[0.06]">
                         <button
                           type="button"
                           onClick={handleSendEspPortalCommand}
@@ -3405,11 +3734,15 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Dimensões e Litragem */}
-                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+              {/* ABA 2: MEDIDAS DO AQUÁRIO */}
+              {wizardStep === 2 && (
+                <div className="max-w-2xl mx-auto animate-fade-up">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-6 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                         <Droplets className="w-4 h-4 text-sky-400 shrink-0" />
                         Medidas do Aquário
                       </h3>
@@ -3505,19 +3838,18 @@ export default function App() {
                 </div>
               )}
 
-              {/* ABA 2: NÍVEIS DE ÁGUA & TEMPERATURA IDEAL */}
-              {wizardStep === 2 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
-                  {/* Limites de Nível */}
-                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Waves className="w-4 h-4 text-sky-400" />
-                      Alertas de Nível da Água
+              {/* ABA 3: NÍVEL DE ÁGUA */}
+              {wizardStep === 3 && (
+                <div className="max-w-2xl mx-auto animate-fade-up">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-6 space-y-4">
+                    <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                      <Waves className="w-4 h-4 text-sky-400 shrink-0" />
+                      Nível de Água
                     </h3>
 
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       <div>
-                        <div className="flex justify-between text-xs mb-1">
+                        <div className="flex justify-between text-xs mb-1.5">
                           <span className="font-semibold text-rose-300">Nível Crítico (Repor Água)</span>
                           <span className="font-mono-code font-bold text-rose-400">
                             {draftConfig.criticalLevelPct}%
@@ -3539,7 +3871,7 @@ export default function App() {
                       </div>
 
                       <div>
-                        <div className="flex justify-between text-xs mb-1">
+                        <div className="flex justify-between text-xs mb-1.5">
                           <span className="font-semibold text-amber-300">Nível de Atenção (Baixo)</span>
                           <span className="font-mono-code font-bold text-amber-300">
                             {draftConfig.warningLevelPct}%
@@ -3561,7 +3893,7 @@ export default function App() {
                       </div>
 
                       <div>
-                        <div className="flex justify-between text-xs mb-1">
+                        <div className="flex justify-between text-xs mb-1.5">
                           <span className="font-semibold text-sky-300">Alerta Muito Cheio</span>
                           <span className="font-mono-code font-bold text-sky-300">
                             {draftConfig.maxAlertLevelPct}%
@@ -3583,12 +3915,16 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Temperatura Ideal */}
-                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-5 space-y-4">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Thermometer className="w-4 h-4 text-emerald-400" />
-                      Faixa de Temperatura Ideal
+              {/* ABA 4: FAIXA DE TEMPERATURA */}
+              {wizardStep === 4 && (
+                <div className="max-w-2xl mx-auto animate-fade-up">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-6 space-y-4">
+                    <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                      <Thermometer className="w-4 h-4 text-emerald-400 shrink-0" />
+                      Faixa de Temperatura
                     </h3>
 
                     <div className="grid grid-cols-3 gap-2">
@@ -3665,9 +4001,9 @@ export default function App() {
                 </div>
               )}
 
-              {/* ABA 3: DISPLAY LCD */}
-              {wizardStep === 3 && (
-                <div className="space-y-5 animate-fade-up">
+              {/* ABA 5: DISPLAY LCD */}
+              {wizardStep === 5 && (
+                <div className="max-w-2xl mx-auto space-y-5 animate-fade-up">
                   <div className="rounded-2xl bg-[#031016] border border-white/[0.08] p-3 sm:p-4 shadow-inner">
                     <div className="text-[11px] text-sky-300/80 mb-2 flex justify-between gap-2">
                       <span>Prévia do Display LCD (16x2)</span>
@@ -3772,96 +4108,136 @@ export default function App() {
                 </div>
               )}
 
-              {/* ABA 4: RTC, BOMBA & ALIMENTADOR */}
-              {wizardStep === 4 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-fade-up">
-                  <div className="space-y-4 sm:space-y-6">
-                    {/* Relógio da Internet & Sincronização do RTC */}
-                    <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-sky-400 shrink-0" />
-                          Horário da Internet & RTC DS3231
-                        </h4>
-                        <span className="font-mono-code text-xs font-bold text-emerald-300 shrink-0">
-                          {rtcTimeFormatted}
-                        </span>
-                      </div>
-
-                      <div className="bg-[#07212D]/80 border border-white/[0.08] rounded-xl p-3 space-y-1.5 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sky-200/75">Horário atual (Internet):</span>
-                          <span className="font-mono-code font-bold text-white">
-                            {rtcDateFormatted} • {rtcTimeFormatted}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sky-200/75">Último registro do RTC:</span>
-                          <span className="font-mono-code text-emerald-300">
-                            {espRtcIso ? formatLogTime(espRtcIso) : 'Aguardando ESP32'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleSyncRtcWithInternet}
-                        className="w-full py-2.5 sm:py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-extrabold transition-all duration-300 active:scale-[0.98]"
-                      >
-                        Sincronizar RTC com a Internet
-                      </button>
-
-                      {rtcSaveNotice && (
-                        <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold animate-scale-in">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Sinal de sincronização enviado ao RTC!
-                        </div>
-                      )}
+              {/* ABA 6: DATA E HORA RTC */}
+              {wizardStep === 6 && (
+                <div className="max-w-2xl mx-auto animate-fade-up">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-sky-400 shrink-0" />
+                        Data e Hora RTC
+                      </h3>
+                      <span className="font-mono-code text-sm font-bold text-emerald-300 shrink-0">
+                        {rtcTimeFormatted}
+                      </span>
                     </div>
 
-                    {/* Bomba de Oxigênio */}
-                    <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <Wind className="w-4 h-4 text-sky-400 shrink-0" />
-                          Bomba ({pumpRelayOn ? 'Ligada' : 'Desligada'})
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={handleTogglePump}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-300 active:scale-[0.98] ${
-                            pumpRelayOn
-                              ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md shadow-emerald-500/20'
-                              : 'bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/[0.1]'
-                          }`}
-                        >
-                          <Power className="w-3.5 h-3.5" />
-                          {pumpRelayOn ? 'Desligar Bomba' : 'Ligar Bomba'}
-                        </button>
+                    <div className="bg-[#07212D]/80 border border-white/[0.08] rounded-xl p-3.5 space-y-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sky-200/75">Horário atual (Internet):</span>
+                        <span className="font-mono-code font-bold text-white">
+                          {rtcDateFormatted} • {rtcTimeFormatted}
+                        </span>
                       </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sky-200/75">Último registro do RTC (DS3231):</span>
+                        <span className="font-mono-code text-emerald-300">
+                          {espRtcIso ? formatLogTime(espRtcIso) : 'Aguardando ESP32'}
+                        </span>
+                      </div>
+                    </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                        <div>
-                          <label className="block text-[11px] text-sky-200/80 mb-1">Modo</label>
-                          <select
-                            value={draftConfig.pumpMode}
-                            onChange={(e) =>
-                              setDraftConfig({ ...draftConfig, pumpMode: e.target.value })
-                            }
-                            className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-sky-400"
-                          >
-                            <option value="auto">Automático</option>
-                            <option value="manual">Manual</option>
-                          </select>
-                        </div>
+                    <button
+                      type="button"
+                      onClick={handleSyncRtcWithInternet}
+                      className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs font-extrabold transition-all duration-300 active:scale-[0.98]"
+                    >
+                      Sincronizar RTC com a Internet
+                    </button>
 
+                    {rtcSaveNotice && (
+                      <div className="text-xs text-emerald-300 flex items-center gap-1.5 font-semibold animate-scale-in">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Sinal de sincronização enviado ao RTC!
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ABA 7: BOMBA DE OXIGÊNIO (CICLO DE TEMPO + HORÁRIO PROGRAMADO + MANUAL) */}
+              {wizardStep === 7 && (
+                <div className="max-w-2xl mx-auto animate-fade-up">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-6 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                          <Wind className="w-4 h-4 text-sky-400 shrink-0" />
+                          Bomba de Oxigênio ({pumpRelayOn ? 'Ligada' : 'Desligada'})
+                        </h3>
+                        <p className="text-[11px] text-sky-200/65 mt-0.5">
+                          Escolha entre alternar por ciclo de tempo, programar horário fixo ou controlar manualmente.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleTogglePump}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-300 active:scale-[0.98] ${
+                          pumpRelayOn
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md shadow-emerald-500/20'
+                            : 'bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/[0.1]'
+                        }`}
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                        {pumpRelayOn ? 'Desligar Bomba' : 'Ligar Bomba'}
+                      </button>
+                    </div>
+
+                    {/* Seletor de Modo de Funcionamento */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-sky-200/80">
+                        Modo de Funcionamento
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {[
+                          {
+                            id: 'cycle',
+                            title: 'Ciclo de Tempo',
+                            desc: 'Minutos ligada / desligada',
+                          },
+                          {
+                            id: 'schedule',
+                            title: 'Horário Programado',
+                            desc: 'Hora de ligar e desligar',
+                          },
+                          {
+                            id: 'manual',
+                            title: 'Manual',
+                            desc: 'Somente pelo botão',
+                          },
+                        ].map((modeOpt) => {
+                          const selected = draftConfig.pumpMode === modeOpt.id;
+                          return (
+                            <button
+                              key={modeOpt.id}
+                              type="button"
+                              onClick={() =>
+                                setDraftConfig({ ...draftConfig, pumpMode: modeOpt.id })
+                              }
+                              className={`p-3 rounded-xl border text-left transition-all duration-200 ${
+                                selected
+                                  ? 'bg-gradient-to-r from-[#0B96B2]/45 to-sky-500/30 border-sky-400/60 text-white shadow-md shadow-sky-500/15'
+                                  : 'bg-[#07212D]/70 border-white/[0.08] text-sky-200/75 hover:bg-white/[0.04]'
+                              }`}
+                            >
+                              <div className="text-xs font-bold text-white">{modeOpt.title}</div>
+                              <div className="text-[11px] text-sky-200/70 mt-0.5">{modeOpt.desc}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Opção 1: Ciclo de Tempo */}
+                    {draftConfig.pumpMode === 'cycle' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#07212D]/60 border border-white/[0.07] rounded-xl p-3.5">
                         <div>
-                          <label className="block text-[11px] text-sky-200/80 mb-1">
-                            Ciclo Ligada (min)
+                          <label className="block text-xs font-semibold text-emerald-300 mb-1">
+                            Tempo Ativa / Ligada (min)
                           </label>
                           <input
                             type="number"
-                            min={5}
+                            min={1}
                             max={240}
                             value={draftConfig.pumpCycleOnMin}
                             onChange={(e) =>
@@ -3870,39 +4246,113 @@ export default function App() {
                                 pumpCycleOnMin: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                            className="w-full bg-[#051923] border border-white/[0.1] rounded-xl px-3 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[11px] text-sky-200/80 mb-1">
-                            Corte Seg. (&lt; %)
+                          <label className="block text-xs font-semibold text-amber-300 mb-1">
+                            Tempo Desativada / Desligada (min)
                           </label>
                           <input
                             type="number"
-                            min={10}
-                            max={50}
-                            value={draftConfig.pumpSafetyCutoffPct}
+                            min={1}
+                            max={240}
+                            value={draftConfig.pumpCycleOffMin}
                             onChange={(e) =>
                               setDraftConfig({
                                 ...draftConfig,
-                                pumpSafetyCutoffPct: Number(e.target.value),
+                                pumpCycleOffMin: Number(e.target.value),
                               })
                             }
-                            className="w-full bg-[#07212D] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono-code text-white focus:outline-none focus:border-sky-400"
+                            className="w-full bg-[#051923] border border-white/[0.1] rounded-xl px-3 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
                           />
                         </div>
                       </div>
+                    )}
+
+                    {/* Opção 2: Horário Programado */}
+                    {draftConfig.pumpMode === 'schedule' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#07212D]/60 border border-white/[0.07] rounded-xl p-3.5">
+                        <div>
+                          <label className="block text-xs font-semibold text-emerald-300 mb-1">
+                            Horário para Ativar (Ligar)
+                          </label>
+                          <input
+                            type="time"
+                            value={draftConfig.pumpScheduleOn}
+                            onChange={(e) =>
+                              setDraftConfig({
+                                ...draftConfig,
+                                pumpScheduleOn: e.target.value,
+                              })
+                            }
+                            className="w-full bg-[#051923] border border-white/[0.1] rounded-xl px-3 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-rose-300 mb-1">
+                            Horário para Desativar (Desligar)
+                          </label>
+                          <input
+                            type="time"
+                            value={draftConfig.pumpScheduleOff}
+                            onChange={(e) =>
+                              setDraftConfig({
+                                ...draftConfig,
+                                pumpScheduleOff: e.target.value,
+                              })
+                            }
+                            className="w-full bg-[#051923] border border-white/[0.1] rounded-xl px-3 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {draftConfig.pumpMode === 'manual' && (
+                      <div className="bg-[#07212D]/60 border border-white/[0.07] rounded-xl p-3.5 text-xs text-sky-200/80">
+                        No modo <strong className="text-white">Manual</strong>, a bomba não alterna por tempo nem por horário programado — ela liga e desliga somente quando você clicar no botão.
+                      </div>
+                    )}
+
+                    {/* Corte de Segurança */}
+                    <div className="bg-[#07212D]/60 border border-white/[0.07] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div>
+                        <label className="block text-xs font-semibold text-sky-200/90">
+                          Corte de Segurança por Nível Baixo (&lt; %)
+                        </label>
+                        <p className="text-[11px] text-sky-200/60">
+                          Desliga a bomba automaticamente se a água ficar abaixo deste nível.
+                        </p>
+                      </div>
+                      <input
+                        type="number"
+                        min={10}
+                        max={50}
+                        value={draftConfig.pumpSafetyCutoffPct}
+                        onChange={(e) =>
+                          setDraftConfig({
+                            ...draftConfig,
+                            pumpSafetyCutoffPct: Number(e.target.value),
+                          })
+                        }
+                        className="w-full sm:w-28 bg-[#051923] border border-white/[0.1] rounded-xl px-3 py-2 text-sm font-mono-code text-white focus:outline-none focus:border-sky-400"
+                      />
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Alimentador Automático */}
-                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 space-y-4">
+              {/* ABA 8: ALIMENTADOR */}
+              {wizardStep === 8 && (
+                <div className="max-w-2xl mx-auto animate-fade-up">
+                  <div className="bg-[#051923]/75 border border-white/[0.07] rounded-2xl p-4 sm:p-6 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                         <Utensils className="w-4 h-4 text-sky-400 shrink-0" />
                         Alimentador ({schedules.length}/8 horários)
-                      </h4>
+                      </h3>
                       <button
                         type="button"
                         onClick={() => handleTriggerFeedNow(draftConfig.defaultPortion)}
@@ -3924,33 +4374,23 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Resumo do Estoque e Reabastecimento dentro das Configurações */}
-                    <div className="bg-[#07212D]/85 border border-white/[0.08] rounded-xl p-3 space-y-2">
+                    {/* Resumo do Estoque e Reabastecimento */}
+                    <div className="bg-[#07212D]/85 border border-white/[0.08] rounded-xl p-3 space-y-2.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-sky-200/80 font-medium">
                           Estoque: <strong className="text-white font-mono-code">{feederGramsLeft}g / {MAX_FEEDER_GRAMS}g</strong> ({feederCompartmentsLeft}/12)
                         </span>
                         <span className={`font-semibold ${feederStatus.color}`}>
-                          {feederOnBarrier ? 'Barreira no furo' : 'Em operação'}
+                          {feederCompartmentsLeft <= 0 ? 'Requer abastecimento' : feederStatus.shortLabel}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={handleAlignFeederBarrier}
-                          disabled={feederOnBarrier || feederRefillPending}
-                          className="py-1.5 px-2.5 rounded-lg text-[11px] font-bold bg-white/[0.06] hover:bg-white/[0.12] disabled:opacity-45 text-white border border-white/10 transition-colors"
-                        >
-                          {feederOnBarrier ? 'Barreira Alinhada ✓' : feederRefillPending ? 'Alinhando...' : 'Posicionar Barreira'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleConfirmFeederRefill}
-                          className="py-1.5 px-2.5 rounded-lg text-[11px] font-extrabold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/35 transition-colors"
-                        >
-                          Confirmar Reabast. (36g)
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleConfirmFeederRefill}
+                        className="w-full py-2 px-3 rounded-xl text-xs font-extrabold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/35 transition-colors"
+                      >
+                        Abastecer Comida (36g • 12/12)
+                      </button>
                     </div>
 
                     <div className="space-y-2.5">
@@ -4104,8 +4544,8 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    disabled={wizardStep >= 4}
-                    onClick={() => setWizardStep((s) => Math.min(4, s + 1))}
+                    disabled={wizardStep >= 8}
+                    onClick={() => setWizardStep((s) => Math.min(8, s + 1))}
                     className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] disabled:opacity-35 text-xs font-semibold text-sky-200 border border-white/[0.08] transition-all active:scale-95"
                   >
                     <span>Próxima Etapa</span>
