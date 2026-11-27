@@ -41,8 +41,8 @@ const char* SUPABASE_KEY = "sb_publishable_3C-PPYFJNBrzQ1msagDQAQ_1EQm7GUa";
 #define PIN_ONEWIRE           15    // Sensor de Temperatura DS18B20 (OneWire)
 #define PIN_PUMP_RELAY        23    // Módulo da Bomba de Oxigênio
 #define PUMP_RELAY_ACTIVE_LOW false // Troque para true se o seu módulo relé ativar em nível LOW
-#define IN1_PIN               12    // Motor de Passo - IN1
-#define IN2_PIN               13    // Motor de Passo - IN2
+#define IN1_PIN               13    // Motor de Passo - IN1
+#define IN2_PIN               12    // Motor de Passo - IN2
 #define IN3_PIN               14    // Motor de Passo - IN3
 #define IN4_PIN               27    // Motor de Passo - IN4
 
@@ -1223,6 +1223,31 @@ String extractJsonStringField(const String& json, const String& fieldName) {
   int quoteEnd = json.indexOf('"', pos + offset);
   if (quoteEnd < pos + offset) return "";
   return json.substring(pos + offset, quoteEnd);
+}
+
+int extractJsonIntField(const String& json, const String& fieldName, int defaultValue) {
+  String pattern = "\"" + fieldName + "\":";
+  int pos = json.indexOf(pattern);
+  if (pos < 0) return defaultValue;
+
+  int idx = pos + pattern.length();
+  int len = json.length();
+  while (idx < len && (json[idx] == ' ' || json[idx] == '\t' || json[idx] == '"')) {
+    idx++;
+  }
+  if (idx >= len) return defaultValue;
+
+  int start = idx;
+  if (json[idx] == '-' || json[idx] == '+') {
+    idx++;
+  }
+  int digitsStart = idx;
+  while (idx < len && json[idx] >= '0' && json[idx] <= '9') {
+    idx++;
+  }
+  if (idx == digitsStart) return defaultValue;
+
+  return json.substring(start, idx).toInt();
 }
 
 // Interpreta rtc_datetime retornado pelo Supabase convertendo UTC (+00:00 / Z) para horário local (BRT -03:00)
